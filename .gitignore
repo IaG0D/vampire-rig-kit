@@ -1,0 +1,12 @@
+# Build output
+*.rbxm
+*.rbxmx
+
+# Roblox Studio files
+*.rbxlx
+*.rbxl
+*.rbxlx.lock
+*.rbxl.lock
+
+# Rojo sourcemap
+sourcemap.json
