@@ -10,6 +10,7 @@
 local HttpService = game:GetService("HttpService")
 local InsertService = game:GetService("InsertService")
 local MarketplaceService = game:GetService("MarketplaceService")
+local Players = game:GetService("Players")
 
 local ShopService = {}
 
@@ -148,6 +149,67 @@ function ShopService.buscarPorId(assetId: number): any?
 		thumbnail = "rbxthumb://type=Asset&id=" .. tostring(assetId) .. "&w=150&h=150",
 	}
 
+	setCache(cacheKey, result)
+	return result
+end
+
+-- ════════════════════════════════════════════════════════════════
+-- Busca bundle por ID via HTTP (retorna itens individuais do bundle)
+-- ════════════════════════════════════════════════════════════════
+function ShopService.buscarBundle(bundleId: number): { name: string?, items: { any } }?
+	local cacheKey = "bundle_" .. tostring(bundleId)
+	local cached = getCached(cacheKey)
+	if cached then return cached end
+
+	local url = "https://catalog.roproxy.com/v1/bundles/details?bundleIds=" .. tostring(bundleId)
+
+	local success, response = pcall(function()
+		return HttpService:GetAsync(url)
+	end)
+
+	if not success or not response then
+		warn("[vulpy-rig-kit] buscarBundle: HTTP falhou -", response)
+		return nil
+	end
+
+	local decodeOk, data = pcall(function()
+		return HttpService:JSONDecode(response)
+	end)
+
+	if not decodeOk or not data or #data == 0 then
+		warn("[vulpy-rig-kit] buscarBundle: JSON invalido")
+		return nil
+	end
+
+	local bundle = data[1]
+	if not bundle or not bundle.items then return nil end
+
+	local items = {}
+	for _, raw in bundle.items do
+		if raw.id and raw.type == "Asset" then
+			-- Tenta pegar info detalhada, mas inclui mesmo se falhar
+			local name = raw.name or "Unknown"
+			local price = nil
+			local assetType = nil
+			local ok, info = pcall(function()
+				return MarketplaceService:GetProductInfo(raw.id, Enum.InfoType.Asset)
+			end)
+			if ok and info then
+				name = info.Name or name
+				price = info.PriceInRobux
+				assetType = info.AssetTypeId
+			end
+			table.insert(items, {
+				id = raw.id,
+				name = name,
+				price = price,
+				assetType = assetType,
+				thumbnail = "rbxthumb://type=Asset&id=" .. tostring(raw.id) .. "&w=150&h=150",
+			})
+		end
+	end
+
+	local result = { name = bundle.name, items = items }
 	setCache(cacheKey, result)
 	return result
 end
@@ -296,11 +358,102 @@ function ShopService.aplicarItem(rig: Model, assetId: number): boolean
 				child.Parent = head
 				applied = true
 			end
+
 		end
 	end
 
+	-- Verifica se o asset tem body parts (Folders R15/R6)
+	local hasBodyParts = assetModel:FindFirstChild("R15ArtistIntent")
+		or assetModel:FindFirstChild("R15Fixed")
+		or assetModel:FindFirstChild("R6")
+
+	if hasBodyParts then
+		-- Body parts: seta no Description + recria o rig inteiro (igual vulpy-avatar-catalog)
+		local desc = getOrCreateDescription(rig)
+		if desc then
+			-- Seta o assetId na propriedade certa do Description
+			-- Usa AssetTypeId do GetProductInfo pra saber qual propriedade
+			local ASSET_TYPE_MAP = {
+				[17] = "Head", [79] = "Head",
+				[27] = "Torso",
+				[28] = "RightArm", [29] = "LeftArm",
+				[30] = "LeftLeg", [31] = "RightLeg",
+			}
+
+			local infoOk, info = pcall(function()
+				return MarketplaceService:GetProductInfo(assetId, Enum.InfoType.Asset)
+			end)
+			if infoOk and info and info.AssetTypeId then
+				local prop = ASSET_TYPE_MAP[info.AssetTypeId]
+				if prop then
+					pcall(function() (desc :: any)[prop] = assetId end)
+				end
+			end
+
+			-- Recria o rig visual a partir do Description atualizado
+			local rigCFrame = rig:GetPivot()
+			local rigName = rig.Name
+			local rigParent = rig.Parent
+
+			local createOk, newModel = pcall(function()
+				return Players:CreateHumanoidModelFromDescription(desc, Enum.HumanoidRigType.R15)
+			end)
+
+			if createOk and newModel then
+				-- Mesma logica do RigCreatorService: ancora root, parenta, espera, reaplica
+
+				-- 1. Ancora so o HumanoidRootPart
+				local rootPart = newModel:FindFirstChild("HumanoidRootPart")
+				if rootPart and rootPart:IsA("BasePart") then
+					rootPart.Anchored = true
+				end
+
+				-- 2. Parenta temporariamente underground (joints precisam de Parent pra resolver)
+				newModel:PivotTo(CFrame.new(0, -500, 0))
+				newModel.Parent = rigParent
+				task.wait(1)
+
+				-- 3. Reaplica description pra garantir visual
+				local newHumanoid = newModel:FindFirstChildOfClass("Humanoid")
+				if newHumanoid then
+					newHumanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+					pcall(function()
+						newHumanoid:ApplyDescription(desc)
+					end)
+					task.wait(1)
+				end
+
+				-- 4. Ancora tudo e limpa scripts
+				for _, part in newModel:GetDescendants() do
+					if part:IsA("BasePart") then
+						part.Anchored = true
+					elseif part:IsA("BaseScript") then
+						part:Destroy()
+					end
+				end
+
+				-- 5. Copia acessorios/roupas do rig antigo pro novo
+				for _, child in rig:GetChildren() do
+					if child:IsA("Accessory") or child:IsA("Shirt") or child:IsA("Pants")
+						or child:IsA("ShirtGraphic") or child:IsA("CharacterMesh") then
+						child.Parent = newModel
+					end
+				end
+
+				-- 6. Posiciona no lugar do rig antigo e remove o antigo
+				newModel.Name = rigName
+				newModel:PivotTo(rigCFrame)
+				rig:Destroy()
+				applied = true
+			end
+		end
+	end
+
+	-- Processa filhos diretos (acessorios, roupas, etc. que nao ficam em pastas de body)
 	for _, child in assetModel:GetChildren() do
-		if child:IsA("Model") then
+		if child:IsA("Folder") then
+			-- Pula folders de body (ja processamos acima)
+		elseif child:IsA("Model") then
 			for _, sub in child:GetChildren() do
 				applyChild(sub)
 			end

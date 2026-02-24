@@ -93,11 +93,11 @@ end
 -- ════════════════════════════════════════════════════════════════
 -- Toolbar e botao
 -- ════════════════════════════════════════════════════════════════
-local toolbar = plugin:CreateToolbar("Vulpy Rig Kit")
+local toolbar = plugin:CreateToolbar("Vampire Rigs")
 local toggleButton = toolbar:CreateButton(
-	"Rig Kit",
-	"Vulpy Rig Kit - by VampireSonata",
-	"rbxassetid://14978048121"
+	"Vampire Rigs",
+	"Vampire Rigs - by VampireSonata",
+	"rbxassetid://84002289501048"
 )
 
 -- ════════════════════════════════════════════════════════════════
@@ -283,4 +283,4 @@ plugin.Unloading:Connect(function()
 	end
 end)
 
-print("[vulpy-rig-kit] Plugin loaded! Created by VampireSonata")
+print("[Vampire Rigs] Plugin loaded! Created by VampireSonata")

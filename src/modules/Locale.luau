@@ -12,7 +12,7 @@ local Locale = {}
 local STRINGS = {
 	["en"] = {
 		-- Geral
-		pluginTitle = "Vulpy Rig Kit",
+		pluginTitle = "Vampire Rigs",
 		ready = "Ready.",
 		credits = "Created by VampireSonata",
 
@@ -93,11 +93,23 @@ local STRINGS = {
 		shirts = "Shirts",
 		pants = "Pants",
 		tshirts = "T-Shirts",
+		animations = "Animations",
+		emotes = "Emotes",
+
+		-- Bundles
+		bundleTitle = "Bundle",
+		bundleIdPlaceholder = "Bundle ID...",
+		bundleLoad = "Load",
+		bundleLoading = "Loading bundle...",
+		bundleLoaded = "Bundle '%s' - %d item(s)",
+		bundleNotFound = "Bundle not found",
+		bundleError = "Error loading bundle",
+		bundleApplyAll = "Apply All",
 	},
 
 	["pt-br"] = {
 		-- Geral
-		pluginTitle = "Vulpy Rig Kit",
+		pluginTitle = "Vampire Rigs",
 		ready = "Pronto.",
 		credits = "Criado por VampireSonata",
 
@@ -178,6 +190,18 @@ local STRINGS = {
 		shirts = "Camisas",
 		pants = "Calcas",
 		tshirts = "Camisetas",
+		animations = "Animacoes",
+		emotes = "Emotes",
+
+		-- Bundles
+		bundleTitle = "Bundle",
+		bundleIdPlaceholder = "ID do Bundle...",
+		bundleLoad = "Carregar",
+		bundleLoading = "Carregando bundle...",
+		bundleLoaded = "Bundle '%s' - %d item(s)",
+		bundleNotFound = "Bundle nao encontrado",
+		bundleError = "Erro ao carregar bundle",
+		bundleApplyAll = "Aplicar Tudo",
 	},
 }
 

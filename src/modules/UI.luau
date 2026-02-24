@@ -286,41 +286,74 @@ function UI.criarWidget(pluginInstance: Plugin, callbacks: {
 	accentLine.Parent = mainFrame
 
 	-- ══════════════════════════════════════════════════════════
-	-- Status bar no fundo (28px, com creditos)
+	-- Footer com creditos + status (50px)
 	-- ══════════════════════════════════════════════════════════
-	local statusBar = Instance.new("Frame")
-	statusBar.Name = "StatusBar"
-	statusBar.Size = UDim2.new(1, 0, 0, 28)
-	statusBar.Position = UDim2.new(0, 0, 1, -28)
-	statusBar.BackgroundColor3 = COLORS.headerBar
-	statusBar.BorderSizePixel = 0
-	statusBar.Parent = mainFrame
+	local footer = Instance.new("Frame")
+	footer.Name = "Footer"
+	footer.Size = UDim2.new(1, 0, 0, 50)
+	footer.Position = UDim2.new(0, 0, 1, -50)
+	footer.BackgroundColor3 = COLORS.headerBar
+	footer.BorderSizePixel = 0
+	footer.Parent = mainFrame
 
-	local statusTopLine = Instance.new("Frame")
-	statusTopLine.Size = UDim2.new(1, 0, 0, 1)
-	statusTopLine.BackgroundColor3 = COLORS.separator
-	statusTopLine.BorderSizePixel = 0
-	statusTopLine.Parent = statusBar
+	local footerTopLine = Instance.new("Frame")
+	footerTopLine.Size = UDim2.new(1, 0, 0, 1)
+	footerTopLine.BackgroundColor3 = COLORS.separator
+	footerTopLine.BorderSizePixel = 0
+	footerTopLine.Parent = footer
 
+	-- Status label no topo do footer
 	local statusLabel = Instance.new("TextLabel")
 	statusLabel.Name = "StatusLabel"
-	statusLabel.Size = UDim2.new(1, -16, 1, -1)
-	statusLabel.Position = UDim2.new(0, 8, 0, 1)
+	statusLabel.Size = UDim2.new(1, -16, 0, 16)
+	statusLabel.Position = UDim2.new(0, 8, 0, 3)
 	statusLabel.BackgroundTransparency = 1
 	statusLabel.Text = Locale.get("ready")
 	statusLabel.TextColor3 = COLORS.textDim
-	statusLabel.TextSize = 10
+	statusLabel.TextSize = 9
 	statusLabel.Font = Enum.Font.GothamMedium
 	statusLabel.TextXAlignment = Enum.TextXAlignment.Left
 	statusLabel.TextTruncate = Enum.TextTruncate.AtEnd
-	statusLabel.Parent = statusBar
+	statusLabel.Parent = footer
+
+	-- Linha separando status dos creditos
+	local creditsSep = Instance.new("Frame")
+	creditsSep.Size = UDim2.new(1, -16, 0, 1)
+	creditsSep.Position = UDim2.new(0, 8, 0, 20)
+	creditsSep.BackgroundColor3 = COLORS.separator
+	creditsSep.BorderSizePixel = 0
+	creditsSep.Parent = footer
+
+	-- "Created by VampireSonata" [foto]
+	local createdByText = Instance.new("TextLabel")
+	createdByText.Size = UDim2.new(1, -38, 0, 24)
+	createdByText.Position = UDim2.new(0, 8, 0, 23)
+	createdByText.BackgroundTransparency = 1
+	createdByText.RichText = true
+	createdByText.Text = '<font color="#999">Created by</font> <font color="rgb(88,101,242)"><b>VampireSonata</b></font>'
+	createdByText.TextColor3 = COLORS.text
+	createdByText.TextSize = 10
+	createdByText.Font = Enum.Font.GothamMedium
+	createdByText.TextXAlignment = Enum.TextXAlignment.Left
+	createdByText.Parent = footer
+
+	-- Avatar pequeno a direita do texto (sem borda)
+	local footerAvatar = Instance.new("ImageLabel")
+	footerAvatar.Name = "FooterAvatar"
+	footerAvatar.Size = UDim2.new(0, 20, 0, 20)
+	footerAvatar.Position = UDim2.new(1, -28, 0, 25)
+	footerAvatar.BackgroundTransparency = 1
+	footerAvatar.Image = "rbxthumb://type=AvatarHeadShot&id=8528429020&w=150&h=150"
+	footerAvatar.ScaleType = Enum.ScaleType.Fit
+	footerAvatar.Parent = footer
+	UIHelpers.criarCorner(footerAvatar, 10)
 
 	-- ══════════════════════════════════════════════════════════
 	-- Area de conteudo
 	-- ══════════════════════════════════════════════════════════
 	local contentArea = Instance.new("Frame")
 	contentArea.Name = "ContentArea"
-	contentArea.Size = UDim2.new(1, 0, 1, -70) -- 40 tabbar + 2 accent + 28 statusbar
+	contentArea.Size = UDim2.new(1, 0, 1, -92) -- 40 tabbar + 2 accent + 50 footer = 92
 	contentArea.Position = UDim2.new(0, 0, 0, 42)
 	contentArea.BackgroundTransparency = 1
 	contentArea.ClipsDescendants = true

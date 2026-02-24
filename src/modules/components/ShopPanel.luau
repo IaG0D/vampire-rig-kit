@@ -144,6 +144,33 @@ function ShopPanel.create(parent: GuiObject, callbacks: {
 		callbacks.onLimparRig()
 	end)
 
+	-- Bundle row compacto (mesma linha: input + botao)
+	local bundleRow = Instance.new("Frame")
+	bundleRow.Name = "BundleRow"
+	bundleRow.Size = UDim2.new(1, 0, 0, 28)
+	bundleRow.BackgroundTransparency = 1
+	bundleRow.LayoutOrder = 4
+	bundleRow.Parent = topSection
+
+	local bundleRowLayout = Instance.new("UIListLayout")
+	bundleRowLayout.FillDirection = Enum.FillDirection.Horizontal
+	bundleRowLayout.Padding = UDim.new(0, 6)
+	bundleRowLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+	bundleRowLayout.Parent = bundleRow
+
+	local bundleInput = UIHelpers.criarInput(bundleRow, {
+		size = UDim2.new(1, -74, 1, 0),
+		placeholder = Locale.get("bundleIdPlaceholder"),
+	})
+
+	local bundleLoadBtn = UIHelpers.criarBotao(bundleRow, {
+		text = Locale.get("bundleLoad"),
+		size = UDim2.new(0, 68, 1, 0),
+		color = COLORS.surface,
+	})
+	bundleLoadBtn.Font = Enum.Font.GothamBold
+	bundleLoadBtn.TextSize = 10
+
 	-- Results label
 	local resultsLabel = UIHelpers.criarLabel(topSection, {
 		text = Locale.get("chooseCategory"),
@@ -151,10 +178,10 @@ function ShopPanel.create(parent: GuiObject, callbacks: {
 		color = COLORS.textDim,
 		textSize = 10,
 	})
-	resultsLabel.LayoutOrder = 4
+	resultsLabel.LayoutOrder = 5
 
 	-- Calcula altura do topo apos layout
-	local TOP_HEIGHT = 172
+	local TOP_HEIGHT = 192
 
 	-- ═══════════════════════════════════════════════════
 	-- Grid scroll (preenche o resto)
@@ -323,6 +350,46 @@ function ShopPanel.create(parent: GuiObject, callbacks: {
 					addItemsToGrid(result.items)
 				end
 			end)
+		end
+	end)
+
+	-- ═══════════════════════════════════════════════════
+	-- Bundle load
+	-- ═══════════════════════════════════════════════════
+	local function doLoadBundle()
+		local bundleId = tonumber(bundleInput.Text)
+		if not bundleId then return end
+		if isLoading then return end
+
+		isLoading = true
+		clearGrid()
+		loadingLabel.Visible = true
+		loadingLabel.Text = Locale.get("bundleLoading")
+		resultsLabel.Text = ""
+
+		task.spawn(function()
+			local bundle = ShopService.buscarBundle(bundleId)
+
+			isLoading = false
+			loadingLabel.Visible = false
+
+			if bundle and bundle.items and #bundle.items > 0 then
+				currentItems = bundle.items
+				resultsLabel.Text = Locale.fmt("bundleLoaded", bundle.name or "?", #bundle.items)
+				addItemsToGrid(bundle.items)
+				callbacks.setStatus(Locale.fmt("bundleLoaded", bundle.name or "?", #bundle.items))
+			else
+				resultsLabel.Text = Locale.get("bundleNotFound")
+				callbacks.setStatus(Locale.get("bundleError"))
+			end
+		end)
+	end
+
+	bundleLoadBtn.MouseButton1Click:Connect(doLoadBundle)
+
+	bundleInput.FocusLost:Connect(function(enterPressed)
+		if enterPressed then
+			doLoadBundle()
 		end
 	end)
 
