@@ -350,30 +350,37 @@ local BODY_PARTS = {
 }
 
 function ShopService.limparRig(rig: Model): number
-	-- PASSO 1: Limpa roupas/acessorios do HumanoidDescription (mantendo corpo)
+	-- PASSO 1: Salva dados do CORPO e recria o HumanoidDescription do zero
+	-- Isso garante que nenhum dado de roupa/acessorio/layered persiste
 	local humanoid = rig:FindFirstChildOfClass("Humanoid")
 	if humanoid then
 		local desc = humanoid:FindFirstChildOfClass("HumanoidDescription")
 		if desc then
-			-- Acessorios classicos (strings com IDs separados por virgula)
-			local stringProps = {
-				"HatAccessory", "HairAccessory", "FaceAccessory",
-				"NeckAccessory", "ShoulderAccessory", "FrontAccessory",
-				"BackAccessory", "WaistAccessory",
+			-- Salva props do corpo antes de destruir
+			local bodyData = {}
+			local bodyProps = {
+				"Head", "Torso", "LeftArm", "RightArm", "LeftLeg", "RightLeg",
+				"HeadColor", "TorsoColor", "LeftArmColor", "RightArmColor", "LeftLegColor", "RightLegColor",
+				"HeadScale", "BodyTypeScale", "DepthScale", "HeightScale",
+				"ProportionScale", "WidthScale",
 			}
-			for _, prop in stringProps do
-				pcall(function() (desc :: any)[prop] = "" end)
+			for _, prop in bodyProps do
+				pcall(function()
+					bodyData[prop] = (desc :: any)[prop]
+				end)
 			end
-			-- Roupas classicas + face (asset IDs numericos)
-			local numProps = { "Shirt", "Pants", "GraphicTShirt", "Face" }
-			for _, prop in numProps do
-				pcall(function() (desc :: any)[prop] = 0 end)
+
+			-- Destroi o Description antigo (leva TUDO com ele)
+			desc:Destroy()
+
+			-- Cria um novo limpo e restaura APENAS o corpo
+			local newDesc = Instance.new("HumanoidDescription")
+			for prop, value in bodyData do
+				pcall(function()
+					(newDesc :: any)[prop] = value
+				end)
 			end
-			-- SetAccessories limpa TODOS os acessorios modernos/layered de uma vez
-			-- Isso inclui camisas, jaquetas, moletoms, calcas layered, etc
-			pcall(function() desc:SetAccessories({}) end)
-			-- Forca aplicar o Description limpo no rig
-			pcall(function() humanoid:ApplyDescription(desc) end)
+			newDesc.Parent = humanoid
 		end
 	end
 
