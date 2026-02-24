@@ -7,8 +7,7 @@
 	Funcionalidades:
 	  1. Alinhar rigs sobre pedestais automaticamente
 	  2. Criar rigs a partir de userId/username
-	  3. Buscar e aplicar itens do catalogo Roblox (painel visual com grid)
-	  4. Temas (Default / Vampire) e idiomas (EN / PT-BR) configuraveis
+	  3. Temas (Default / Vampire) e idiomas (EN / PT-BR) configuraveis
 ]]
 
 local Selection = game:GetService("Selection")
@@ -45,60 +44,6 @@ local function setStatus(msg: string)
 	if statusLabel then
 		statusLabel.Text = msg
 	end
-end
-
-local function getRigSelecionado(): Model?
-	local selected = Selection:Get()
-	for _, obj in selected do
-		if obj:IsA("Model") and obj:FindFirstChildOfClass("Humanoid") then
-			return obj
-		end
-	end
-	return nil
-end
-
-local function onItemSelected(item: any)
-	local rig = getRigSelecionado()
-	if not rig then
-		setStatus(Locale.get("selectRigFirst"))
-		return
-	end
-
-	local ShopService = require(script.modules.ShopService)
-
-	setStatus(Locale.fmt("applying", item.name or "item"))
-
-	task.spawn(function()
-		local recording = ChangeHistoryService:TryBeginRecording("AplicarItem")
-		local ok = ShopService.aplicarItem(rig, item.id)
-		if recording then
-			ChangeHistoryService:FinishRecording(recording, Enum.FinishRecordingOperation.Commit)
-		end
-
-		if ok then
-			setStatus(Locale.fmt("appliedSuccess", item.name or "Item", rig.Name))
-		else
-			setStatus(Locale.get("applyFailed"))
-		end
-	end)
-end
-
-local function onLimparRig()
-	local rig = getRigSelecionado()
-	if not rig then
-		setStatus(Locale.get("selectRigFirst"))
-		return
-	end
-
-	local ShopService = require(script.modules.ShopService)
-
-	local recording = ChangeHistoryService:TryBeginRecording("LimparRig")
-	local removed = ShopService.limparRig(rig)
-	if recording then
-		ChangeHistoryService:FinishRecording(recording, Enum.FinishRecordingOperation.Commit)
-	end
-
-	setStatus(Locale.fmt("itemsRemoved", removed, rig.Name))
 end
 
 -- ════════════════════════════════════════════════════════════════
@@ -234,19 +179,31 @@ local function conectarHandlers()
 	conectarBotoesOffset(elements.offsetY, elements.offsetYMinus, elements.offsetYPlus)
 	conectarBotoesOffset(elements.offsetZ, elements.offsetZMinus, elements.offsetZPlus)
 
-	-- Rig Creator
-	table.insert(connections, elements.createRigButton.MouseButton1Click:Connect(function()
-		local input = elements.rigCreatorInput.Text
-		if input == "" then
+	-- Spawn Rig (tela de confirmacao)
+	table.insert(connections, elements.spawnRigButton.MouseButton1Click:Connect(function()
+		local userId = elements.selectedUserId()
+		if not userId then
 			setStatus(Locale.get("typeUsernameOrId"))
 			return
 		end
 
-		local rigName = elements.rigNameInput.Text
+		local rigName = elements.confirmRigNameInput.Text
+		if rigName == "" then rigName = elements.selectedUsername() or "Rig" end
+		local addNameTag = elements.getNameTagState()
+
 		setStatus(Locale.get("creatingRig"))
 
 		task.spawn(function()
-			local model, err = RigCreatorService.criarRig(input, rigName, workspace)
+			local recording = ChangeHistoryService:TryBeginRecording("CriarRig")
+
+			local model, err = RigCreatorService.criarRig(
+				tostring(userId), rigName, workspace, nil, addNameTag
+			)
+
+			if recording then
+				ChangeHistoryService:FinishRecording(recording, Enum.FinishRecordingOperation.Commit)
+			end
+
 			if model then
 				Selection:Set({ model })
 				setStatus(Locale.get("rigCreated") .. model.Name)
@@ -254,6 +211,66 @@ local function conectarHandlers()
 				setStatus(Locale.get("rigError") .. (err or "unknown"))
 			end
 		end)
+	end))
+
+	-- Update Rig (atualiza aparencia do rig selecionado)
+	table.insert(connections, elements.updateRigButton.MouseButton1Click:Connect(function()
+		local userId = elements.selectedUserId()
+		if not userId then
+			setStatus(Locale.get("typeUsernameOrId"))
+			return
+		end
+
+		local selected = Selection:Get()
+		local targetModel: Model? = nil
+		for _, obj in selected do
+			if obj:IsA("Model") and obj:FindFirstChildOfClass("Humanoid") then
+				targetModel = obj
+				break
+			end
+		end
+
+		if not targetModel then
+			setStatus(Locale.get("selectRigToUpdate"))
+			return
+		end
+
+		local rigName = elements.confirmRigNameInput.Text
+		local addNameTag = elements.getNameTagState()
+
+		setStatus(Locale.get("updatingRig"))
+
+		local savedName = targetModel.Name
+
+		task.spawn(function()
+			local recording = ChangeHistoryService:TryBeginRecording("AtualizarRig")
+
+			local novoModel, err = RigCreatorService.atualizarRig(targetModel, userId, addNameTag, rigName)
+
+			if recording then
+				ChangeHistoryService:FinishRecording(recording, Enum.FinishRecordingOperation.Commit)
+			end
+
+			if novoModel then
+				Selection:Set({ novoModel })
+				setStatus(Locale.get("rigUpdated") .. savedName)
+			else
+				setStatus(Locale.get("rigError") .. (err or "unknown"))
+			end
+		end)
+	end))
+
+	-- Mostra/oculta botao UPDATE RIG baseado na selecao
+	table.insert(connections, Selection.SelectionChanged:Connect(function()
+		local selected = Selection:Get()
+		local hasRig = false
+		for _, obj in selected do
+			if obj:IsA("Model") and obj:FindFirstChildOfClass("Humanoid") then
+				hasRig = true
+				break
+			end
+		end
+		elements.updateRigButton.Visible = hasRig
 	end))
 end
 
@@ -269,8 +286,8 @@ local function onSettingsChanged(lang: string, theme: string)
 	Locale.setLanguage(lang)
 	UIHelpers.applyTheme(theme)
 
-	-- Rebuild widget e reconecta handlers
-	elements.rebuild()
+	-- Rebuild widget e reconecta handlers (permanece na aba settings)
+	elements.rebuild("settings")
 	conectarHandlers()
 
 	setStatus(Locale.get("settingsSaved"))
@@ -280,10 +297,7 @@ end
 -- Widget UI
 -- ════════════════════════════════════════════════════════════════
 elements = UI.criarWidget(plugin, {
-	onItemSelected = onItemSelected,
 	setStatus = setStatus,
-	getRigSelecionado = getRigSelecionado,
-	onLimparRig = onLimparRig,
 	onSettingsChanged = onSettingsChanged,
 })
 
@@ -306,9 +320,6 @@ plugin.Unloading:Connect(function()
 	rigs = {}
 	pedestais = {}
 	limparConnections()
-	if elements.shopPanel then
-		elements.shopPanel.destroy()
-	end
 end)
 
 print("[Vampire Rigs] Plugin loaded! Created by VampireSonata")

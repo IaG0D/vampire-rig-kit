@@ -2,14 +2,17 @@
 	vulpy-rig-kit | UI
 	Cria a interface do plugin (DockWidgetPluginGui).
 	Layout com TAB BAR no topo: cada aba ocupa o painel inteiro.
-	Abas: Alinhamento | Rig Creator | Loja | Config
+	Abas: Alinhamento | Rig Creator | Config
 
 	Suporte a temas e idiomas via aba de configuracoes.
 ]]
 
+local Players = game:GetService("Players")
+
 local UIHelpers = require(script.Parent.UIHelpers)
 local Locale = require(script.Parent.Locale)
-local ShopPanel = require(script.Parent.components.ShopPanel)
+local FriendsService = require(script.Parent.FriendsService)
+local RigCreatorService = require(script.Parent.RigCreatorService)
 
 local COLORS = UIHelpers.COLORS
 
@@ -19,10 +22,7 @@ local UI = {}
 -- Widget principal
 -- ════════════════════════════════════════════════════════════════
 function UI.criarWidget(pluginInstance: Plugin, callbacks: {
-	onItemSelected: (any) -> (),
 	setStatus: (string) -> (),
-	getRigSelecionado: () -> Model?,
-	onLimparRig: () -> (),
 	onSettingsChanged: (string, string) -> (),
 })
 	local widgetInfo = DockWidgetPluginGuiInfo.new(
@@ -38,18 +38,12 @@ function UI.criarWidget(pluginInstance: Plugin, callbacks: {
 	local widget = pluginInstance:CreateDockWidgetPluginGuiAsync("VulpyRigKit", widgetInfo)
 	widget.Title = Locale.get("pluginTitle")
 
-	-- Referencia para shopPanel (precisa destruir no rebuild)
-	local shopPanelApi: any = nil
-
 	-- ══════════════════════════════════════════════════════════
 	-- Funcao que constroi todo o conteudo dentro do widget
 	-- ══════════════════════════════════════════════════════════
-	local function buildContent()
+	local function buildContent(initialTab: string?)
+		local startTab = initialTab or "align"
 		-- Limpa conteudo anterior
-		if shopPanelApi then
-			shopPanelApi.destroy()
-			shopPanelApi = nil
-		end
 		for _, child in widget:GetChildren() do
 			child:Destroy()
 		end
@@ -172,7 +166,6 @@ function UI.criarWidget(pluginInstance: Plugin, callbacks: {
 		local TABS = {
 			{ key = "align", labelKey = "tabAlign" },
 			{ key = "creator", labelKey = "tabCreator" },
-			{ key = "shop", labelKey = "tabShop" },
 			{ key = "settings", labelKey = "tabSettings" },
 		}
 
@@ -217,7 +210,8 @@ function UI.criarWidget(pluginInstance: Plugin, callbacks: {
 			label.Size = UDim2.new(1, 0, 1, -4)
 			label.BackgroundTransparency = 1
 			label.Text = Locale.get(tab.labelKey)
-			label.TextColor3 = if i == 1 then Color3.new(1, 1, 1) else COLORS.textDim
+			local isStart = tab.key == startTab
+			label.TextColor3 = if isStart then Color3.new(1, 1, 1) else COLORS.textDim
 			label.TextSize = 11
 			label.Font = Enum.Font.GothamBold
 			label.Parent = btn
@@ -228,7 +222,7 @@ function UI.criarWidget(pluginInstance: Plugin, callbacks: {
 			indicator.Position = UDim2.new(0.25, 0, 1, -3)
 			indicator.BackgroundColor3 = COLORS.primary
 			indicator.BorderSizePixel = 0
-			indicator.BackgroundTransparency = if i == 1 then 0 else 1
+			indicator.BackgroundTransparency = if isStart then 0 else 1
 			indicator.Parent = btn
 			UIHelpers.criarCorner(indicator, 2)
 
@@ -287,7 +281,7 @@ function UI.criarWidget(pluginInstance: Plugin, callbacks: {
 		-- ══════════════════════════════════════════════════════════
 		-- PAGE 1: ALINHAMENTO
 		-- ══════════════════════════════════════════════════════════
-		local alignPage = criarPagina("AlignPage", true)
+		local alignPage = criarPagina("AlignPage", startTab == "align")
 		tabPages["align"] = alignPage
 
 		local rigsHeader = criarSectionHeader(alignPage, Locale.get("rigsTitle"), 1)
@@ -378,77 +372,393 @@ function UI.criarWidget(pluginInstance: Plugin, callbacks: {
 		applyOffsetButton.LayoutOrder = 15
 
 		-- ══════════════════════════════════════════════════════════
-		-- PAGE 2: RIG CREATOR
+		-- PAGE 2: RIG CREATOR (duas telas: browse + confirm)
 		-- ══════════════════════════════════════════════════════════
-		local creatorPage = criarPagina("CreatorPage", false)
+		local creatorPage = criarPagina("CreatorPage", startTab == "creator")
 		tabPages["creator"] = creatorPage
 
-		criarSectionHeader(creatorPage, Locale.get("createRigTitle"), 1)
+		-- Estado do Creator
+		local selectedUserId: number? = nil
+		local selectedUsername: string? = nil
+		local friendsLoadId = 0
 
-		UIHelpers.criarLabel(creatorPage, {
+		-- ── Tela BROWSE ──
+		local browseScreen = Instance.new("Frame")
+		browseScreen.Name = "BrowseScreen"
+		browseScreen.Size = UDim2.new(1, 0, 0, 0)
+		browseScreen.AutomaticSize = Enum.AutomaticSize.Y
+		browseScreen.BackgroundTransparency = 1
+		browseScreen.LayoutOrder = 1
+		browseScreen.Parent = creatorPage
+
+		local browseLayout = Instance.new("UIListLayout")
+		browseLayout.SortOrder = Enum.SortOrder.LayoutOrder
+		browseLayout.Padding = UDim.new(0, 8)
+		browseLayout.Parent = browseScreen
+
+		-- ── Tela CONFIRM ──
+		local confirmScreen = Instance.new("Frame")
+		confirmScreen.Name = "ConfirmScreen"
+		confirmScreen.Size = UDim2.new(1, 0, 0, 0)
+		confirmScreen.AutomaticSize = Enum.AutomaticSize.Y
+		confirmScreen.BackgroundTransparency = 1
+		confirmScreen.Visible = false
+		confirmScreen.LayoutOrder = 2
+		confirmScreen.Parent = creatorPage
+
+		local confirmLayout = Instance.new("UIListLayout")
+		confirmLayout.SortOrder = Enum.SortOrder.LayoutOrder
+		confirmLayout.Padding = UDim.new(0, 8)
+		confirmLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+		confirmLayout.Parent = confirmScreen
+
+		local function switchCreatorScreen(screen: string)
+			browseScreen.Visible = screen == "browse"
+			confirmScreen.Visible = screen == "confirm"
+		end
+
+		-- ══════════════════════════════════════════════════════════
+		-- BROWSE: conteudo
+		-- ══════════════════════════════════════════════════════════
+		criarSectionHeader(browseScreen, Locale.get("createRigTitle"), 1)
+
+		UIHelpers.criarLabel(browseScreen, {
 			text = Locale.get("createRigDesc"),
 			size = UDim2.new(1, 0, 0, 32),
 			color = COLORS.textDim, textSize = 10,
 		}).LayoutOrder = 2
 
-		UIHelpers.criarSeparador(creatorPage).LayoutOrder = 3
+		UIHelpers.criarSeparador(browseScreen).LayoutOrder = 3
 
-		UIHelpers.criarLabel(creatorPage, {
+		UIHelpers.criarLabel(browseScreen, {
 			text = Locale.get("usernameOrId"),
 			size = UDim2.new(1, 0, 0, 16),
 			bold = true, textSize = 12,
 		}).LayoutOrder = 4
 
-		local rigCreatorInput = UIHelpers.criarInput(creatorPage, {
-			size = UDim2.new(1, 0, 0, 34),
+		-- Row horizontal: input + botao Go
+		local inputRow = Instance.new("Frame")
+		inputRow.Name = "InputRow"
+		inputRow.Size = UDim2.new(1, 0, 0, 34)
+		inputRow.BackgroundTransparency = 1
+		inputRow.LayoutOrder = 5
+		inputRow.Parent = browseScreen
+
+		local inputRowLayout = Instance.new("UIListLayout")
+		inputRowLayout.FillDirection = Enum.FillDirection.Horizontal
+		inputRowLayout.Padding = UDim.new(0, 6)
+		inputRowLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+		inputRowLayout.Parent = inputRow
+
+		local creatorUsernameInput = UIHelpers.criarInput(inputRow, {
+			size = UDim2.new(1, -54, 0, 34),
 			placeholder = Locale.get("usernameOrIdPlaceholder"),
 		})
-		rigCreatorInput.LayoutOrder = 5
+		creatorUsernameInput.LayoutOrder = 1
 
-		UIHelpers.criarLabel(creatorPage, {
-			text = Locale.get("rigNameOptional"),
+		local goButton = UIHelpers.criarBotao(inputRow, {
+			text = Locale.get("goButton"),
+			size = UDim2.new(0, 48, 0, 34),
+			color = COLORS.primary,
+		})
+		goButton.LayoutOrder = 2
+
+		UIHelpers.criarSeparador(browseScreen).LayoutOrder = 6
+
+		criarSectionHeader(browseScreen, Locale.get("friendsTitle"), 7)
+
+		-- Row: input de usuario + botao LOAD
+		local friendsInputRow = Instance.new("Frame")
+		friendsInputRow.Name = "FriendsInputRow"
+		friendsInputRow.Size = UDim2.new(1, 0, 0, 34)
+		friendsInputRow.BackgroundTransparency = 1
+		friendsInputRow.LayoutOrder = 8
+		friendsInputRow.Parent = browseScreen
+
+		local friendsInputLayout = Instance.new("UIListLayout")
+		friendsInputLayout.FillDirection = Enum.FillDirection.Horizontal
+		friendsInputLayout.Padding = UDim.new(0, 6)
+		friendsInputLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+		friendsInputLayout.Parent = friendsInputRow
+
+		local friendsSearchInput = UIHelpers.criarInput(friendsInputRow, {
+			size = UDim2.new(1, -80, 0, 34),
+			placeholder = Locale.get("friendsPlaceholder"),
+		})
+		friendsSearchInput.LayoutOrder = 1
+
+		local friendsLoadButton = UIHelpers.criarBotao(friendsInputRow, {
+			text = Locale.get("friendsLoadButton"),
+			size = UDim2.new(0, 74, 0, 34),
+			color = COLORS.primary,
+		})
+		friendsLoadButton.LayoutOrder = 2
+
+		local friendsStatusLabel = UIHelpers.criarLabel(browseScreen, {
+			text = Locale.get("friendsLoading"),
+			size = UDim2.new(1, 0, 0, 16),
+			color = COLORS.textDim, textSize = 11,
+		})
+		friendsStatusLabel.LayoutOrder = 9
+
+		-- Grid de amigos
+		local friendsGrid = Instance.new("Frame")
+		friendsGrid.Name = "FriendsGrid"
+		friendsGrid.Size = UDim2.new(1, 0, 0, 0)
+		friendsGrid.AutomaticSize = Enum.AutomaticSize.Y
+		friendsGrid.BackgroundTransparency = 1
+		friendsGrid.LayoutOrder = 10
+		friendsGrid.Parent = browseScreen
+
+		local gridLayout = Instance.new("UIGridLayout")
+		gridLayout.CellSize = UDim2.new(0, 80, 0, 100)
+		gridLayout.CellPadding = UDim2.new(0, 8, 0, 8)
+		gridLayout.SortOrder = Enum.SortOrder.LayoutOrder
+		gridLayout.FillDirection = Enum.FillDirection.Horizontal
+		gridLayout.Parent = friendsGrid
+
+		-- ══════════════════════════════════════════════════════════
+		-- CONFIRM: conteudo
+		-- ══════════════════════════════════════════════════════════
+		local backButton = UIHelpers.criarBotao(confirmScreen, {
+			text = "< " .. Locale.get("backButton"),
+			size = UDim2.new(0, 80, 0, 28),
+			color = COLORS.surface,
+		})
+		backButton.TextSize = 11
+		backButton.LayoutOrder = 1
+
+		local confirmAvatarImage = Instance.new("ImageLabel")
+		confirmAvatarImage.Name = "ConfirmAvatar"
+		confirmAvatarImage.Size = UDim2.new(0, 100, 0, 100)
+		confirmAvatarImage.BackgroundColor3 = COLORS.surface
+		confirmAvatarImage.Image = ""
+		confirmAvatarImage.ScaleType = Enum.ScaleType.Fit
+		confirmAvatarImage.LayoutOrder = 2
+		confirmAvatarImage.Parent = confirmScreen
+		UIHelpers.criarCorner(confirmAvatarImage, 50)
+		UIHelpers.criarStroke(confirmAvatarImage, COLORS.primary, 2)
+
+		local confirmNameLabel = UIHelpers.criarLabel(confirmScreen, {
+			text = "",
+			size = UDim2.new(1, 0, 0, 22),
+			bold = true, textSize = 16,
+			color = COLORS.text,
+		})
+		confirmNameLabel.TextXAlignment = Enum.TextXAlignment.Center
+		confirmNameLabel.LayoutOrder = 3
+
+		UIHelpers.criarSeparador(confirmScreen).LayoutOrder = 4
+
+		UIHelpers.criarLabel(confirmScreen, {
+			text = Locale.get("rigNameLabel"),
 			size = UDim2.new(1, 0, 0, 16),
 			bold = true, textSize = 12,
-		}).LayoutOrder = 6
+		}).LayoutOrder = 5
 
-		local rigNameInput = UIHelpers.criarInput(creatorPage, {
+		local confirmRigNameInput = UIHelpers.criarInput(confirmScreen, {
 			size = UDim2.new(1, 0, 0, 34),
 			placeholder = Locale.get("rigNamePlaceholder"),
 		})
-		rigNameInput.LayoutOrder = 7
+		confirmRigNameInput.LayoutOrder = 6
 
-		UIHelpers.criarSeparador(creatorPage).LayoutOrder = 8
+		local nameTagToggleFrame, getNameTagState = UIHelpers.criarToggle(confirmScreen, {
+			label = Locale.get("nameTagLabel"),
+			description = Locale.get("nameTagDesc"),
+			size = UDim2.new(1, 0, 0, 36),
+			default = false,
+		})
+		nameTagToggleFrame.LayoutOrder = 7
 
-		local createRigButton = UIHelpers.criarBotao(creatorPage, {
-			text = Locale.get("createRigButton"),
+		UIHelpers.criarSeparador(confirmScreen).LayoutOrder = 8
+
+		local spawnRigButton = UIHelpers.criarBotao(confirmScreen, {
+			text = Locale.get("spawnRigButton"),
 			size = UDim2.new(1, 0, 0, 42),
 			color = COLORS.green,
 		})
-		createRigButton.Font = Enum.Font.GothamBold
-		createRigButton.TextSize = 16
-		createRigButton.LayoutOrder = 9
+		spawnRigButton.Font = Enum.Font.GothamBold
+		spawnRigButton.TextSize = 16
+		spawnRigButton.LayoutOrder = 9
 
-		-- ══════════════════════════════════════════════════════════
-		-- PAGE 3: LOJA
-		-- ══════════════════════════════════════════════════════════
-		local shopPage = Instance.new("Frame")
-		shopPage.Name = "ShopPage"
-		shopPage.Size = UDim2.new(1, 0, 1, 0)
-		shopPage.BackgroundTransparency = 1
-		shopPage.Visible = false
-		shopPage.Parent = contentArea
-		tabPages["shop"] = shopPage
-
-		shopPanelApi = ShopPanel.create(shopPage, {
-			onItemSelected = callbacks.onItemSelected,
-			setStatus = callbacks.setStatus,
-			onLimparRig = callbacks.onLimparRig,
+		local updateRigButton = UIHelpers.criarBotao(confirmScreen, {
+			text = Locale.get("updateRigButton"),
+			size = UDim2.new(1, 0, 0, 42),
+			color = COLORS.primary,
 		})
+		updateRigButton.Font = Enum.Font.GothamBold
+		updateRigButton.TextSize = 16
+		updateRigButton.LayoutOrder = 10
+		updateRigButton.Visible = false
 
 		-- ══════════════════════════════════════════════════════════
-		-- PAGE 4: CONFIGURACOES
+		-- Funcao para preencher e trocar para tela de confirmacao
 		-- ══════════════════════════════════════════════════════════
-		local settingsPage = criarPagina("SettingsPage", false)
+		local function preencherConfirmacao(userId: number, nome: string)
+			selectedUserId = userId
+			selectedUsername = nome
+			confirmAvatarImage.Image = "rbxthumb://type=AvatarHeadShot&id=" .. userId .. "&w=150&h=150"
+			confirmNameLabel.Text = nome
+			confirmRigNameInput.Text = nome
+			switchCreatorScreen("confirm")
+		end
+
+		-- ══════════════════════════════════════════════════════════
+		-- Botao Go / Enter no input
+		-- ══════════════════════════════════════════════════════════
+		local function irParaConfirmacao()
+			local input = creatorUsernameInput.Text
+			if input == "" then
+				callbacks.setStatus(Locale.get("typeUsernameOrId"))
+				return
+			end
+
+			task.spawn(function()
+				callbacks.setStatus(Locale.get("creatingRig"))
+
+				local userId, err = RigCreatorService.resolverUserId(input)
+				if not userId then
+					callbacks.setStatus(Locale.get("rigError") .. (err or ""))
+					return
+				end
+
+				local nameOk, displayName = pcall(function()
+					return Players:GetNameFromUserIdAsync(userId)
+				end)
+				local nome = if nameOk and displayName then displayName else input
+
+				callbacks.setStatus(Locale.get("ready"))
+				preencherConfirmacao(userId, nome)
+			end)
+		end
+
+		goButton.MouseButton1Click:Connect(irParaConfirmacao)
+		creatorUsernameInput.FocusLost:Connect(function(enterPressed)
+			if enterPressed then
+				irParaConfirmacao()
+			end
+		end)
+
+		-- Botao voltar
+		backButton.MouseButton1Click:Connect(function()
+			switchCreatorScreen("browse")
+		end)
+
+		-- ══════════════════════════════════════════════════════════
+		-- Funcao para carregar amigos de um userId no grid
+		-- ══════════════════════════════════════════════════════════
+		local function carregarAmigos(userId: number)
+			friendsLoadId += 1
+			local myLoadId = friendsLoadId
+
+			-- Limpa grid anterior
+			for _, child in friendsGrid:GetChildren() do
+				if child:IsA("ImageButton") then
+					child:Destroy()
+				end
+			end
+			friendsStatusLabel.Visible = true
+			friendsStatusLabel.Text = Locale.get("friendsLoading")
+
+			task.spawn(function()
+				local amigos, err = FriendsService.buscarAmigos(userId)
+				if myLoadId ~= friendsLoadId then return end
+
+				if not amigos or #amigos == 0 then
+					friendsStatusLabel.Text = if err then Locale.get("friendsError") else Locale.get("friendsNone")
+					return
+				end
+
+				friendsStatusLabel.Visible = false
+
+				for i, friend in amigos do
+					if myLoadId ~= friendsLoadId then return end
+
+					local card = Instance.new("ImageButton")
+					card.Name = "Friend_" .. friend.Id
+					card.Size = UDim2.new(0, 80, 0, 100)
+					card.BackgroundColor3 = COLORS.surface
+					card.AutoButtonColor = true
+					card.LayoutOrder = i
+					card.Parent = friendsGrid
+					UIHelpers.criarCorner(card, 8)
+					UIHelpers.criarStroke(card, COLORS.cardBorder, 1)
+
+					local avatar = Instance.new("ImageLabel")
+					avatar.Name = "Avatar"
+					avatar.Size = UDim2.new(0, 56, 0, 56)
+					avatar.Position = UDim2.new(0.5, -28, 0, 6)
+					avatar.BackgroundColor3 = COLORS.input
+					avatar.Image = "rbxthumb://type=AvatarHeadShot&id=" .. friend.Id .. "&w=150&h=150"
+					avatar.ScaleType = Enum.ScaleType.Fit
+					avatar.Parent = card
+					UIHelpers.criarCorner(avatar, 28)
+
+					local nameLabel = Instance.new("TextLabel")
+					nameLabel.Name = "NameLabel"
+					nameLabel.Size = UDim2.new(1, -8, 0, 28)
+					nameLabel.Position = UDim2.new(0, 4, 0, 66)
+					nameLabel.BackgroundTransparency = 1
+					nameLabel.Text = friend.DisplayName
+					nameLabel.TextColor3 = COLORS.text
+					nameLabel.TextSize = 10
+					nameLabel.Font = Enum.Font.GothamMedium
+					nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+					nameLabel.Parent = card
+
+					card.MouseEnter:Connect(function()
+						local stroke = card:FindFirstChildOfClass("UIStroke")
+						if stroke then UIHelpers.tweenProperty(stroke, { Color = COLORS.primary }, 0.15) end
+					end)
+					card.MouseLeave:Connect(function()
+						local stroke = card:FindFirstChildOfClass("UIStroke")
+						if stroke then UIHelpers.tweenProperty(stroke, { Color = COLORS.cardBorder }, 0.15) end
+					end)
+
+					card.MouseButton1Click:Connect(function()
+						preencherConfirmacao(friend.Id, friend.DisplayName)
+					end)
+				end
+			end)
+		end
+
+		-- Botao LOAD: busca amigos do usuario digitado
+		local function carregarAmigosDoInput()
+			local input = friendsSearchInput.Text
+			if input == "" then return end
+
+			task.spawn(function()
+				local userId, err = RigCreatorService.resolverUserId(input)
+				if not userId then
+					friendsStatusLabel.Visible = true
+					friendsStatusLabel.Text = Locale.get("friendsError")
+					return
+				end
+				carregarAmigos(userId)
+			end)
+		end
+
+		friendsLoadButton.MouseButton1Click:Connect(carregarAmigosDoInput)
+		friendsSearchInput.FocusLost:Connect(function(enterPressed)
+			if enterPressed then
+				carregarAmigosDoInput()
+			end
+		end)
+
+		-- Auto-load dos amigos do usuario logado no Studio
+		do
+			local studioUserId = FriendsService.getStudioUserId()
+			if studioUserId == 0 then
+				friendsStatusLabel.Text = Locale.get("friendsError")
+			else
+				carregarAmigos(studioUserId)
+			end
+		end
+
+		-- ══════════════════════════════════════════════════════════
+		-- PAGE 3: CONFIGURACOES
+		-- ══════════════════════════════════════════════════════════
+		local settingsPage = criarPagina("SettingsPage", startTab == "settings")
 		tabPages["settings"] = settingsPage
 
 		-- Titulo
@@ -701,11 +1011,12 @@ function UI.criarWidget(pluginInstance: Plugin, callbacks: {
 			offsetZMinus = offsetZMinus,
 			offsetZPlus = offsetZPlus,
 			-- Rig Creator
-			rigCreatorInput = rigCreatorInput,
-			rigNameInput = rigNameInput,
-			createRigButton = createRigButton,
-			-- Paineis visuais
-			shopPanel = shopPanelApi,
+			spawnRigButton = spawnRigButton,
+			updateRigButton = updateRigButton,
+			confirmRigNameInput = confirmRigNameInput,
+			getNameTagState = getNameTagState,
+			selectedUserId = function() return selectedUserId end,
+			selectedUsername = function() return selectedUsername end,
 		}
 	end
 
@@ -713,8 +1024,9 @@ function UI.criarWidget(pluginInstance: Plugin, callbacks: {
 	local elements = buildContent()
 
 	-- Funcao de rebuild (chamada ao trocar tema/idioma)
-	local function rebuild()
-		local newElements = buildContent()
+	-- initialTab permite manter na aba atual apos rebuild
+	local function rebuild(initialTab: string?)
+		local newElements = buildContent(initialTab)
 		-- Atualiza referencia no return
 		for key, val in newElements do
 			elements[key] = val

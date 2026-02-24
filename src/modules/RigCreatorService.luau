@@ -123,6 +123,70 @@ local function createModelFromDescription(description: HumanoidDescription, rigN
 end
 
 -- ════════════════════════════════════════════════════════════════
+-- Cria um BillboardGui com o nome acima da cabeca do rig
+-- ════════════════════════════════════════════════════════════════
+function RigCreatorService.criarNameTag(model: Model, nomeExibicao: string)
+	local head = model:FindFirstChild("Head")
+	if not head or not head:IsA("BasePart") then return end
+
+	-- Remove name tag existente se houver
+	local existente = head:FindFirstChild("NameTag")
+	if existente then existente:Destroy() end
+
+	local billboard = Instance.new("BillboardGui")
+	billboard.Name = "NameTag"
+	billboard.Adornee = head
+	billboard.Size = UDim2.new(0, 200, 0, 40)
+	billboard.StudsOffset = Vector3.new(0, 2, 0)
+	billboard.AlwaysOnTop = true
+	billboard.Parent = head
+
+	local label = Instance.new("TextLabel")
+	label.Name = "NameLabel"
+	label.Size = UDim2.new(1, 0, 1, 0)
+	label.BackgroundTransparency = 1
+	label.Text = nomeExibicao
+	label.TextColor3 = Color3.new(1, 1, 1)
+	label.TextStrokeTransparency = 0.5
+	label.TextStrokeColor3 = Color3.new(0, 0, 0)
+	label.TextSize = 16
+	label.Font = Enum.Font.GothamBold
+	label.TextScaled = false
+	label.Parent = billboard
+end
+
+-- ════════════════════════════════════════════════════════════════
+-- Atualiza a aparencia de um rig existente sem mudar Name ou posicao
+-- Destroi o antigo e cria um novo no mesmo lugar com o mesmo nome
+-- ════════════════════════════════════════════════════════════════
+function RigCreatorService.atualizarRig(model: Model, userId: number, addNameTag: boolean, nomeTag: string?): (Model?, string?)
+	-- Salva posicao e nome do rig atual
+	local savedCFrame = model:GetPivot()
+	local savedName = model.Name
+	local savedParent = model.Parent or workspace
+
+	-- Destroi o rig antigo
+	model:Destroy()
+
+	-- Cria um novo rig no lugar
+	local novoModel, err = RigCreatorService.criarRigDeUserId(userId, savedName, savedParent)
+	if not novoModel then
+		return nil, err or "Falha ao criar novo model"
+	end
+
+	-- Reposiciona no mesmo lugar do antigo
+	novoModel:PivotTo(savedCFrame)
+
+	-- Name tag
+	if addNameTag and nomeTag then
+		RigCreatorService.criarNameTag(novoModel, nomeTag)
+	end
+
+	print("[vulpy-rig-kit] RIG atualizado:", savedName, "| userId:", userId)
+	return novoModel, nil
+end
+
+-- ════════════════════════════════════════════════════════════════
 -- Resolve username para userId via Players:GetUserIdFromNameAsync()
 -- ════════════════════════════════════════════════════════════════
 function RigCreatorService.resolverUserId(input: string): (number?, string?)
@@ -179,7 +243,7 @@ end
 -- Cria um RIG a partir de username ou userId (string input)
 -- Wrapper conveniente que resolve automaticamente
 -- ════════════════════════════════════════════════════════════════
-function RigCreatorService.criarRig(input: string, rigName: string, parent: Instance, animationId: string?): (Model?, string?)
+function RigCreatorService.criarRig(input: string, rigName: string, parent: Instance, animationId: string?, addNameTag: boolean?): (Model?, string?)
 	local userId, err = RigCreatorService.resolverUserId(input)
 	if not userId then
 		return nil, err
@@ -193,7 +257,13 @@ function RigCreatorService.criarRig(input: string, rigName: string, parent: Inst
 		rigName = if nameOk and name then name else ("Rig_" .. tostring(userId))
 	end
 
-	return RigCreatorService.criarRigDeUserId(userId, rigName, parent, animationId)
+	local model, rigErr = RigCreatorService.criarRigDeUserId(userId, rigName, parent, animationId)
+
+	if model and addNameTag then
+		RigCreatorService.criarNameTag(model, rigName)
+	end
+
+	return model, rigErr
 end
 
 return RigCreatorService

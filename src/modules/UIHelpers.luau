@@ -286,6 +286,92 @@ function UIHelpers.criarLinhaOffset(parent: GuiObject, eixo: string): (TextBox, 
 end
 
 -- ════════════════════════════════════════════════════════════════
+-- Toggle (pill switch)
+-- ════════════════════════════════════════════════════════════════
+
+function UIHelpers.criarToggle(parent: GuiObject, props: {
+	label: string,
+	description: string?,
+	size: UDim2,
+	default: boolean?,
+}): (Frame, () -> boolean)
+	local COLORS = UIHelpers.COLORS
+	local isOn = props.default or false
+
+	local container = Instance.new("Frame")
+	container.Name = "Toggle"
+	container.Size = props.size
+	container.BackgroundTransparency = 1
+	container.Parent = parent
+
+	-- Label na esquerda
+	local label = Instance.new("TextLabel")
+	label.Name = "Label"
+	label.Size = UDim2.new(1, -56, 0, 18)
+	label.Position = UDim2.new(0, 0, 0, if props.description then 2 else 9)
+	label.BackgroundTransparency = 1
+	label.Text = props.label
+	label.TextColor3 = COLORS.text
+	label.TextSize = 12
+	label.Font = Enum.Font.GothamBold
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.Parent = container
+
+	if props.description then
+		local desc = Instance.new("TextLabel")
+		desc.Name = "Description"
+		desc.Size = UDim2.new(1, -56, 0, 14)
+		desc.Position = UDim2.new(0, 0, 0, 20)
+		desc.BackgroundTransparency = 1
+		desc.Text = props.description
+		desc.TextColor3 = COLORS.textDim
+		desc.TextSize = 9
+		desc.Font = Enum.Font.GothamMedium
+		desc.TextXAlignment = Enum.TextXAlignment.Left
+		desc.Parent = container
+	end
+
+	-- Pill toggle na direita
+	local pill = Instance.new("TextButton")
+	pill.Name = "Pill"
+	pill.Size = UDim2.new(0, 44, 0, 22)
+	pill.Position = UDim2.new(1, -44, 0.5, -11)
+	pill.BackgroundColor3 = if isOn then COLORS.green else COLORS.surface
+	pill.Text = ""
+	pill.AutoButtonColor = false
+	pill.Parent = container
+	UIHelpers.criarCorner(pill, 11)
+	UIHelpers.criarStroke(pill, COLORS.separator, 1)
+
+	-- Circulo interno
+	local circle = Instance.new("Frame")
+	circle.Name = "Circle"
+	circle.Size = UDim2.new(0, 18, 0, 18)
+	circle.Position = UDim2.new(0, if isOn then 24 else 2, 0, 2)
+	circle.BackgroundColor3 = if isOn then Color3.new(1, 1, 1) else COLORS.separator
+	circle.BorderSizePixel = 0
+	circle.Parent = pill
+	UIHelpers.criarCorner(circle, 9)
+
+	pill.MouseButton1Click:Connect(function()
+		isOn = not isOn
+		UIHelpers.tweenProperty(pill, {
+			BackgroundColor3 = if isOn then COLORS.green else COLORS.surface,
+		}, 0.2)
+		UIHelpers.tweenProperty(circle, {
+			Position = UDim2.new(0, if isOn then 24 else 2, 0, 2),
+			BackgroundColor3 = if isOn then Color3.new(1, 1, 1) else COLORS.separator,
+		}, 0.2)
+	end)
+
+	local function getState(): boolean
+		return isOn
+	end
+
+	return container, getState
+end
+
+-- ════════════════════════════════════════════════════════════════
 -- Tween helper
 -- ════════════════════════════════════════════════════════════════
 

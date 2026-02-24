@@ -26,7 +26,6 @@ local STRINGS = {
 		-- Tabs principais
 		tabAlign = "Align",
 		tabCreator = "Create Rig",
-		tabShop = "Shop",
 
 		-- Alinhamento
 		rigsTitle = "Rigs",
@@ -66,45 +65,24 @@ local STRINGS = {
 		rigError = "Error: ",
 		typeUsernameOrId = "Type a username or userId!",
 
-		-- Loja
-		searchPlaceholder = "Search or paste ID...",
-		searchButton = "Search",
-		cleanRigButton = "Clean Selected Rig",
-		chooseCategory = "Choose a category or search",
-		searching = "Searching...",
-		loadingMore = "Loading more...",
-		results = "%d result(s)",
-		noResults = "No results",
-		searchError = "Search error",
-		applying = "Applying %s...",
-		appliedSuccess = "'%s' applied to %s!",
-		applyFailed = "Failed to apply item. Check if the asset exists.",
-		itemFound = "Item found: ",
-		itemNotFound = "Item not found: ",
-		itemsFound = "%d items found",
-		noItemFound = "No item found",
-		catalogError = "Error searching catalog",
-		selectRigFirst = "Select a rig (Model with Humanoid) in workspace!",
-		itemsRemoved = "%d item(s) removed from %s",
-
-		-- Categorias
-		all = "All",
-		clothing = "Clothing",
-		shirts = "Shirts",
-		pants = "Pants",
-		tshirts = "T-Shirts",
-		animations = "Animations",
-		emotes = "Emotes",
-
-		-- Bundles
-		bundleTitle = "Bundle",
-		bundleIdPlaceholder = "Bundle ID...",
-		bundleLoad = "Load",
-		bundleLoading = "Loading bundle...",
-		bundleLoaded = "Bundle '%s' - %d item(s)",
-		bundleNotFound = "Bundle not found",
-		bundleError = "Error loading bundle",
-		bundleApplyAll = "Apply All",
+		-- Amigos e confirmacao
+		friendsTitle = "Friends",
+		friendsLoading = "Loading friends...",
+		friendsNone = "No friends found.",
+		friendsError = "Could not load friends.",
+		friendsLoadButton = "LOAD",
+		friendsPlaceholder = "Username or UserId...",
+		goButton = "Go",
+		confirmTitle = "Confirm Rig",
+		rigNameLabel = "Rig Name",
+		nameTagLabel = "Name Tag",
+		nameTagDesc = "BillboardGui above the head",
+		spawnRigButton = "SPAWN RIG",
+		updateRigButton = "UPDATE RIG",
+		backButton = "Back",
+		updatingRig = "Updating rig...",
+		rigUpdated = "Rig updated: ",
+		selectRigToUpdate = "Select a rig to update!",
 
 		-- Configuracoes
 		tabSettings = "Settings",
@@ -134,7 +112,6 @@ local STRINGS = {
 		-- Tabs principais
 		tabAlign = "Alinhar",
 		tabCreator = "Criar Rig",
-		tabShop = "Loja",
 
 		-- Alinhamento
 		rigsTitle = "Rigs",
@@ -174,45 +151,24 @@ local STRINGS = {
 		rigError = "Erro: ",
 		typeUsernameOrId = "Digite um username ou userId!",
 
-		-- Loja
-		searchPlaceholder = "Buscar ou colar ID...",
-		searchButton = "Buscar",
-		cleanRigButton = "Limpar Rig Selecionado",
-		chooseCategory = "Escolha uma categoria ou busque",
-		searching = "Buscando...",
-		loadingMore = "Carregando mais...",
-		results = "%d resultado(s)",
-		noResults = "Nenhum resultado",
-		searchError = "Erro na busca",
-		applying = "Aplicando %s...",
-		appliedSuccess = "'%s' aplicado em %s!",
-		applyFailed = "Falha ao aplicar item. Verifique se o asset existe.",
-		itemFound = "Item encontrado: ",
-		itemNotFound = "Item nao encontrado: ",
-		itemsFound = "%d itens encontrados",
-		noItemFound = "Nenhum item encontrado",
-		catalogError = "Erro ao buscar no catalogo",
-		selectRigFirst = "Selecione um rig (Model com Humanoid) no workspace!",
-		itemsRemoved = "%d item(s) removido(s) de %s",
-
-		-- Categorias
-		all = "Todos",
-		clothing = "Roupas",
-		shirts = "Camisas",
-		pants = "Calcas",
-		tshirts = "Camisetas",
-		animations = "Animacoes",
-		emotes = "Emotes",
-
-		-- Bundles
-		bundleTitle = "Bundle",
-		bundleIdPlaceholder = "ID do Bundle...",
-		bundleLoad = "Carregar",
-		bundleLoading = "Carregando bundle...",
-		bundleLoaded = "Bundle '%s' - %d item(s)",
-		bundleNotFound = "Bundle nao encontrado",
-		bundleError = "Erro ao carregar bundle",
-		bundleApplyAll = "Aplicar Tudo",
+		-- Amigos e confirmacao
+		friendsTitle = "Amigos",
+		friendsLoading = "Carregando amigos...",
+		friendsNone = "Nenhum amigo encontrado.",
+		friendsError = "Nao foi possivel carregar amigos.",
+		friendsLoadButton = "CARREGAR",
+		friendsPlaceholder = "Username ou UserId...",
+		goButton = "Ir",
+		confirmTitle = "Confirmar Rig",
+		rigNameLabel = "Nome do Rig",
+		nameTagLabel = "Name Tag",
+		nameTagDesc = "BillboardGui acima da cabeca",
+		spawnRigButton = "CRIAR RIG",
+		updateRigButton = "ATUALIZAR RIG",
+		backButton = "Voltar",
+		updatingRig = "Atualizando rig...",
+		rigUpdated = "Rig atualizado: ",
+		selectRigToUpdate = "Selecione um rig para atualizar!",
 
 		-- Configuracoes
 		tabSettings = "Config",
