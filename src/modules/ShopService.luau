@@ -222,7 +222,7 @@ local ACC_DESC_MAP = {
 	[Enum.AccessoryType.Hair] = "HairAccessory",
 	[Enum.AccessoryType.Face] = "FaceAccessory",
 	[Enum.AccessoryType.Neck] = "NeckAccessory",
-	[Enum.AccessoryType.Shoulder] = "ShoulderAccessory",
+	[Enum.AccessoryType.Shoulder] = "ShouldersAccessory",
 	[Enum.AccessoryType.Front] = "FrontAccessory",
 	[Enum.AccessoryType.Back] = "BackAccessory",
 	[Enum.AccessoryType.Waist] = "WaistAccessory",
@@ -255,14 +255,17 @@ local function syncDescription(rig: Model, assetId: number, child: Instance)
 	if child:IsA("Accessory") then
 		local prop = ACC_DESC_MAP[child.AccessoryType]
 		if not prop then prop = "HatAccessory" end
-		pcall(function()
-			local current = (desc :: any)[prop] or ""
-			if current ~= "" then
+		local ok, err = pcall(function()
+			local current = tostring((desc :: any)[prop] or "")
+			if current ~= "" and current ~= "0" then
 				(desc :: any)[prop] = current .. "," .. tostring(assetId)
 			else
 				(desc :: any)[prop] = tostring(assetId)
 			end
 		end)
+		if not ok then
+			warn("[vulpy-rig-kit] syncDescription falhou:", prop, err)
+		end
 
 	elseif child:IsA("Shirt") then
 		pcall(function() desc.Shirt = assetId end)
@@ -433,10 +436,21 @@ function ShopService.aplicarItem(rig: Model, assetId: number): boolean
 				end
 
 				-- 5. Copia acessorios/roupas do rig antigo pro novo
+				-- e sincroniza no Description do novo rig
+				local newDesc = getOrCreateDescription(newModel)
 				for _, child in rig:GetChildren() do
 					if child:IsA("Accessory") or child:IsA("Shirt") or child:IsA("Pants")
 						or child:IsA("ShirtGraphic") or child:IsA("CharacterMesh") then
+						-- Pega o assetId antes de mover
+						local childAssetId = nil
+						pcall(function()
+							childAssetId = child:GetAttribute("VulpyAssetId")
+						end)
 						child.Parent = newModel
+						-- Sincroniza no Description do novo rig
+						if childAssetId and newDesc then
+							syncDescription(newModel, childAssetId, child)
+						end
 					end
 				end
 

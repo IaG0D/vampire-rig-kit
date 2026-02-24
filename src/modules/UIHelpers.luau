@@ -9,40 +9,91 @@ local TweenService = game:GetService("TweenService")
 local UIHelpers = {}
 
 -- ════════════════════════════════════════════════════════════════
--- Tema de cores (dark Studio - refinado)
+-- Temas de cores
 -- ════════════════════════════════════════════════════════════════
-UIHelpers.COLORS = {
-	background = Color3.fromRGB(30, 30, 30),
-	surface = Color3.fromRGB(42, 42, 42),
-	surfaceHover = Color3.fromRGB(52, 52, 52),
-	text = Color3.fromRGB(230, 230, 230),
-	textDim = Color3.fromRGB(140, 140, 140),
-	button = Color3.fromRGB(55, 55, 55),
-	buttonHover = Color3.fromRGB(70, 70, 70),
-	primary = Color3.fromRGB(88, 101, 242),   -- Discord-style purple-blue
-	primaryHover = Color3.fromRGB(110, 123, 255),
-	primaryDim = Color3.fromRGB(60, 70, 180),
-	separator = Color3.fromRGB(60, 60, 60),
-	input = Color3.fromRGB(22, 22, 22),
-	inputBorder = Color3.fromRGB(55, 55, 55),
-	-- Cards
-	cardBg = Color3.fromRGB(38, 38, 38),
-	cardBorder = Color3.fromRGB(55, 55, 55),
-	cardHoverBorder = Color3.fromRGB(88, 101, 242),
-	-- Tabs
-	tabActive = Color3.fromRGB(88, 101, 242),
-	tabInactive = Color3.fromRGB(48, 48, 48),
-	-- Sliders
-	sliderTrack = Color3.fromRGB(45, 45, 45),
-	sliderFill = Color3.fromRGB(200, 200, 200),
-	sliderThumb = Color3.fromRGB(255, 255, 255),
-	-- Accent
-	green = Color3.fromRGB(59, 165, 93),
-	red = Color3.fromRGB(237, 66, 69),
-	gold = Color3.fromRGB(254, 179, 38),
-	-- Header bar
-	headerBar = Color3.fromRGB(24, 24, 24),
+local THEMES = {
+	default = {
+		background = Color3.fromRGB(30, 30, 30),
+		surface = Color3.fromRGB(42, 42, 42),
+		surfaceHover = Color3.fromRGB(52, 52, 52),
+		text = Color3.fromRGB(230, 230, 230),
+		textDim = Color3.fromRGB(140, 140, 140),
+		button = Color3.fromRGB(55, 55, 55),
+		buttonHover = Color3.fromRGB(70, 70, 70),
+		primary = Color3.fromRGB(88, 101, 242),
+		primaryHover = Color3.fromRGB(110, 123, 255),
+		primaryDim = Color3.fromRGB(60, 70, 180),
+		separator = Color3.fromRGB(60, 60, 60),
+		input = Color3.fromRGB(22, 22, 22),
+		inputBorder = Color3.fromRGB(55, 55, 55),
+		cardBg = Color3.fromRGB(38, 38, 38),
+		cardBorder = Color3.fromRGB(55, 55, 55),
+		cardHoverBorder = Color3.fromRGB(88, 101, 242),
+		tabActive = Color3.fromRGB(88, 101, 242),
+		tabInactive = Color3.fromRGB(48, 48, 48),
+		sliderTrack = Color3.fromRGB(45, 45, 45),
+		sliderFill = Color3.fromRGB(200, 200, 200),
+		sliderThumb = Color3.fromRGB(255, 255, 255),
+		green = Color3.fromRGB(59, 165, 93),
+		red = Color3.fromRGB(237, 66, 69),
+		gold = Color3.fromRGB(254, 179, 38),
+		headerBar = Color3.fromRGB(24, 24, 24),
+	},
+	vampire = {
+		background = Color3.fromRGB(16, 10, 12),
+		surface = Color3.fromRGB(28, 18, 22),
+		surfaceHover = Color3.fromRGB(42, 26, 32),
+		text = Color3.fromRGB(230, 210, 215),
+		textDim = Color3.fromRGB(140, 110, 115),
+		button = Color3.fromRGB(45, 25, 30),
+		buttonHover = Color3.fromRGB(60, 35, 42),
+		primary = Color3.fromRGB(160, 30, 40),
+		primaryHover = Color3.fromRGB(190, 45, 55),
+		primaryDim = Color3.fromRGB(120, 20, 30),
+		separator = Color3.fromRGB(55, 30, 35),
+		input = Color3.fromRGB(12, 6, 8),
+		inputBorder = Color3.fromRGB(50, 28, 32),
+		cardBg = Color3.fromRGB(32, 20, 24),
+		cardBorder = Color3.fromRGB(50, 28, 32),
+		cardHoverBorder = Color3.fromRGB(160, 30, 40),
+		tabActive = Color3.fromRGB(160, 30, 40),
+		tabInactive = Color3.fromRGB(38, 22, 28),
+		sliderTrack = Color3.fromRGB(40, 22, 28),
+		sliderFill = Color3.fromRGB(200, 180, 185),
+		sliderThumb = Color3.fromRGB(255, 240, 242),
+		green = Color3.fromRGB(59, 165, 93),
+		red = Color3.fromRGB(237, 66, 69),
+		gold = Color3.fromRGB(254, 179, 38),
+		headerBar = Color3.fromRGB(12, 6, 8),
+	},
 }
+
+UIHelpers.THEMES = THEMES
+
+-- Tabela mutavel de cores (todos os componentes referenciam esta tabela)
+UIHelpers.COLORS = {}
+local currentTheme = "default"
+
+-- Aplica um tema mutando COLORS in-place
+function UIHelpers.applyTheme(themeName: string)
+	local theme = THEMES[themeName]
+	if not theme then
+		warn("[Vampire Rigs] Tema desconhecido:", themeName)
+		theme = THEMES["default"]
+		themeName = "default"
+	end
+	currentTheme = themeName
+	for key, color in theme do
+		UIHelpers.COLORS[key] = color
+	end
+end
+
+function UIHelpers.getCurrentTheme(): string
+	return currentTheme
+end
+
+-- Inicializa com tema default
+UIHelpers.applyTheme("default")
 
 -- Cores dos eixos para sliders
 UIHelpers.AXIS_COLORS = {

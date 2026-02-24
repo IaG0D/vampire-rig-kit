@@ -8,6 +8,7 @@
 	  1. Alinhar rigs sobre pedestais automaticamente
 	  2. Criar rigs a partir de userId/username
 	  3. Buscar e aplicar itens do catalogo Roblox (painel visual com grid)
+	  4. Temas (Default / Vampire) e idiomas (EN / PT-BR) configuraveis
 ]]
 
 local Selection = game:GetService("Selection")
@@ -16,7 +17,17 @@ local ChangeHistoryService = game:GetService("ChangeHistoryService")
 local AlignService = require(script.modules.AlignService)
 local RigCreatorService = require(script.modules.RigCreatorService)
 local Locale = require(script.modules.Locale)
+local UIHelpers = require(script.modules.UIHelpers)
 local UI = require(script.modules.UI)
+
+-- ════════════════════════════════════════════════════════════════
+-- Carregar idioma e tema salvos ANTES de criar widget
+-- ════════════════════════════════════════════════════════════════
+local savedLang = plugin:GetSetting("VulpyRigKit_Language") or "en"
+local savedTheme = plugin:GetSetting("VulpyRigKit_Theme") or "default"
+
+Locale.setLanguage(savedLang)
+UIHelpers.applyTheme(savedTheme)
 
 -- ════════════════════════════════════════════════════════════════
 -- Estado do plugin
@@ -101,29 +112,18 @@ local toggleButton = toolbar:CreateButton(
 )
 
 -- ════════════════════════════════════════════════════════════════
--- Widget UI
+-- Conectar handlers nos elementos do widget
 -- ════════════════════════════════════════════════════════════════
-local elements = UI.criarWidget(plugin, {
-	onItemSelected = onItemSelected,
-	setStatus = setStatus,
-	getRigSelecionado = getRigSelecionado,
-	onLimparRig = onLimparRig,
-})
-local widget = elements.widget
-statusLabel = elements.statusLabel
+local elements: any = nil
+local connections: { RBXScriptConnection } = {}
 
-toggleButton.Click:Connect(function()
-	widget.Enabled = not widget.Enabled
-	toggleButton:SetActive(widget.Enabled)
-end)
+local function limparConnections()
+	for _, conn in connections do
+		conn:Disconnect()
+	end
+	connections = {}
+end
 
-widget:GetPropertyChangedSignal("Enabled"):Connect(function()
-	toggleButton:SetActive(widget.Enabled)
-end)
-
--- ════════════════════════════════════════════════════════════════
--- Helpers de offset
--- ════════════════════════════════════════════════════════════════
 local function getOffsetFromInputs(): Vector3
 	return Vector3.new(
 		tonumber(elements.offsetX.Text) or 0,
@@ -132,73 +132,6 @@ local function getOffsetFromInputs(): Vector3
 	)
 end
 
--- ════════════════════════════════════════════════════════════════
--- Definir Rigs (da selecao atual)
--- ════════════════════════════════════════════════════════════════
-elements.setRigsButton.MouseButton1Click:Connect(function()
-	local selected = Selection:Get()
-	local models: { Model } = {}
-
-	for _, obj in selected do
-		if obj:IsA("Model") then
-			table.insert(models, obj)
-		end
-	end
-
-	if #models == 0 then
-		setStatus(Locale.get("noModelSelected"))
-		return
-	end
-
-	rigs = models
-	elements.rigsCountLabel.Text = Locale.fmt("rigsCount", #rigs)
-	setStatus(Locale.fmt("rigsCaptured", #rigs))
-end)
-
--- ════════════════════════════════════════════════════════════════
--- Limpar Rigs
--- ════════════════════════════════════════════════════════════════
-elements.clearRigsButton.MouseButton1Click:Connect(function()
-	rigs = {}
-	elements.rigsCountLabel.Text = Locale.get("noRigsDefined")
-	setStatus(Locale.get("rigsCleared"))
-end)
-
--- ════════════════════════════════════════════════════════════════
--- Definir Pedestais (da selecao atual)
--- ════════════════════════════════════════════════════════════════
-elements.setPedestaisButton.MouseButton1Click:Connect(function()
-	local selected = Selection:Get()
-	local items: { Model | BasePart } = {}
-
-	for _, obj in selected do
-		if obj:IsA("Model") or obj:IsA("BasePart") then
-			table.insert(items, obj)
-		end
-	end
-
-	if #items == 0 then
-		setStatus(Locale.get("noPartSelected"))
-		return
-	end
-
-	pedestais = items
-	elements.pedestaisCountLabel.Text = Locale.fmt("pedestalsCount", #items)
-	setStatus(Locale.fmt("pedestalsCaptured", #items))
-end)
-
--- ════════════════════════════════════════════════════════════════
--- Limpar Pedestais
--- ════════════════════════════════════════════════════════════════
-elements.clearPedestaisButton.MouseButton1Click:Connect(function()
-	pedestais = {}
-	elements.pedestaisCountLabel.Text = Locale.get("noPedestalsDefined")
-	setStatus(Locale.get("pedestalsCleared"))
-end)
-
--- ════════════════════════════════════════════════════════════════
--- Alinhar rigs nos pedestais
--- ════════════════════════════════════════════════════════════════
 local function executarAlinhamento()
 	if #rigs == 0 then
 		setStatus(Locale.get("defineRigsFirst"))
@@ -225,51 +158,145 @@ local function executarAlinhamento()
 	setStatus(msg)
 end
 
-elements.alignButton.MouseButton1Click:Connect(executarAlinhamento)
-elements.applyOffsetButton.MouseButton1Click:Connect(executarAlinhamento)
-
--- ════════════════════════════════════════════════════════════════
--- Botoes +/- de offset
--- ════════════════════════════════════════════════════════════════
 local function conectarBotoesOffset(textBox: TextBox, minusBtn: TextButton, plusBtn: TextButton)
-	minusBtn.MouseButton1Click:Connect(function()
+	table.insert(connections, minusBtn.MouseButton1Click:Connect(function()
 		local val = tonumber(textBox.Text) or 0
 		textBox.Text = string.format("%.1f", val - OFFSET_STEP)
-	end)
+	end))
 
-	plusBtn.MouseButton1Click:Connect(function()
+	table.insert(connections, plusBtn.MouseButton1Click:Connect(function()
 		local val = tonumber(textBox.Text) or 0
 		textBox.Text = string.format("%.1f", val + OFFSET_STEP)
-	end)
+	end))
 end
 
-conectarBotoesOffset(elements.offsetX, elements.offsetXMinus, elements.offsetXPlus)
-conectarBotoesOffset(elements.offsetY, elements.offsetYMinus, elements.offsetYPlus)
-conectarBotoesOffset(elements.offsetZ, elements.offsetZMinus, elements.offsetZPlus)
+local function conectarHandlers()
+	limparConnections()
 
--- ════════════════════════════════════════════════════════════════
--- Rig Creator: criar rig de userId/username
--- ════════════════════════════════════════════════════════════════
-elements.createRigButton.MouseButton1Click:Connect(function()
-	local input = elements.rigCreatorInput.Text
-	if input == "" then
-		setStatus(Locale.get("typeUsernameOrId"))
-		return
-	end
+	statusLabel = elements.statusLabel
 
-	local rigName = elements.rigNameInput.Text
-	setStatus(Locale.get("creatingRig"))
-
-	task.spawn(function()
-		local model, err = RigCreatorService.criarRig(input, rigName, workspace)
-
-		if model then
-			Selection:Set({ model })
-			setStatus(Locale.get("rigCreated") .. model.Name)
-		else
-			setStatus(Locale.get("rigError") .. (err or "unknown"))
+	-- Definir Rigs
+	table.insert(connections, elements.setRigsButton.MouseButton1Click:Connect(function()
+		local selected = Selection:Get()
+		local models: { Model } = {}
+		for _, obj in selected do
+			if obj:IsA("Model") then
+				table.insert(models, obj)
+			end
 		end
-	end)
+		if #models == 0 then
+			setStatus(Locale.get("noModelSelected"))
+			return
+		end
+		rigs = models
+		elements.rigsCountLabel.Text = Locale.fmt("rigsCount", #rigs)
+		setStatus(Locale.fmt("rigsCaptured", #rigs))
+	end))
+
+	-- Limpar Rigs
+	table.insert(connections, elements.clearRigsButton.MouseButton1Click:Connect(function()
+		rigs = {}
+		elements.rigsCountLabel.Text = Locale.get("noRigsDefined")
+		setStatus(Locale.get("rigsCleared"))
+	end))
+
+	-- Definir Pedestais
+	table.insert(connections, elements.setPedestaisButton.MouseButton1Click:Connect(function()
+		local selected = Selection:Get()
+		local items: { Model | BasePart } = {}
+		for _, obj in selected do
+			if obj:IsA("Model") or obj:IsA("BasePart") then
+				table.insert(items, obj)
+			end
+		end
+		if #items == 0 then
+			setStatus(Locale.get("noPartSelected"))
+			return
+		end
+		pedestais = items
+		elements.pedestaisCountLabel.Text = Locale.fmt("pedestalsCount", #items)
+		setStatus(Locale.fmt("pedestalsCaptured", #items))
+	end))
+
+	-- Limpar Pedestais
+	table.insert(connections, elements.clearPedestaisButton.MouseButton1Click:Connect(function()
+		pedestais = {}
+		elements.pedestaisCountLabel.Text = Locale.get("noPedestalsDefined")
+		setStatus(Locale.get("pedestalsCleared"))
+	end))
+
+	-- Alinhar
+	table.insert(connections, elements.alignButton.MouseButton1Click:Connect(executarAlinhamento))
+	table.insert(connections, elements.applyOffsetButton.MouseButton1Click:Connect(executarAlinhamento))
+
+	-- Botoes +/- de offset
+	conectarBotoesOffset(elements.offsetX, elements.offsetXMinus, elements.offsetXPlus)
+	conectarBotoesOffset(elements.offsetY, elements.offsetYMinus, elements.offsetYPlus)
+	conectarBotoesOffset(elements.offsetZ, elements.offsetZMinus, elements.offsetZPlus)
+
+	-- Rig Creator
+	table.insert(connections, elements.createRigButton.MouseButton1Click:Connect(function()
+		local input = elements.rigCreatorInput.Text
+		if input == "" then
+			setStatus(Locale.get("typeUsernameOrId"))
+			return
+		end
+
+		local rigName = elements.rigNameInput.Text
+		setStatus(Locale.get("creatingRig"))
+
+		task.spawn(function()
+			local model, err = RigCreatorService.criarRig(input, rigName, workspace)
+			if model then
+				Selection:Set({ model })
+				setStatus(Locale.get("rigCreated") .. model.Name)
+			else
+				setStatus(Locale.get("rigError") .. (err or "unknown"))
+			end
+		end)
+	end))
+end
+
+-- ════════════════════════════════════════════════════════════════
+-- Callback de mudanca de configuracoes (idioma/tema)
+-- ════════════════════════════════════════════════════════════════
+local function onSettingsChanged(lang: string, theme: string)
+	-- Salva
+	plugin:SetSetting("VulpyRigKit_Language", lang)
+	plugin:SetSetting("VulpyRigKit_Theme", theme)
+
+	-- Aplica
+	Locale.setLanguage(lang)
+	UIHelpers.applyTheme(theme)
+
+	-- Rebuild widget e reconecta handlers
+	elements.rebuild()
+	conectarHandlers()
+
+	setStatus(Locale.get("settingsSaved"))
+end
+
+-- ════════════════════════════════════════════════════════════════
+-- Widget UI
+-- ════════════════════════════════════════════════════════════════
+elements = UI.criarWidget(plugin, {
+	onItemSelected = onItemSelected,
+	setStatus = setStatus,
+	getRigSelecionado = getRigSelecionado,
+	onLimparRig = onLimparRig,
+	onSettingsChanged = onSettingsChanged,
+})
+
+local widget = elements.widget
+conectarHandlers()
+
+toggleButton.Click:Connect(function()
+	widget.Enabled = not widget.Enabled
+	toggleButton:SetActive(widget.Enabled)
+end)
+
+widget:GetPropertyChangedSignal("Enabled"):Connect(function()
+	toggleButton:SetActive(widget.Enabled)
 end)
 
 -- ════════════════════════════════════════════════════════════════
@@ -278,6 +305,7 @@ end)
 plugin.Unloading:Connect(function()
 	rigs = {}
 	pedestais = {}
+	limparConnections()
 	if elements.shopPanel then
 		elements.shopPanel.destroy()
 	end

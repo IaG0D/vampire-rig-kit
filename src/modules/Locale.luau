@@ -105,6 +105,17 @@ local STRINGS = {
 		bundleNotFound = "Bundle not found",
 		bundleError = "Error loading bundle",
 		bundleApplyAll = "Apply All",
+
+		-- Configuracoes
+		tabSettings = "Settings",
+		settingsTitle = "Settings",
+		languageSection = "Language",
+		themeSection = "Theme",
+		themeDefault = "Default",
+		themeVampire = "Vampire",
+		themeDefaultDesc = "Dark modern style",
+		themeVampireDesc = "Gothic blood red",
+		settingsSaved = "Settings saved!",
 	},
 
 	["pt-br"] = {
@@ -202,6 +213,17 @@ local STRINGS = {
 		bundleNotFound = "Bundle nao encontrado",
 		bundleError = "Erro ao carregar bundle",
 		bundleApplyAll = "Aplicar Tudo",
+
+		-- Configuracoes
+		tabSettings = "Config",
+		settingsTitle = "Configuracoes",
+		languageSection = "Idioma",
+		themeSection = "Tema",
+		themeDefault = "Padrao",
+		themeVampire = "Vampiro",
+		themeDefaultDesc = "Estilo dark moderno",
+		themeVampireDesc = "Gotico vermelho sangue",
+		settingsSaved = "Configuracoes salvas!",
 	},
 }
 
