@@ -371,6 +371,97 @@ function UI.criarWidget(pluginInstance: Plugin, callbacks: {
 		})
 		applyOffsetButton.LayoutOrder = 15
 
+		UIHelpers.criarSeparador(alignPage).LayoutOrder = 16
+
+		local rotationHeader = criarSectionHeader(alignPage, Locale.get("rotationTitle"), 17)
+
+		local rotationFrame = Instance.new("Frame")
+		rotationFrame.Name = "RotationFrame"
+		rotationFrame.Size = UDim2.new(1, 0, 0, 28)
+		rotationFrame.BackgroundTransparency = 1
+		rotationFrame.LayoutOrder = 18
+		rotationFrame.Parent = alignPage
+
+		local rotationY, rotationYMinus, rotationYPlus = UIHelpers.criarLinhaOffset(rotationFrame, "Y")
+
+		UIHelpers.criarSeparador(alignPage).LayoutOrder = 19
+
+		local modeHeader = criarSectionHeader(alignPage, Locale.get("modeTitle"), 20)
+
+		-- Seletor Solo / Duo / Trio
+		local modeFrame = Instance.new("Frame")
+		modeFrame.Name = "ModeFrame"
+		modeFrame.Size = UDim2.new(1, 0, 0, 32)
+		modeFrame.BackgroundTransparency = 1
+		modeFrame.LayoutOrder = 21
+		modeFrame.Parent = alignPage
+
+		local modeLayout = Instance.new("UIListLayout")
+		modeLayout.FillDirection = Enum.FillDirection.Horizontal
+		modeLayout.Padding = UDim.new(0, 4)
+		modeLayout.Parent = modeFrame
+
+		local currentMode = 1 -- 1=Solo, 2=Duo, 3=Trio
+		local modeButtons: { TextButton } = {}
+
+		local function atualizarModeBotoes()
+			for i, btn in modeButtons do
+				local isSelected = (i == currentMode)
+				btn.BackgroundColor3 = if isSelected then COLORS.primary else COLORS.surface
+				btn.TextColor3 = if isSelected then Color3.new(1, 1, 1) else COLORS.text
+			end
+		end
+
+		for i, modeKey in { "modeSolo", "modeDuo", "modeTrio" } do
+			local btn = Instance.new("TextButton")
+			btn.Name = "Mode" .. i
+			btn.Size = UDim2.new(1 / 3, -3, 1, 0)
+			btn.Text = Locale.get(modeKey)
+			btn.TextSize = 13
+			btn.Font = Enum.Font.GothamBold
+			btn.AutoButtonColor = true
+			btn.BackgroundColor3 = if i == 1 then COLORS.primary else COLORS.surface
+			btn.TextColor3 = if i == 1 then Color3.new(1, 1, 1) else COLORS.text
+			btn.LayoutOrder = i
+			btn.Parent = modeFrame
+			UIHelpers.criarCorner(btn, 6)
+			table.insert(modeButtons, btn)
+
+			btn.MouseButton1Click:Connect(function()
+				currentMode = i
+				atualizarModeBotoes()
+			end)
+		end
+
+		-- Spread (espacamento entre rigs)
+		local spreadFrame = Instance.new("Frame")
+		spreadFrame.Name = "SpreadFrame"
+		spreadFrame.Size = UDim2.new(1, 0, 0, 28)
+		spreadFrame.BackgroundTransparency = 1
+		spreadFrame.LayoutOrder = 22
+		spreadFrame.Parent = alignPage
+
+		local spreadLabel = Instance.new("TextLabel")
+		spreadLabel.Size = UDim2.new(1, 0, 0, 16)
+		spreadLabel.BackgroundTransparency = 1
+		spreadLabel.Text = Locale.get("spreadLabel")
+		spreadLabel.TextColor3 = COLORS.textDim
+		spreadLabel.TextSize = 11
+		spreadLabel.Font = Enum.Font.GothamMedium
+		spreadLabel.TextXAlignment = Enum.TextXAlignment.Left
+		spreadLabel.LayoutOrder = 22
+		spreadLabel.Parent = alignPage
+
+		local spreadInputFrame = Instance.new("Frame")
+		spreadInputFrame.Name = "SpreadInputFrame"
+		spreadInputFrame.Size = UDim2.new(1, 0, 0, 28)
+		spreadInputFrame.BackgroundTransparency = 1
+		spreadInputFrame.LayoutOrder = 23
+		spreadInputFrame.Parent = alignPage
+
+		local spreadInput, spreadMinus, spreadPlus = UIHelpers.criarLinhaOffset(spreadInputFrame, "↔")
+		spreadInput.Text = "3"
+
 		-- ══════════════════════════════════════════════════════════
 		-- PAGE 2: RIG CREATOR (duas telas: browse + confirm)
 		-- ══════════════════════════════════════════════════════════
@@ -1010,6 +1101,13 @@ function UI.criarWidget(pluginInstance: Plugin, callbacks: {
 			offsetYPlus = offsetYPlus,
 			offsetZMinus = offsetZMinus,
 			offsetZPlus = offsetZPlus,
+			rotationY = rotationY,
+			rotationYMinus = rotationYMinus,
+			rotationYPlus = rotationYPlus,
+			getMode = function() return currentMode end,
+			spreadInput = spreadInput,
+			spreadMinus = spreadMinus,
+			spreadPlus = spreadPlus,
 			-- Rig Creator
 			spawnRigButton = spawnRigButton,
 			updateRigButton = updateRigButton,

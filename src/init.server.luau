@@ -32,8 +32,9 @@ UIHelpers.applyTheme(savedTheme)
 -- Estado do plugin
 -- ════════════════════════════════════════════════════════════════
 local rigs: { Model } = {}
-local pedestais: { Model | BasePart } = {}
+local pedestais: { Model | BasePart | Folder } = {}
 local OFFSET_STEP = 0.5
+local ROTATION_STEP = 15
 
 -- ════════════════════════════════════════════════════════════════
 -- Helpers
@@ -77,6 +78,10 @@ local function getOffsetFromInputs(): Vector3
 	)
 end
 
+local function getRotationY(): number
+	return tonumber(elements.rotationY.Text) or 0
+end
+
 local function executarAlinhamento()
 	if #rigs == 0 then
 		setStatus(Locale.get("defineRigsFirst"))
@@ -90,7 +95,10 @@ local function executarAlinhamento()
 	local recording = ChangeHistoryService:TryBeginRecording("AlinharRigs")
 
 	local offset = getOffsetFromInputs()
-	local sucessos, total = AlignService.alinharTodos(rigs, pedestais, offset)
+	local rotacaoY = getRotationY()
+	local modo = elements.getMode()
+	local spread = tonumber(elements.spreadInput.Text) or 3
+	local sucessos, total = AlignService.alinharTodos(rigs, pedestais, offset, rotacaoY, modo, spread)
 
 	if recording then
 		ChangeHistoryService:FinishRecording(recording, Enum.FinishRecordingOperation.Commit)
@@ -115,18 +123,37 @@ local function conectarBotoesOffset(textBox: TextBox, minusBtn: TextButton, plus
 	end))
 end
 
+local function conectarBotoesRotacao(textBox: TextBox, minusBtn: TextButton, plusBtn: TextButton)
+	table.insert(connections, minusBtn.MouseButton1Click:Connect(function()
+		local val = tonumber(textBox.Text) or 0
+		textBox.Text = tostring(math.floor(val - ROTATION_STEP))
+	end))
+
+	table.insert(connections, plusBtn.MouseButton1Click:Connect(function()
+		local val = tonumber(textBox.Text) or 0
+		textBox.Text = tostring(math.floor(val + ROTATION_STEP))
+	end))
+end
+
 local function conectarHandlers()
 	limparConnections()
 
 	statusLabel = elements.statusLabel
 
-	-- Definir Rigs
+	-- Definir Rigs (aceita Models diretos ou Folders com Models dentro)
 	table.insert(connections, elements.setRigsButton.MouseButton1Click:Connect(function()
 		local selected = Selection:Get()
 		local models: { Model } = {}
 		for _, obj in selected do
 			if obj:IsA("Model") then
 				table.insert(models, obj)
+			elseif obj:IsA("Folder") then
+				-- Folder selecionada: extrai os Models filhos como rigs individuais
+				for _, child in obj:GetChildren() do
+					if child:IsA("Model") then
+						table.insert(models, child)
+					end
+				end
 			end
 		end
 		if #models == 0 then
@@ -145,12 +172,12 @@ local function conectarHandlers()
 		setStatus(Locale.get("rigsCleared"))
 	end))
 
-	-- Definir Pedestais
+	-- Definir Pedestais (aceita Models, Parts ou Folders como 1 pedestal cada)
 	table.insert(connections, elements.setPedestaisButton.MouseButton1Click:Connect(function()
 		local selected = Selection:Get()
-		local items: { Model | BasePart } = {}
+		local items: { Model | BasePart | Folder } = {}
 		for _, obj in selected do
-			if obj:IsA("Model") or obj:IsA("BasePart") then
+			if obj:IsA("Model") or obj:IsA("BasePart") or obj:IsA("Folder") then
 				table.insert(items, obj)
 			end
 		end
@@ -178,6 +205,12 @@ local function conectarHandlers()
 	conectarBotoesOffset(elements.offsetX, elements.offsetXMinus, elements.offsetXPlus)
 	conectarBotoesOffset(elements.offsetY, elements.offsetYMinus, elements.offsetYPlus)
 	conectarBotoesOffset(elements.offsetZ, elements.offsetZMinus, elements.offsetZPlus)
+
+	-- Botoes +/- de rotacao
+	conectarBotoesRotacao(elements.rotationY, elements.rotationYMinus, elements.rotationYPlus)
+
+	-- Botoes +/- de spread
+	conectarBotoesOffset(elements.spreadInput, elements.spreadMinus, elements.spreadPlus)
 
 	-- Spawn Rig (tela de confirmacao)
 	table.insert(connections, elements.spawnRigButton.MouseButton1Click:Connect(function()
