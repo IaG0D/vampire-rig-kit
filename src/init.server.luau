@@ -172,6 +172,38 @@ local function conectarHandlers()
 		setStatus(Locale.get("rigsCleared"))
 	end))
 
+	-- Renomear Rigs com prefixo sequencial
+	table.insert(connections, elements.renameRigsButton.MouseButton1Click:Connect(function()
+		if #rigs == 0 then
+			setStatus(Locale.get("noRigsToRename"))
+			return
+		end
+
+		local recording = ChangeHistoryService:TryBeginRecording("RenomearRigs")
+
+		local prefixo = elements.renamePrefixInput.Text
+		if prefixo == "" then
+			prefixo = "Rig"
+		end
+
+		local inicio = tonumber(elements.renameStartInput.Text) or 1
+
+		for i, rig in rigs do
+			if rig.Parent then
+				rig.Name = prefixo .. "_" .. string.format("%03d", inicio + i - 1)
+			end
+		end
+
+		-- Atualiza o campo de inicio para o proximo numero
+		elements.renameStartInput.Text = tostring(inicio + #rigs)
+
+		if recording then
+			ChangeHistoryService:FinishRecording(recording, Enum.FinishRecordingOperation.Commit)
+		end
+
+		setStatus(Locale.fmt("rigsRenamed", #rigs))
+	end))
+
 	-- Definir Pedestais (aceita Models, Parts ou Folders como 1 pedestal cada)
 	table.insert(connections, elements.setPedestaisButton.MouseButton1Click:Connect(function()
 		local selected = Selection:Get()
@@ -208,6 +240,36 @@ local function conectarHandlers()
 
 	-- Botoes +/- de rotacao
 	conectarBotoesRotacao(elements.rotationY, elements.rotationYMinus, elements.rotationYPlus)
+
+	-- Aplicar rotacao nos rigs selecionados (sem precisar de pedestal)
+	table.insert(connections, elements.applyRotationButton.MouseButton1Click:Connect(function()
+		local selected = Selection:Get()
+		local models: { Model } = {}
+		for _, obj in selected do
+			if obj:IsA("Model") and obj:FindFirstChildWhichIsA("Humanoid") then
+				table.insert(models, obj)
+			end
+		end
+
+		if #models == 0 then
+			setStatus(Locale.get("noRigsSelected"))
+			return
+		end
+
+		local rotY = math.rad(getRotationY())
+		local recording = ChangeHistoryService:TryBeginRecording("RotacionarRigs")
+
+		for _, rig in models do
+			local pivot = rig:GetPivot()
+			rig:PivotTo(pivot * CFrame.Angles(0, rotY, 0))
+		end
+
+		if recording then
+			ChangeHistoryService:FinishRecording(recording, Enum.FinishRecordingOperation.Commit)
+		end
+
+		setStatus(Locale.fmt("rotationApplied", #models))
+	end))
 
 	-- Botoes +/- de spread
 	conectarBotoesOffset(elements.spreadInput, elements.spreadMinus, elements.spreadPlus)

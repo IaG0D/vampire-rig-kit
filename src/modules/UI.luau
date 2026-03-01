@@ -308,23 +308,86 @@ function UI.criarWidget(pluginInstance: Plugin, callbacks: {
 		clearRigsButton.TextSize = 11
 		clearRigsButton.LayoutOrder = 4
 
-		UIHelpers.criarSeparador(alignPage).LayoutOrder = 5
+		-- Rename Rigs (input + botao lado a lado)
+		local renameFrame = Instance.new("Frame")
+		renameFrame.Name = "RenameFrame"
+		renameFrame.Size = UDim2.new(1, 0, 0, 30)
+		renameFrame.BackgroundTransparency = 1
+		renameFrame.LayoutOrder = 5
+		renameFrame.Parent = alignPage
 
-		local pedestaisHeader = criarSectionHeader(alignPage, Locale.get("pedestalsTitle"), 6)
+		local renameLayout = Instance.new("UIListLayout")
+		renameLayout.FillDirection = Enum.FillDirection.Horizontal
+		renameLayout.Padding = UDim.new(0, 4)
+		renameLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+		renameLayout.Parent = renameFrame
+
+		local renamePrefixInput = Instance.new("TextBox")
+		renamePrefixInput.Name = "RenamePrefixInput"
+		renamePrefixInput.Size = UDim2.new(1, -160, 1, 0)
+		renamePrefixInput.Text = ""
+		renamePrefixInput.PlaceholderText = Locale.get("renamePlaceholder")
+		renamePrefixInput.PlaceholderColor3 = COLORS.textDim
+		renamePrefixInput.TextColor3 = COLORS.text
+		renamePrefixInput.TextSize = 12
+		renamePrefixInput.Font = Enum.Font.GothamMedium
+		renamePrefixInput.BackgroundColor3 = COLORS.input
+		renamePrefixInput.ClearTextOnFocus = false
+		renamePrefixInput.TextXAlignment = Enum.TextXAlignment.Left
+		renamePrefixInput.LayoutOrder = 1
+		renamePrefixInput.Parent = renameFrame
+		UIHelpers.criarCorner(renamePrefixInput, 6)
+
+		local renamePadding = Instance.new("UIPadding")
+		renamePadding.PaddingLeft = UDim.new(0, 8)
+		renamePadding.Parent = renamePrefixInput
+
+		local renameStartInput = Instance.new("TextBox")
+		renameStartInput.Name = "RenameStartInput"
+		renameStartInput.Size = UDim2.new(0, 50, 1, 0)
+		renameStartInput.Text = "1"
+		renameStartInput.PlaceholderText = Locale.get("renameStartPlaceholder")
+		renameStartInput.PlaceholderColor3 = COLORS.textDim
+		renameStartInput.TextColor3 = COLORS.text
+		renameStartInput.TextSize = 12
+		renameStartInput.Font = Enum.Font.GothamMedium
+		renameStartInput.BackgroundColor3 = COLORS.input
+		renameStartInput.ClearTextOnFocus = true
+		renameStartInput.TextXAlignment = Enum.TextXAlignment.Center
+		renameStartInput.LayoutOrder = 2
+		renameStartInput.Parent = renameFrame
+		UIHelpers.criarCorner(renameStartInput, 6)
+
+		local renameRigsButton = Instance.new("TextButton")
+		renameRigsButton.Name = "RenameRigsButton"
+		renameRigsButton.Size = UDim2.new(0, 80, 1, 0)
+		renameRigsButton.Text = Locale.get("renameRigs")
+		renameRigsButton.TextSize = 11
+		renameRigsButton.Font = Enum.Font.GothamBold
+		renameRigsButton.TextColor3 = Color3.new(1, 1, 1)
+		renameRigsButton.BackgroundColor3 = COLORS.button
+		renameRigsButton.AutoButtonColor = true
+		renameRigsButton.LayoutOrder = 3
+		renameRigsButton.Parent = renameFrame
+		UIHelpers.criarCorner(renameRigsButton, 6)
+
+		UIHelpers.criarSeparador(alignPage).LayoutOrder = 6
+
+		local pedestaisHeader = criarSectionHeader(alignPage, Locale.get("pedestalsTitle"), 7)
 
 		local pedestaisCountLabel = UIHelpers.criarLabel(alignPage, {
 			text = Locale.get("noPedestalsDefined"),
 			size = UDim2.new(1, 0, 0, 16),
 			color = COLORS.textDim, textSize = 11,
 		})
-		pedestaisCountLabel.LayoutOrder = 7
+		pedestaisCountLabel.LayoutOrder = 8
 
 		local setPedestaisButton = UIHelpers.criarBotao(alignPage, {
 			text = Locale.get("setPedestals"),
 			size = UDim2.new(1, 0, 0, 32),
 			color = COLORS.primary,
 		})
-		setPedestaisButton.LayoutOrder = 8
+		setPedestaisButton.LayoutOrder = 9
 
 		local clearPedestaisButton = UIHelpers.criarBotao(alignPage, {
 			text = Locale.get("clearPedestals"),
@@ -332,9 +395,9 @@ function UI.criarWidget(pluginInstance: Plugin, callbacks: {
 			color = COLORS.surface,
 		})
 		clearPedestaisButton.TextSize = 11
-		clearPedestaisButton.LayoutOrder = 9
+		clearPedestaisButton.LayoutOrder = 10
 
-		UIHelpers.criarSeparador(alignPage).LayoutOrder = 10
+		UIHelpers.criarSeparador(alignPage).LayoutOrder = 11
 
 		local alignButton = UIHelpers.criarBotao(alignPage, {
 			text = Locale.get("alignButton"),
@@ -343,17 +406,17 @@ function UI.criarWidget(pluginInstance: Plugin, callbacks: {
 		})
 		alignButton.TextSize = 16
 		alignButton.Font = Enum.Font.GothamBold
-		alignButton.LayoutOrder = 11
+		alignButton.LayoutOrder = 12
 
-		UIHelpers.criarSeparador(alignPage).LayoutOrder = 12
+		UIHelpers.criarSeparador(alignPage).LayoutOrder = 13
 
-		local offsetHeader = criarSectionHeader(alignPage, Locale.get("offsetTitle"), 13)
+		local offsetHeader = criarSectionHeader(alignPage, Locale.get("offsetTitle"), 14)
 
 		local offsetFrame = Instance.new("Frame")
 		offsetFrame.Name = "OffsetFrame"
 		offsetFrame.Size = UDim2.new(1, 0, 0, 96)
 		offsetFrame.BackgroundTransparency = 1
-		offsetFrame.LayoutOrder = 14
+		offsetFrame.LayoutOrder = 15
 		offsetFrame.Parent = alignPage
 
 		local offsetLayout = Instance.new("UIListLayout")
@@ -369,31 +432,39 @@ function UI.criarWidget(pluginInstance: Plugin, callbacks: {
 			size = UDim2.new(1, 0, 0, 32),
 			color = COLORS.primary,
 		})
-		applyOffsetButton.LayoutOrder = 15
+		applyOffsetButton.LayoutOrder = 16
 
-		UIHelpers.criarSeparador(alignPage).LayoutOrder = 16
+		UIHelpers.criarSeparador(alignPage).LayoutOrder = 17
 
-		local rotationHeader = criarSectionHeader(alignPage, Locale.get("rotationTitle"), 17)
+		local rotationHeader = criarSectionHeader(alignPage, Locale.get("rotationTitle"), 18)
 
 		local rotationFrame = Instance.new("Frame")
 		rotationFrame.Name = "RotationFrame"
 		rotationFrame.Size = UDim2.new(1, 0, 0, 28)
 		rotationFrame.BackgroundTransparency = 1
-		rotationFrame.LayoutOrder = 18
+		rotationFrame.LayoutOrder = 19
 		rotationFrame.Parent = alignPage
 
 		local rotationY, rotationYMinus, rotationYPlus = UIHelpers.criarLinhaOffset(rotationFrame, "Y")
 
-		UIHelpers.criarSeparador(alignPage).LayoutOrder = 19
+		local applyRotationButton = UIHelpers.criarBotao(alignPage, {
+			text = Locale.get("applyRotation"),
+			size = UDim2.new(1, 0, 0, 28),
+			color = COLORS.button,
+		})
+		applyRotationButton.TextSize = 11
+		applyRotationButton.LayoutOrder = 20
 
-		local modeHeader = criarSectionHeader(alignPage, Locale.get("modeTitle"), 20)
+		UIHelpers.criarSeparador(alignPage).LayoutOrder = 21
+
+		local modeHeader = criarSectionHeader(alignPage, Locale.get("modeTitle"), 22)
 
 		-- Seletor Solo / Duo / Trio
 		local modeFrame = Instance.new("Frame")
 		modeFrame.Name = "ModeFrame"
 		modeFrame.Size = UDim2.new(1, 0, 0, 32)
 		modeFrame.BackgroundTransparency = 1
-		modeFrame.LayoutOrder = 21
+		modeFrame.LayoutOrder = 23
 		modeFrame.Parent = alignPage
 
 		local modeLayout = Instance.new("UIListLayout")
@@ -438,7 +509,7 @@ function UI.criarWidget(pluginInstance: Plugin, callbacks: {
 		spreadFrame.Name = "SpreadFrame"
 		spreadFrame.Size = UDim2.new(1, 0, 0, 28)
 		spreadFrame.BackgroundTransparency = 1
-		spreadFrame.LayoutOrder = 22
+		spreadFrame.LayoutOrder = 24
 		spreadFrame.Parent = alignPage
 
 		local spreadLabel = Instance.new("TextLabel")
@@ -449,14 +520,14 @@ function UI.criarWidget(pluginInstance: Plugin, callbacks: {
 		spreadLabel.TextSize = 11
 		spreadLabel.Font = Enum.Font.GothamMedium
 		spreadLabel.TextXAlignment = Enum.TextXAlignment.Left
-		spreadLabel.LayoutOrder = 22
+		spreadLabel.LayoutOrder = 25
 		spreadLabel.Parent = alignPage
 
 		local spreadInputFrame = Instance.new("Frame")
 		spreadInputFrame.Name = "SpreadInputFrame"
 		spreadInputFrame.Size = UDim2.new(1, 0, 0, 28)
 		spreadInputFrame.BackgroundTransparency = 1
-		spreadInputFrame.LayoutOrder = 23
+		spreadInputFrame.LayoutOrder = 26
 		spreadInputFrame.Parent = alignPage
 
 		local spreadInput, spreadMinus, spreadPlus = UIHelpers.criarLinhaOffset(spreadInputFrame, "↔")
@@ -1085,6 +1156,9 @@ function UI.criarWidget(pluginInstance: Plugin, callbacks: {
 			-- Alinhamento
 			setRigsButton = setRigsButton,
 			clearRigsButton = clearRigsButton,
+			renameRigsButton = renameRigsButton,
+			renamePrefixInput = renamePrefixInput,
+			renameStartInput = renameStartInput,
 			setPedestaisButton = setPedestaisButton,
 			clearPedestaisButton = clearPedestaisButton,
 			alignButton = alignButton,
@@ -1104,6 +1178,7 @@ function UI.criarWidget(pluginInstance: Plugin, callbacks: {
 			rotationY = rotationY,
 			rotationYMinus = rotationYMinus,
 			rotationYPlus = rotationYPlus,
+			applyRotationButton = applyRotationButton,
 			getMode = function() return currentMode end,
 			spreadInput = spreadInput,
 			spreadMinus = spreadMinus,
