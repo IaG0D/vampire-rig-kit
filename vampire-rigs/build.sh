@@ -9,9 +9,6 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SRC_DIR="$SCRIPT_DIR/src"
 OUT_FILE="$SCRIPT_DIR/dist/VampireRigScript.luau"
 
-# Tambem copia pro root do repo (para o gist/loadstring)
-ROOT_OUT="$SCRIPT_DIR/../VampireRigScript.luau"
-
 echo "🦇 Vampire Rigs Bundler"
 echo "========================"
 
@@ -47,10 +44,6 @@ for file in "$SRC_DIR"/*.luau; do
     fi
 done
 
-# Copia pro root
-cp "$OUT_FILE" "$ROOT_OUT"
-
 echo "========================"
 echo "✅ $count modulos → $OUT_FILE"
-echo "✅ Copiado → $ROOT_OUT"
 echo "🦇 Done!"
