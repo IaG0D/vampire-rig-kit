@@ -5,7 +5,7 @@
 local PreviewFrame = Instance.new("Frame")
 PreviewFrame.Name = "Preview"
 PreviewFrame.Size = UDim2.new(0, 320, 0, 550)
-PreviewFrame.Position = UDim2.new(0.3, 330, 0.5, -275)
+PreviewFrame.Position = UDim2.new(0.3, 430, 0.5, -275)
 PreviewFrame.BackgroundColor3 = Colors.bg
 PreviewFrame.BorderSizePixel = 0
 PreviewFrame.Visible = false

@@ -69,8 +69,7 @@ local function extractDescriptionData(desc, rigType)
         end
     end
 
-    -- Propriedades legacy de acessorios (strings com AssetIds separados por virgula)
-    -- Essas propriedades sao scriptable e o engine usa pra posicionar acessorios
+    -- Propriedades legacy de acessorios
     for _, prop in ipairs({
         "HatAccessory", "HairAccessory", "FaceAccessory",
         "NeckAccessory", "ShouldersAccessory", "FrontAccessory",
@@ -103,8 +102,7 @@ local function extractDescriptionData(desc, rigType)
         table.insert(falhou, "Accessories: " .. tostring(accErr))
     end
 
-    -- AccessoryBlob: dados internos de roupas layered
-    -- Propriedade NotScriptable — precisa de gethiddenproperty (executor)
+    -- AccessoryBlob
     if gethiddenproperty then
         local ok, blob = pcall(function()
             return gethiddenproperty(desc, "AccessoryBlob")
@@ -117,9 +115,7 @@ local function extractDescriptionData(desc, rigType)
         end
     end
 
-    -- AccessoryDescriptions: Position/Rotation/Scale de cada acessorio
-    -- Esses children do HumanoidDescription contem os ajustes do Avatar Editor
-    -- É a forma oficial do Roblox pra persistir posicao customizada
+    -- AccessoryDescriptions
     local adjOk, adjErr = pcall(function()
         local accDescriptions = {}
         for _, child in ipairs(desc:GetChildren()) do
@@ -128,7 +124,6 @@ local function extractDescriptionData(desc, rigType)
                 local rot = child.Rotation
                 local scl = child.Scale
 
-                -- Só salva se diferente do padrão (0,0,0 / 0,0,0 / 1,1,1)
                 local posChanged = pos.X ~= 0 or pos.Y ~= 0 or pos.Z ~= 0
                 local rotChanged = rot.X ~= 0 or rot.Y ~= 0 or rot.Z ~= 0
                 local sclChanged = scl.X ~= 1 or scl.Y ~= 1 or scl.Z ~= 1
@@ -152,7 +147,6 @@ local function extractDescriptionData(desc, rigType)
         table.insert(falhou, "AccessoryDescriptions: " .. tostring(adjErr))
     end
 
-    -- Log resumo
     log("  CAPTURADO:", table.concat(capturado, ", "))
     if #falhou > 0 then
         log("  FALHOU:", table.concat(falhou, ", "))
@@ -175,7 +169,6 @@ local function loadRigData(info)
 
     local character = info.character
 
-    -- Atualiza referencia se for player
     if info.player and info.player.Character then
         character = info.player.Character
         info.character = character
@@ -192,7 +185,6 @@ local function loadRigData(info)
         return false
     end
 
-    -- Pega o HumanoidDescription OBJETO (nao so dados)
     log("  Pegando HumanoidDescription...")
     info.humanoidDescription = getHumanoidDescription(humanoid)
 
@@ -201,11 +193,7 @@ local function loadRigData(info)
         info.rigType = humanoid.RigType
         info.fullDescription = extractDescriptionData(info.humanoidDescription, humanoid.RigType.Name)
 
-        -- Captura CFrame real dos attachments de cada acessorio RIGIDO no character
-        -- Isso preserva posicao/rotacao customizada do Avatar Editor
-        -- Cross-referencia com Accessories pra pegar AssetId (gethiddenproperty falha)
         pcall(function()
-            -- Mapa de AttachmentName → AccessoryType pra cross-referencia
             local ATT_TO_TYPE = {
                 HatAttachment = "Hat",
                 HairAttachment = "Hair",
@@ -220,7 +208,6 @@ local function loadRigData(info)
                 LeftCollarAttachment = "Shoulder",
             }
 
-            -- Agrupa AssetIds de acessorios RIGIDOS por tipo (da lista do GetAccessories)
             local rigidByType = {}
             if info.fullDescription and info.fullDescription.Accessories then
                 for _, acc in ipairs(info.fullDescription.Accessories) do
@@ -243,18 +230,15 @@ local function loadRigData(info)
                             if att:IsA("Attachment") and not att.Name:match("^Rig") then
                                 local accType = ATT_TO_TYPE[att.Name]
                                 if accType then
-                                    -- Cross-referencia pra pegar AssetId da lista de Accessories
                                     typeCounters[accType] = (typeCounters[accType] or 0) + 1
                                     local idx = typeCounters[accType]
                                     local assetId = rigidByType[accType] and rigidByType[accType][idx] or 0
 
-                                    -- So inclui se tem AssetId valido (pula layered sem match)
                                     if assetId ~= 0 then
                                         local cf = att.CFrame
                                         local pos = cf.Position
                                         local rx, ry, rz = cf:ToOrientation()
 
-                                        -- Captura scale uniforme do Handle
                                         local scale = 1
                                         pcall(function()
                                             local mesh = handle:FindFirstChildOfClass("SpecialMesh")
@@ -289,7 +273,6 @@ local function loadRigData(info)
         log("  HumanoidDescription: FALHOU")
     end
 
-    -- Salva posicao
     local hrp = character:FindFirstChild("HumanoidRootPart")
     info.savedPosition = hrp and hrp.CFrame or CFrame.new()
 
@@ -318,7 +301,6 @@ local function generatePreviewRig(info)
         return nil
     end
 
-    -- Usa CreateHumanoidModelFromDescription pra gerar o rig!
     local rigType = info.rigType or Enum.HumanoidRigType.R15
 
     log("  Gerando rig tipo:", tostring(rigType))
@@ -330,28 +312,23 @@ local function generatePreviewRig(info)
     if success and model then
         log("  Rig gerado com sucesso!")
 
-        -- Parenta no workspace temporariamente pra Motor6D resolver as posicoes
         model:PivotTo(CFrame.new(0, -500, 0))
         model.Parent = workspace
 
-        -- Remove scripts antes do wait
         for _, obj in pairs(model:GetDescendants()) do
             if obj:IsA("BaseScript") then
                 obj:Destroy()
             end
         end
 
-        -- Espera 1 frame pro Motor6D solver montar o rig corretamente
         task.wait()
 
-        -- Ancora todas as partes DEPOIS do Motor6D resolver
         for _, part in pairs(model:GetDescendants()) do
             if part:IsA("BasePart") then
                 part.Anchored = true
             end
         end
 
-        -- Remove do workspace (vai pro ViewportFrame depois)
         model.Parent = nil
 
         return model

@@ -5,8 +5,8 @@
 local scannerOpen = false
 local tweenInfo = TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 local tweenInfoIn = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
-local miniBarTarget = UDim2.new(1, -220, 1, -70) -- posicao inicial (visivel)
-local lastMiniBarPos = miniBarTarget -- salva posicao do usuario
+local miniBarTarget = UDim2.new(1, -220, 1, -70)
+local lastMiniBarPos = miniBarTarget
 
 -- Anima entrada da MiniBar (slide da direita)
 task.delay(0.3, function()
@@ -73,21 +73,20 @@ local function openScanner()
     if scannerOpen then return end
     scannerOpen = true
 
-    -- Salva posicao atual (pode ter sido arrastada)
     lastMiniBarPos = MiniBar.Position
-
-    -- Esconde MiniBar
     MiniBar.Visible = false
 
-    -- Mostra MainFrame com scale + fade
     MainFrame.Visible = true
-    MainFrame.Size = UDim2.new(0, 280, 0, 420)
+    MainFrame.Size = UDim2.new(0, 380, 0, 500)
     MainFrame.BackgroundTransparency = 0.3
     local openTween = TweenService:Create(MainFrame, tweenInfo, {
-        Size = UDim2.new(0, 320, 0, 480),
+        Size = UDim2.new(0, 420, 0, 560),
         BackgroundTransparency = 0,
     })
     openTween:Play()
+
+    -- Set default tab
+    switchTab(activeTab)
 
     MiniHint.Text = "Ctrl+G to close"
 end
@@ -96,26 +95,21 @@ local function closeScanner()
     if not scannerOpen then return end
     scannerOpen = false
 
-    -- Fecha sub-paineis
     PreviewFrame.Visible = false
-    SavePanel.Visible = false
 
-    -- Anima MainFrame saindo
     local closeTween = TweenService:Create(MainFrame, tweenInfoIn, {
-        Size = UDim2.new(0, 280, 0, 420),
+        Size = UDim2.new(0, 380, 0, 500),
         BackgroundTransparency = 0.5,
     })
     closeTween:Play()
     closeTween.Completed:Connect(function()
         if not scannerOpen then
             MainFrame.Visible = false
-            -- Reseta tamanho pra proxima abertura
-            MainFrame.Size = UDim2.new(0, 320, 0, 480)
+            MainFrame.Size = UDim2.new(0, 420, 0, 560)
             MainFrame.BackgroundTransparency = 0
         end
     end)
 
-    -- Traz MiniBar de volta na posicao que o usuario deixou
     MiniBar.Position = lastMiniBarPos
     MiniBar.Visible = true
 

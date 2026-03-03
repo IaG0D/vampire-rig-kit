@@ -26,14 +26,12 @@ local function showPreview(info)
     ViewportStatus.Text = "Carregando..."
     InfoLabel.Text = "Carregando dados..."
 
-    -- Carrega dados se necessario
     if not info.loaded then
         log("  Carregando dados...")
         task.spawn(function()
             local success = loadRigData(info)
 
             if success then
-                -- Atualiza card
                 if info.cardFrame then
                     info.cardFrame.BackgroundColor3 = Colors.cardLoaded
                 end
@@ -51,7 +49,6 @@ local function showPreview(info)
         return
     end
 
-    -- GERAR RIG PARA PREVIEW
     log("  Gerando preview...")
     ViewportStatus.Text = "Gerando rig..."
 
@@ -59,21 +56,17 @@ local function showPreview(info)
         local previewModel = generatePreviewRig(info)
 
         if previewModel then
-            -- Camera
             local camera = Instance.new("Camera")
             camera.FieldOfView = 50
             camera.Parent = Viewport
             Viewport.CurrentCamera = camera
 
-            -- WorldModel
             local worldModel = Instance.new("WorldModel")
             worldModel.Parent = Viewport
             previewModel.Parent = worldModel
 
-            -- Centraliza (PivotTo preserva joints do R15)
             previewModel:PivotTo(CFrame.new(0, 0, 0))
 
-            -- Rotacao
             local angle = 0
             previewConnection = RunService.RenderStepped:Connect(function(dt)
                 angle = angle + dt * 0.8
@@ -90,7 +83,6 @@ local function showPreview(info)
         end
     end)
 
-    -- INFO TEXT
     local desc = info.fullDescription
     if desc then
         local txt = "=== " .. info.name .. " ===\n"

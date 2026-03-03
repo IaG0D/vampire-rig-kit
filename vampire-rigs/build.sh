@@ -18,9 +18,9 @@ echo "========================"
 # Header
 cat >> "$OUT_FILE" << 'HEADER'
 --==================================================
--- VAMPIRE RIG SCANNER v12 - PREMIUM UI
+-- VAMPIRE RIG SCANNER v13 - TAB SYSTEM + FULL FEATURES
 -- Create By VampireSonata
--- Gera o rig no preview ao inves de clonar!
+-- Tabs: Scanner, ESP, Players, Movement, TP, Settings
 -- ⚡ Bundled automaticamente — NÃO edite este arquivo!
 -- ⚡ Edite os modulos em vampire-rigs/src/
 --==================================================

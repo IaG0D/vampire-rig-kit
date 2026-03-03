@@ -2,8 +2,7 @@
 -- SPECTATE MODE
 --==================================================
 
-local function startSpectate(info)
-    -- Pega o character atual do target
+startSpectate = function(info)
     local targetChar = info.character
     if info.player and info.player.Character then
         targetChar = info.player.Character
@@ -11,35 +10,32 @@ local function startSpectate(info)
 
     if not targetChar then
         log("Spectate: character not found")
+        notify("Spectate: character not found", "error")
         return
     end
 
     local humanoid = targetChar:FindFirstChildOfClass("Humanoid")
     if not humanoid then
         log("Spectate: no Humanoid found")
+        notify("Spectate: no Humanoid", "error")
         return
     end
 
-    -- Se ja ta spectando o mesmo, desspecta
     if spectatingInfo and spectatingInfo == info then
         stopSpectate()
         return
     end
 
-    -- Limpa spectate anterior
     if spectatingInfo then
         stopSpectate()
     end
 
-    -- Salva camera original
     local camera = workspace.CurrentCamera
     savedCameraSubject = camera.CameraSubject
 
-    -- Seta camera no target
     camera.CameraSubject = humanoid
     spectatingInfo = info
 
-    -- Cria Highlight blood no character
     if spectateHighlight then
         spectateHighlight:Destroy()
     end
@@ -52,23 +48,21 @@ local function startSpectate(info)
     spectateHighlight.Adornee = targetChar
     spectateHighlight.Parent = targetChar
 
-    -- Mostra botao unspectate
     UnspectateBtn.Visible = true
     UnspectateBtn.Text = "🦇 UNSPECTATE (" .. info.name .. ")"
 
+    notify("Spectating: " .. info.name, "info")
     log("Spectating:", info.name)
 end
 
-local function stopSpectate()
+stopSpectate = function()
     if not spectatingInfo then return end
 
-    -- Restaura camera
     local camera = workspace.CurrentCamera
     if savedCameraSubject then
         camera.CameraSubject = savedCameraSubject
         savedCameraSubject = nil
     else
-        -- Fallback: volta pro character local
         local localChar = LP.Character
         if localChar then
             local hum = localChar:FindFirstChildOfClass("Humanoid")
@@ -78,7 +72,6 @@ local function stopSpectate()
         end
     end
 
-    -- Remove highlight
     if spectateHighlight then
         spectateHighlight:Destroy()
         spectateHighlight = nil
@@ -87,5 +80,6 @@ local function stopSpectate()
     spectatingInfo = nil
     UnspectateBtn.Visible = false
 
+    notify("Spectate stopped", "info")
     log("Spectate stopped")
 end
