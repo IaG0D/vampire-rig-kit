@@ -121,9 +121,23 @@ espState = {
     healthBars = false,
     boxESP = false,
     chams = false,
+    tracers = false,
+    skeleton = false,
+    headDot = false,
+    threatLevel = false,
+    toolESP = false,
+    soundESP = false,
+    footsteps = false,
 }
 espConnection = nil
 espObjects = {}
+tracerLines = {}
+skeletonBeams = {}
+headDotObjects = {}
+footstepParts = {}
+footstepConnection = nil
+soundEspObjects = {}
+soundEspConnection = nil
 
 -- Movement state
 movementState = {
@@ -206,12 +220,28 @@ cosmeticState = {
 trollConnection = nil
 trollTarget = nil
 trollSpeedMul = 1
+trollSavedCFrame = nil
 
 -- Remote spy state
 remoteSpyActive = false
 remoteSpyLog = {}
 remoteSpyHook = nil
 scannedRemotes = {}
+
+-- Anti-AFK state
+antiAfkActive = false
+antiAfkConnection = nil
+
+-- Chat spy state
+chatSpyActive = false
+chatSpyLog = {}
+chatSpyConnections = {}
+
+-- Player info state
+playerInfoState = { active = false }
+playerInfoActive = false
+playerInfoBillboards = {}
+playerInfoConnection = nil
 
 -- Forward-declared functions are assigned as globals by later modules
 -- (removed local forward declarations to stay under Lua's 200 local limit)
@@ -1101,9 +1131,13 @@ ESPScroll.Size = UDim2.new(1, 0, 1, 0)
 ESPScroll.BackgroundTransparency = 1
 ESPScroll.ScrollBarThickness = 3
 ESPScroll.ScrollBarImageColor3 = Colors.blood
-ESPScroll.CanvasSize = UDim2.new(0, 0, 0, 340)
+ESPScroll.CanvasSize = UDim2.new(0, 0, 0, 670)
 ESPScroll.BorderSizePixel = 0
 ESPScroll.Parent = ESPContent
+
+--==================================================
+-- SECTION: Players & NPCs
+--==================================================
 
 createSectionHeader(ESPScroll, "Players & NPCs", 0)
 
@@ -1113,17 +1147,55 @@ espToggles.players = createVampToggle(ESPScroll, "Player ESP", "players", espSta
 espToggles.npcs = createVampToggle(ESPScroll, "NPC ESP", "npcs", espState, 56, Colors.green)
 espToggles.cameras = createVampToggle(ESPScroll, "Camera ESP", "cameras", espState, 86, Colors.warning)
 
-createSectionHeader(ESPScroll, "Visual Extras", 120)
+--==================================================
+-- SECTION: Visual Modes
+--==================================================
+
+createSectionHeader(ESPScroll, "Visual Modes", 120)
 
 espToggles.healthBars = createVampToggle(ESPScroll, "Health Bars", "healthBars", espState, 146, Colors.bloodLight)
 espToggles.boxESP = createVampToggle(ESPScroll, "Box Highlight", "boxESP", espState, 176, Colors.glowPurple)
 espToggles.chams = createVampToggle(ESPScroll, "Chams (Fill)", "chams", espState, 206, Colors.glowRed)
 
-createSectionHeader(ESPScroll, "Info", 244)
+--==================================================
+-- SECTION: Tracking
+--==================================================
+
+createSectionHeader(ESPScroll, "Tracking", 240)
+
+espToggles.tracers = createVampToggle(ESPScroll, "Tracers (Lines)", "tracers", espState, 266, Color3.fromRGB(0, 180, 255))
+espToggles.skeleton = createVampToggle(ESPScroll, "Skeleton ESP", "skeleton", espState, 296, Color3.fromRGB(200, 200, 200))
+espToggles.headDot = createVampToggle(ESPScroll, "Head Dot", "headDot", espState, 326, Color3.fromRGB(255, 80, 80))
+espToggles.threatLevel = createVampToggle(ESPScroll, "Threat Level", "threatLevel", espState, 356, Color3.fromRGB(255, 160, 0))
+espToggles.toolESP = createVampToggle(ESPScroll, "Tool ESP", "toolESP", espState, 386, Color3.fromRGB(180, 120, 255))
+
+--==================================================
+-- SECTION: World
+--==================================================
+
+createSectionHeader(ESPScroll, "World", 420)
+
+-- These toggles are NOT in espToggles — they have separate start/stop
+FootstepsToggle = createVampToggle(ESPScroll, "Footsteps Trail", "footsteps", espState, 446, Color3.fromRGB(120, 200, 80))
+SoundESPToggle = createVampToggle(ESPScroll, "Sound ESP", "soundESP", espState, 476, Color3.fromRGB(255, 200, 60))
+
+--==================================================
+-- SECTION: Player Details
+--==================================================
+
+createSectionHeader(ESPScroll, "Player Details", 510)
+
+PlayerInfoToggle = createVampToggle(ESPScroll, "Player Info Cards", "active", playerInfoState, 536, Color3.fromRGB(40, 180, 60))
+
+--==================================================
+-- SECTION: Info
+--==================================================
+
+createSectionHeader(ESPScroll, "Info", 570)
 
 local ESPStatusLabel = Instance.new("TextLabel")
 ESPStatusLabel.Size = UDim2.new(1, 0, 0, 20)
-ESPStatusLabel.Position = UDim2.new(0, 0, 0, 270)
+ESPStatusLabel.Position = UDim2.new(0, 0, 0, 596)
 ESPStatusLabel.BackgroundTransparency = 1
 ESPStatusLabel.Text = "ESP OFF — toggle features above"
 ESPStatusLabel.TextColor3 = Colors.textDim
@@ -1135,7 +1207,7 @@ ESPStatusLabel.Parent = ESPScroll
 -- Master OFF button
 local ESPOffBtn = Instance.new("TextButton")
 ESPOffBtn.Size = UDim2.new(1, 0, 0, 28)
-ESPOffBtn.Position = UDim2.new(0, 0, 0, 300)
+ESPOffBtn.Position = UDim2.new(0, 0, 0, 626)
 ESPOffBtn.BackgroundColor3 = Colors.bloodDark
 ESPOffBtn.Text = "🔴 DISABLE ALL ESP"
 ESPOffBtn.TextColor3 = Colors.text
@@ -1164,11 +1236,31 @@ tabContents["player"] = PlayerContent
 
 createSectionHeader(PlayerContent, "Online Players", 0)
 
+-- Search bar
+PlayerSearchBox = Instance.new("TextBox")
+PlayerSearchBox.Size = UDim2.new(1, -8, 0, 22)
+PlayerSearchBox.Position = UDim2.new(0, 4, 0, 24)
+PlayerSearchBox.BackgroundColor3 = Colors.content
+PlayerSearchBox.Text = ""
+PlayerSearchBox.PlaceholderText = "Search players..."
+PlayerSearchBox.PlaceholderColor3 = Colors.textDim
+PlayerSearchBox.TextColor3 = Colors.text
+PlayerSearchBox.TextSize = 10
+PlayerSearchBox.Font = Enum.Font.Code
+PlayerSearchBox.TextXAlignment = Enum.TextXAlignment.Left
+PlayerSearchBox.ClearTextOnFocus = false
+PlayerSearchBox.Parent = PlayerContent
+Instance.new("UICorner", PlayerSearchBox).CornerRadius = UDim.new(0, 4)
+Instance.new("UIPadding", PlayerSearchBox).PaddingLeft = UDim.new(0, 6)
+local psStroke = Instance.new("UIStroke", PlayerSearchBox)
+psStroke.Color = Colors.separator
+psStroke.Thickness = 0.5
+
 -- Player list scroll
 local PlayerScroll = Instance.new("ScrollingFrame")
 PlayerScroll.Name = "PlayerScroll"
-PlayerScroll.Size = UDim2.new(1, 0, 1, -100)
-PlayerScroll.Position = UDim2.new(0, 0, 0, 26)
+PlayerScroll.Size = UDim2.new(1, 0, 1, -126)
+PlayerScroll.Position = UDim2.new(0, 0, 0, 50)
 PlayerScroll.BackgroundColor3 = Colors.content
 PlayerScroll.BorderSizePixel = 0
 PlayerScroll.ScrollBarThickness = 4
@@ -1864,8 +1956,8 @@ end
 
 TrollPanel = Instance.new("Frame")
 TrollPanel.Name = "TrollPanel"
-TrollPanel.Size = UDim2.new(0, 240, 0, 770)
-TrollPanel.Position = UDim2.new(0.5, 130, 0.5, -385)
+TrollPanel.Size = UDim2.new(0, 240, 0, 710)
+TrollPanel.Position = UDim2.new(0.5, 130, 0.5, -355)
 TrollPanel.BackgroundColor3 = Colors.bg
 TrollPanel.BorderSizePixel = 0
 TrollPanel.Visible = false
@@ -1968,13 +2060,24 @@ TrollTargetLabel.TextXAlignment = Enum.TextXAlignment.Left
 TrollTargetLabel.Parent = TrollPanel
 
 --==================================================
--- SECTION: ACTIONS
+-- SECTION: ACTIONS (SCROLLABLE)
 --==================================================
 
 addAccentLine(TrollPanel, UDim2.new(0, 10, 0, 150), Colors.blood, UDim2.new(1, -20, 0, 1))
 
+-- Scrollable button area
+TrollBtnScroll = Instance.new("ScrollingFrame")
+TrollBtnScroll.Size = UDim2.new(1, 0, 0, 400)
+TrollBtnScroll.Position = UDim2.new(0, 0, 0, 155)
+TrollBtnScroll.BackgroundTransparency = 1
+TrollBtnScroll.BorderSizePixel = 0
+TrollBtnScroll.ScrollBarThickness = 4
+TrollBtnScroll.ScrollBarImageColor3 = Colors.blood
+TrollBtnScroll.CanvasSize = UDim2.new(0, 0, 0, 756)
+TrollBtnScroll.Parent = TrollPanel
+
 --==================================================
--- TROLL BUTTON GRID (2 columns × 7 rows, 40px buttons)
+-- TROLL BUTTON GRID (2 columns, scrollable)
 --==================================================
 
 -- Helper to create a troll action button (40px height, compact)
@@ -2004,66 +2107,80 @@ createTrollBtn = function(parent, text, yPos, xCol, color)
     return btn
 end
 
--- Row 1 (y=158)
-TrollFlingBtn = createTrollBtn(TrollPanel, "💥 FLING", 158, 0, Colors.glowRed)
-TrollHeadsitBtn = createTrollBtn(TrollPanel, "🪑 HEADSIT", 158, 1, Colors.warning)
+-- Row 1 (y=4)
+TrollFlingBtn = createTrollBtn(TrollBtnScroll, "💥 FLING", 4, 0, Colors.glowRed)
+TrollHeadsitBtn = createTrollBtn(TrollBtnScroll, "🪑 HEADSIT", 4, 1, Colors.warning)
 
--- Row 2 (y=202)
-TrollBangBtn = createTrollBtn(TrollPanel, "😏 BANG", 202, 0, Colors.purple)
-TrollBang2Btn = createTrollBtn(TrollPanel, "🍑 BANG 2", 202, 1, Color3.fromRGB(180, 50, 100))
+-- Row 2 (y=48)
+TrollBangBtn = createTrollBtn(TrollBtnScroll, "😏 BANG", 48, 0, Colors.purple)
+TrollBang2Btn = createTrollBtn(TrollBtnScroll, "🍑 BANG 2", 48, 1, Color3.fromRGB(180, 50, 100))
 
--- Row 3 (y=246)
-TrollBackpackBtn = createTrollBtn(TrollPanel, "🎒 BACKPACK", 246, 0, Color3.fromRGB(40, 100, 120))
-TrollOrbitBtn = createTrollBtn(TrollPanel, "🌀 ORBIT", 246, 1, Colors.green)
+-- Row 3 (y=92)
+TrollBackpackBtn = createTrollBtn(TrollBtnScroll, "🎒 BACKPACK", 92, 0, Color3.fromRGB(40, 100, 120))
+TrollOrbitBtn = createTrollBtn(TrollBtnScroll, "🌀 ORBIT", 92, 1, Colors.green)
 
--- Row 4 (y=290)
-TrollHelicopterBtn = createTrollBtn(TrollPanel, "🚁 HELICOPTER", 290, 0, Color3.fromRGB(200, 80, 40))
-TrollSpinTopBtn = createTrollBtn(TrollPanel, "🌪 SPIN TOP", 290, 1, Color3.fromRGB(180, 50, 180))
+-- Row 4 (y=136)
+TrollHelicopterBtn = createTrollBtn(TrollBtnScroll, "🚁 HELICOPTER", 136, 0, Color3.fromRGB(200, 80, 40))
+TrollSpinTopBtn = createTrollBtn(TrollBtnScroll, "🌪 SPIN TOP", 136, 1, Color3.fromRGB(180, 50, 180))
 
--- Row 5 (y=334)
-TrollTrampolineBtn = createTrollBtn(TrollPanel, "🦘 TRAMPOLINE", 334, 0, Color3.fromRGB(50, 160, 80))
-TrollCreepBtn = createTrollBtn(TrollPanel, "👀 CREEP", 334, 1, Color3.fromRGB(60, 60, 60))
+-- Row 5 (y=180)
+TrollTrampolineBtn = createTrollBtn(TrollBtnScroll, "🦘 TRAMPOLINE", 180, 0, Color3.fromRGB(50, 160, 80))
+TrollCreepBtn = createTrollBtn(TrollBtnScroll, "👀 CREEP", 180, 1, Color3.fromRGB(60, 60, 60))
 
--- Row 6 (y=378)
-TrollFlingAllBtn = createTrollBtn(TrollPanel, "💣 FLING ALL", 378, 0, Colors.bloodDark)
-TrollLaunchBtn = createTrollBtn(TrollPanel, "🚀 LAUNCH", 378, 1, Color3.fromRGB(80, 40, 160))
+-- Row 6 (y=224)
+TrollFlingAllBtn = createTrollBtn(TrollBtnScroll, "💣 FLING ALL", 224, 0, Colors.bloodDark)
+TrollLaunchBtn = createTrollBtn(TrollBtnScroll, "🚀 LAUNCH", 224, 1, Color3.fromRGB(80, 40, 160))
 
--- Row 7 (y=422)
-TrollCarpetBtn = createTrollBtn(TrollPanel, "🧎 CARPET", 422, 0, Color3.fromRGB(140, 100, 40))
-TrollDizzyBtn = createTrollBtn(TrollPanel, "😵 DIZZY", 422, 1, Color3.fromRGB(220, 60, 180))
+-- Row 7 (y=268)
+TrollCarpetBtn = createTrollBtn(TrollBtnScroll, "🧎 CARPET", 268, 0, Color3.fromRGB(140, 100, 40))
+TrollDizzyBtn = createTrollBtn(TrollBtnScroll, "😵 DIZZY", 268, 1, Color3.fromRGB(220, 60, 180))
 
---==================================================
--- CRASH SECTION
---==================================================
+-- Row 8 (y=312)
+TrollMagnetBtn = createTrollBtn(TrollBtnScroll, "🧲 MAGNET", 312, 0, Color3.fromRGB(40, 80, 160))
+TrollCloneBtn = createTrollBtn(TrollBtnScroll, "👤 CLONE", 312, 1, Color3.fromRGB(60, 60, 60))
 
-addAccentLine(TrollPanel, UDim2.new(0, 10, 0, 468), Color3.fromRGB(255, 40, 40), UDim2.new(1, -20, 0, 1))
+-- Row 9 (y=356)
+TrollUpsideDownBtn = createTrollBtn(TrollBtnScroll, "🙃 UPSIDE DOWN", 356, 0, Color3.fromRGB(120, 60, 160))
+TrollTornadoBtn = createTrollBtn(TrollBtnScroll, "🌪 TORNADO", 356, 1, Color3.fromRGB(30, 120, 140))
 
-TrollCrashLabel = Instance.new("TextLabel")
-TrollCrashLabel.Size = UDim2.new(1, -20, 0, 16)
-TrollCrashLabel.Position = UDim2.new(0, 10, 0, 472)
-TrollCrashLabel.BackgroundTransparency = 1
-TrollCrashLabel.Text = "💀 CRASH / STRESS"
-TrollCrashLabel.TextColor3 = Color3.fromRGB(255, 60, 60)
-TrollCrashLabel.TextSize = 9
-TrollCrashLabel.Font = Enum.Font.GothamBold
-TrollCrashLabel.TextXAlignment = Enum.TextXAlignment.Center
-TrollCrashLabel.Parent = TrollPanel
+-- Row 10 (y=400)
+TrollSnakeBtn = createTrollBtn(TrollBtnScroll, "🐍 SNAKE", 400, 0, Color3.fromRGB(60, 140, 40))
+TrollMirrorBtn = createTrollBtn(TrollBtnScroll, "🪞 MIRROR", 400, 1, Color3.fromRGB(100, 140, 200))
 
--- Row 8 (y=492)
-TrollCrashFxBtn = createTrollBtn(TrollPanel, "💀 CRASH FX", 492, 0, Color3.fromRGB(120, 20, 20))
-TrollMegaFlingBtn = createTrollBtn(TrollPanel, "💀 MEGA FLING", 492, 1, Color3.fromRGB(140, 10, 10))
+-- Row 11 (y=444)
+TrollStackBtn = createTrollBtn(TrollBtnScroll, "🏋 STACK", 444, 0, Color3.fromRGB(180, 120, 40))
+TrollFigure8Btn = createTrollBtn(TrollBtnScroll, "🔄 FIGURE 8", 444, 1, Color3.fromRGB(60, 120, 180))
 
--- Row 9 (y=536)
-TrollSeizureBtn = createTrollBtn(TrollPanel, "⚡ SEIZURE", 536, 0, Color3.fromRGB(160, 30, 80))
-TrollRemoteFloodBtn = createTrollBtn(TrollPanel, "🌊 RMT FLOOD", 536, 1, Color3.fromRGB(80, 20, 120))
+-- Row 12 (y=488)
+TrollDogBtn = createTrollBtn(TrollBtnScroll, "🐶 DOG", 488, 0, Color3.fromRGB(140, 100, 60))
+TrollFerrisBtn = createTrollBtn(TrollBtnScroll, "🎡 FERRIS", 488, 1, Color3.fromRGB(200, 60, 120))
+
+-- Row 13 (y=532)
+TrollSalsaBtn = createTrollBtn(TrollBtnScroll, "💃 SALSA", 532, 0, Color3.fromRGB(200, 40, 80))
+TrollUfoBtn = createTrollBtn(TrollBtnScroll, "🛸 UFO", 532, 1, Color3.fromRGB(80, 180, 80))
+
+-- Row 14 (y=576)
+TrollBoomerangBtn = createTrollBtn(TrollBtnScroll, "🪃 BOOMERANG", 576, 0, Color3.fromRGB(200, 140, 40))
+TrollRollerBtn = createTrollBtn(TrollBtnScroll, "🎢 ROLLER", 576, 1, Color3.fromRGB(40, 100, 200))
+
+-- Row 15 (y=620)
+TrollSpiralBtn = createTrollBtn(TrollBtnScroll, "🌀 SPIRAL", 620, 0, Color3.fromRGB(160, 40, 200))
+TrollSurfBtn = createTrollBtn(TrollBtnScroll, "🏄 SURF", 620, 1, Color3.fromRGB(40, 160, 200))
+
+-- Row 16 (y=664)
+TrollBouncerBtn = createTrollBtn(TrollBtnScroll, "🎪 BOUNCER", 664, 0, Color3.fromRGB(200, 100, 40))
+TrollLapSitBtn = createTrollBtn(TrollBtnScroll, "💺 LAP SIT", 664, 1, Color3.fromRGB(160, 60, 100))
+
+-- Row 17 (y=708)
+TrollWaveBtn = createTrollBtn(TrollBtnScroll, "🌊 WAVE", 708, 0, Color3.fromRGB(40, 120, 180))
 
 --==================================================
 -- TROLL SPEED SLIDER
 --==================================================
 
-addAccentLine(TrollPanel, UDim2.new(0, 10, 0, 584), Colors.blood, UDim2.new(1, -20, 0, 1))
+addAccentLine(TrollPanel, UDim2.new(0, 10, 0, 558), Colors.blood, UDim2.new(1, -20, 0, 1))
 
-TrollSpeedSlider = createSliderRow(TrollPanel, "Troll Speed", 0.5, 5, 1, 590, function(val)
+TrollSpeedSlider = createSliderRow(TrollPanel, "Troll Speed", 0.5, 5, 1, 564, function(val)
     trollSpeedMul = val
 end)
 
@@ -2073,7 +2190,7 @@ end)
 
 TrollStopBtn = Instance.new("TextButton")
 TrollStopBtn.Size = UDim2.new(1, -20, 0, 30)
-TrollStopBtn.Position = UDim2.new(0, 10, 0, 636)
+TrollStopBtn.Position = UDim2.new(0, 10, 0, 610)
 TrollStopBtn.BackgroundColor3 = Colors.warning
 TrollStopBtn.Text = "⛔ STOP TROLL"
 TrollStopBtn.TextColor3 = Colors.bg
@@ -2090,7 +2207,7 @@ makeHoverable(TrollStopBtn, Colors.warning, Color3.fromRGB(230, 180, 60))
 
 TrollCloseBottomBtn = Instance.new("TextButton")
 TrollCloseBottomBtn.Size = UDim2.new(1, -20, 0, 26)
-TrollCloseBottomBtn.Position = UDim2.new(0, 10, 0, 672)
+TrollCloseBottomBtn.Position = UDim2.new(0, 10, 0, 646)
 TrollCloseBottomBtn.BackgroundColor3 = Colors.bloodDark
 TrollCloseBottomBtn.Text = "🔴 CLOSE"
 TrollCloseBottomBtn.TextColor3 = Colors.text
@@ -2586,6 +2703,240 @@ openRemoteSpyPanel = function()
 end
 
 
+--[[ ═══════ MODULE: 09e_chatspy_panel.luau ═══════ ]]
+
+--==================================================
+-- CHAT SPY PANEL — FLOATING
+-- Espiona mensagens do chat em tempo real
+-- Todas as variaveis sao GLOBALS para nao gastar locals
+--==================================================
+
+ChatSpyPanel = Instance.new("Frame")
+ChatSpyPanel.Name = "ChatSpyPanel"
+ChatSpyPanel.Size = UDim2.new(0, 260, 0, 420)
+ChatSpyPanel.Position = UDim2.new(0.5, 160, 0.5, -210)
+ChatSpyPanel.BackgroundColor3 = Colors.bg
+ChatSpyPanel.BorderSizePixel = 0
+ChatSpyPanel.Visible = false
+ChatSpyPanel.Parent = ScreenGui
+
+Instance.new("UICorner", ChatSpyPanel).CornerRadius = UDim.new(0, 10)
+ChatSpyPanelStroke = Instance.new("UIStroke", ChatSpyPanel)
+ChatSpyPanelStroke.Color = Color3.fromRGB(40, 180, 60)
+ChatSpyPanelStroke.Thickness = 1.5
+addGradient(ChatSpyPanel, Colors.surfaceLight, Color3.fromRGB(6, 10, 6), 90)
+
+--==================================================
+-- TOP BAR
+--==================================================
+
+ChatSpyTopBar = Instance.new("Frame")
+ChatSpyTopBar.Size = UDim2.new(1, 0, 0, 32)
+ChatSpyTopBar.BackgroundColor3 = Colors.topbar
+ChatSpyTopBar.BorderSizePixel = 0
+ChatSpyTopBar.Parent = ChatSpyPanel
+Instance.new("UICorner", ChatSpyTopBar).CornerRadius = UDim.new(0, 10)
+addGradient(ChatSpyTopBar, Color3.fromRGB(8, 28, 8), Colors.topbar, 0)
+
+-- Fix bottom corners
+ChatSpyTopBarFix = Instance.new("Frame")
+ChatSpyTopBarFix.Size = UDim2.new(1, 0, 0, 10)
+ChatSpyTopBarFix.Position = UDim2.new(0, 0, 1, -10)
+ChatSpyTopBarFix.BackgroundColor3 = Colors.topbar
+ChatSpyTopBarFix.BorderSizePixel = 0
+ChatSpyTopBarFix.Parent = ChatSpyTopBar
+
+addAccentLine(ChatSpyTopBar, UDim2.new(0, 0, 1, -1), Color3.fromRGB(40, 180, 60))
+
+ChatSpyTitle = Instance.new("TextLabel")
+ChatSpyTitle.Size = UDim2.new(1, -40, 1, 0)
+ChatSpyTitle.Position = UDim2.new(0, 10, 0, 0)
+ChatSpyTitle.BackgroundTransparency = 1
+ChatSpyTitle.Text = "💬 Chat Spy"
+ChatSpyTitle.TextColor3 = Color3.fromRGB(80, 220, 100)
+ChatSpyTitle.TextSize = 12
+ChatSpyTitle.Font = Enum.Font.GothamBold
+ChatSpyTitle.TextXAlignment = Enum.TextXAlignment.Left
+ChatSpyTitle.Parent = ChatSpyTopBar
+
+-- Close X
+ChatSpyCloseX = Instance.new("TextButton")
+ChatSpyCloseX.Size = UDim2.new(0, 20, 0, 20)
+ChatSpyCloseX.Position = UDim2.new(1, -26, 0, 6)
+ChatSpyCloseX.BackgroundColor3 = Color3.fromRGB(40, 140, 40)
+ChatSpyCloseX.Text = "X"
+ChatSpyCloseX.TextColor3 = Colors.text
+ChatSpyCloseX.TextSize = 11
+ChatSpyCloseX.Font = Enum.Font.GothamBold
+ChatSpyCloseX.AutoButtonColor = false
+ChatSpyCloseX.Parent = ChatSpyTopBar
+Instance.new("UICorner", ChatSpyCloseX).CornerRadius = UDim.new(0, 6)
+makeHoverable(ChatSpyCloseX, Color3.fromRGB(40, 140, 40), Color3.fromRGB(60, 180, 60))
+
+--==================================================
+-- TOGGLE SPY BUTTON
+--==================================================
+
+ChatSpyToggleBtn = Instance.new("TextButton")
+ChatSpyToggleBtn.Size = UDim2.new(1, -20, 0, 28)
+ChatSpyToggleBtn.Position = UDim2.new(0, 10, 0, 40)
+ChatSpyToggleBtn.BackgroundColor3 = Color3.fromRGB(40, 140, 40)
+ChatSpyToggleBtn.Text = "🕵 START SPY"
+ChatSpyToggleBtn.TextColor3 = Colors.text
+ChatSpyToggleBtn.TextSize = 11
+ChatSpyToggleBtn.Font = Enum.Font.GothamBold
+ChatSpyToggleBtn.AutoButtonColor = false
+ChatSpyToggleBtn.Parent = ChatSpyPanel
+Instance.new("UICorner", ChatSpyToggleBtn).CornerRadius = UDim.new(0, 6)
+addBtnGradient(ChatSpyToggleBtn)
+makeHoverable(ChatSpyToggleBtn, Color3.fromRGB(40, 140, 40), Color3.fromRGB(60, 180, 60))
+
+--==================================================
+-- STATUS + FILTER
+--==================================================
+
+ChatSpyStatusLabel = Instance.new("TextLabel")
+ChatSpyStatusLabel.Size = UDim2.new(1, -20, 0, 14)
+ChatSpyStatusLabel.Position = UDim2.new(0, 10, 0, 72)
+ChatSpyStatusLabel.BackgroundTransparency = 1
+ChatSpyStatusLabel.Text = "Spy: OFF"
+ChatSpyStatusLabel.TextColor3 = Colors.textDim
+ChatSpyStatusLabel.TextSize = 10
+ChatSpyStatusLabel.Font = Enum.Font.GothamBold
+ChatSpyStatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+ChatSpyStatusLabel.Parent = ChatSpyPanel
+
+ChatSpyFilterBox = Instance.new("TextBox")
+ChatSpyFilterBox.Size = UDim2.new(1, -20, 0, 22)
+ChatSpyFilterBox.Position = UDim2.new(0, 10, 0, 90)
+ChatSpyFilterBox.BackgroundColor3 = Colors.inputBg
+ChatSpyFilterBox.Text = ""
+ChatSpyFilterBox.PlaceholderText = "Filter messages..."
+ChatSpyFilterBox.PlaceholderColor3 = Colors.textDim
+ChatSpyFilterBox.TextColor3 = Colors.text
+ChatSpyFilterBox.TextSize = 10
+ChatSpyFilterBox.Font = Enum.Font.Code
+ChatSpyFilterBox.TextXAlignment = Enum.TextXAlignment.Left
+ChatSpyFilterBox.ClearTextOnFocus = false
+ChatSpyFilterBox.Parent = ChatSpyPanel
+Instance.new("UICorner", ChatSpyFilterBox).CornerRadius = UDim.new(0, 4)
+Instance.new("UIPadding", ChatSpyFilterBox).PaddingLeft = UDim.new(0, 6)
+ChatSpyFilterStroke = Instance.new("UIStroke", ChatSpyFilterBox)
+ChatSpyFilterStroke.Color = Colors.separator
+ChatSpyFilterStroke.Thickness = 0.5
+
+--==================================================
+-- LOG SCROLL
+--==================================================
+
+addAccentLine(ChatSpyPanel, UDim2.new(0, 10, 0, 116), Color3.fromRGB(40, 180, 60), UDim2.new(1, -20, 0, 1))
+
+ChatSpyLogScroll = Instance.new("ScrollingFrame")
+ChatSpyLogScroll.Size = UDim2.new(1, -20, 0, 236)
+ChatSpyLogScroll.Position = UDim2.new(0, 10, 0, 120)
+ChatSpyLogScroll.BackgroundColor3 = Colors.content
+ChatSpyLogScroll.BorderSizePixel = 0
+ChatSpyLogScroll.ScrollBarThickness = 3
+ChatSpyLogScroll.ScrollBarImageColor3 = Color3.fromRGB(40, 180, 60)
+ChatSpyLogScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+ChatSpyLogScroll.Parent = ChatSpyPanel
+Instance.new("UICorner", ChatSpyLogScroll).CornerRadius = UDim.new(0, 6)
+ChatSpyLogStroke = Instance.new("UIStroke", ChatSpyLogScroll)
+ChatSpyLogStroke.Color = Colors.separator
+ChatSpyLogStroke.Thickness = 0.5
+ChatSpyLogStroke.Transparency = 0.5
+
+ChatSpyLogLayout = Instance.new("UIListLayout")
+ChatSpyLogLayout.Padding = UDim.new(0, 2)
+ChatSpyLogLayout.Parent = ChatSpyLogScroll
+ChatSpyLogPad = Instance.new("UIPadding", ChatSpyLogScroll)
+ChatSpyLogPad.PaddingTop = UDim.new(0, 4)
+ChatSpyLogPad.PaddingLeft = UDim.new(0, 4)
+
+--==================================================
+-- BOTTOM BUTTONS
+--==================================================
+
+ChatSpyClearBtn = Instance.new("TextButton")
+ChatSpyClearBtn.Size = UDim2.new(1, -20, 0, 24)
+ChatSpyClearBtn.Position = UDim2.new(0, 10, 0, 364)
+ChatSpyClearBtn.BackgroundColor3 = Colors.warning
+ChatSpyClearBtn.Text = "🗑 CLEAR LOG"
+ChatSpyClearBtn.TextColor3 = Colors.bg
+ChatSpyClearBtn.TextSize = 11
+ChatSpyClearBtn.Font = Enum.Font.GothamBold
+ChatSpyClearBtn.AutoButtonColor = false
+ChatSpyClearBtn.Parent = ChatSpyPanel
+Instance.new("UICorner", ChatSpyClearBtn).CornerRadius = UDim.new(0, 6)
+makeHoverable(ChatSpyClearBtn, Colors.warning, Color3.fromRGB(230, 180, 60))
+
+ChatSpyCloseBtn = Instance.new("TextButton")
+ChatSpyCloseBtn.Size = UDim2.new(1, -20, 0, 24)
+ChatSpyCloseBtn.Position = UDim2.new(0, 10, 0, 392)
+ChatSpyCloseBtn.BackgroundColor3 = Color3.fromRGB(40, 100, 40)
+ChatSpyCloseBtn.Text = "🔴 CLOSE"
+ChatSpyCloseBtn.TextColor3 = Colors.text
+ChatSpyCloseBtn.TextSize = 11
+ChatSpyCloseBtn.Font = Enum.Font.GothamBold
+ChatSpyCloseBtn.AutoButtonColor = false
+ChatSpyCloseBtn.Parent = ChatSpyPanel
+Instance.new("UICorner", ChatSpyCloseBtn).CornerRadius = UDim.new(0, 6)
+makeHoverable(ChatSpyCloseBtn, Color3.fromRGB(40, 100, 40), Color3.fromRGB(60, 140, 60))
+
+--==================================================
+-- REFRESH LOG FUNCTION
+--==================================================
+
+refreshChatSpyLog = function(filterText)
+    for _, child in ipairs(ChatSpyLogScroll:GetChildren()) do
+        if child:IsA("TextLabel") then
+            child:Destroy()
+        end
+    end
+    local filter = filterText or ChatSpyFilterBox.Text
+    filter = filter:lower()
+    local count = 0
+
+    for i = #chatSpyLog, 1, -1 do
+        local entry = chatSpyLog[i]
+        local text = entry.player .. ": " .. entry.message
+
+        local match = true
+        if filter ~= "" then
+            if not text:lower():find(filter, 1, true) then
+                match = false
+            end
+        end
+
+        if match then
+            local timeStr = os.date("%H:%M:%S", entry.time)
+            local lbl = Instance.new("TextLabel")
+            lbl.Size = UDim2.new(1, -8, 0, 16)
+            lbl.BackgroundTransparency = 1
+            lbl.Text = "[" .. timeStr .. "] " .. entry.player .. ": " .. entry.message
+            lbl.TextColor3 = Colors.text
+            lbl.TextSize = 9
+            lbl.Font = Enum.Font.Code
+            lbl.TextXAlignment = Enum.TextXAlignment.Left
+            lbl.TextTruncate = Enum.TextTruncate.AtEnd
+            lbl.Parent = ChatSpyLogScroll
+            count = count + 1
+        end
+    end
+
+    ChatSpyLogScroll.CanvasSize = UDim2.new(0, 0, 0, count * 18)
+end
+
+--==================================================
+-- OPEN FUNCTION
+--==================================================
+
+openChatSpyPanel = function()
+    ChatSpyPanel.Visible = true
+    refreshChatSpyLog()
+end
+
+
 --[[ ═══════ MODULE: 10_tab_settings.luau ═══════ ]]
 
 --==================================================
@@ -2798,7 +3149,102 @@ Instance.new("UICorner", RemoteSpyOpenBtn).CornerRadius = UDim.new(0, 6)
 addBtnGradient(RemoteSpyOpenBtn)
 makeHoverable(RemoteSpyOpenBtn, Color3.fromRGB(0, 140, 120), Color3.fromRGB(0, 180, 160))
 
-SettingsScroll.CanvasSize = UDim2.new(0, 0, 0, saveBtnY + 340)
+--==================================================
+-- DEV TOOLS
+--==================================================
+
+createSectionHeader(SettingsScroll, "Dev Tools", saveBtnY + 334)
+
+-- Anti-AFK toggle button
+AntiAfkBtn = Instance.new("TextButton")
+AntiAfkBtn.Size = UDim2.new(1, 0, 0, 28)
+AntiAfkBtn.Position = UDim2.new(0, 0, 0, saveBtnY + 360)
+AntiAfkBtn.BackgroundColor3 = Color3.fromRGB(50, 25, 25)
+AntiAfkBtn.Text = "⚡ ANTI-AFK: OFF"
+AntiAfkBtn.TextColor3 = Colors.text
+AntiAfkBtn.TextSize = 11
+AntiAfkBtn.Font = Enum.Font.GothamBold
+AntiAfkBtn.AutoButtonColor = false
+AntiAfkBtn.Parent = SettingsScroll
+Instance.new("UICorner", AntiAfkBtn).CornerRadius = UDim.new(0, 6)
+addBtnGradient(AntiAfkBtn)
+makeHoverable(AntiAfkBtn, Color3.fromRGB(50, 25, 25), Color3.fromRGB(70, 40, 40))
+
+-- Chat Spy open button
+ChatSpyOpenBtn = Instance.new("TextButton")
+ChatSpyOpenBtn.Size = UDim2.new(1, 0, 0, 28)
+ChatSpyOpenBtn.Position = UDim2.new(0, 0, 0, saveBtnY + 394)
+ChatSpyOpenBtn.BackgroundColor3 = Color3.fromRGB(40, 140, 40)
+ChatSpyOpenBtn.Text = "💬 OPEN CHAT SPY"
+ChatSpyOpenBtn.TextColor3 = Colors.text
+ChatSpyOpenBtn.TextSize = 11
+ChatSpyOpenBtn.Font = Enum.Font.GothamBold
+ChatSpyOpenBtn.AutoButtonColor = false
+ChatSpyOpenBtn.Parent = SettingsScroll
+Instance.new("UICorner", ChatSpyOpenBtn).CornerRadius = UDim.new(0, 6)
+addBtnGradient(ChatSpyOpenBtn)
+makeHoverable(ChatSpyOpenBtn, Color3.fromRGB(40, 140, 40), Color3.fromRGB(60, 180, 60))
+
+-- Execute Script label
+ExecLabel = Instance.new("TextLabel")
+ExecLabel.Size = UDim2.new(1, 0, 0, 16)
+ExecLabel.Position = UDim2.new(0, 0, 0, saveBtnY + 430)
+ExecLabel.BackgroundTransparency = 1
+ExecLabel.Text = "Execute Script:"
+ExecLabel.TextColor3 = Colors.textDim
+ExecLabel.TextSize = 11
+ExecLabel.Font = Enum.Font.GothamBold
+ExecLabel.TextXAlignment = Enum.TextXAlignment.Left
+ExecLabel.Parent = SettingsScroll
+
+-- Execute TextBox
+ExecScriptBox = Instance.new("TextBox")
+ExecScriptBox.Size = UDim2.new(1, 0, 0, 60)
+ExecScriptBox.Position = UDim2.new(0, 0, 0, saveBtnY + 448)
+ExecScriptBox.BackgroundColor3 = Colors.inputBg
+ExecScriptBox.Text = ""
+ExecScriptBox.PlaceholderText = "paste lua code here..."
+ExecScriptBox.TextColor3 = Colors.text
+ExecScriptBox.PlaceholderColor3 = Colors.textDim
+ExecScriptBox.TextSize = 10
+ExecScriptBox.Font = Enum.Font.Code
+ExecScriptBox.TextXAlignment = Enum.TextXAlignment.Left
+ExecScriptBox.TextYAlignment = Enum.TextYAlignment.Top
+ExecScriptBox.ClearTextOnFocus = false
+ExecScriptBox.TextWrapped = true
+ExecScriptBox.MultiLine = true
+ExecScriptBox.Parent = SettingsScroll
+Instance.new("UICorner", ExecScriptBox).CornerRadius = UDim.new(0, 6)
+ExecScriptBoxPad = Instance.new("UIPadding", ExecScriptBox)
+ExecScriptBoxPad.PaddingLeft = UDim.new(0, 6)
+ExecScriptBoxPad.PaddingTop = UDim.new(0, 4)
+ExecScriptStroke = Instance.new("UIStroke", ExecScriptBox)
+ExecScriptStroke.Color = Colors.inputBorder
+ExecScriptStroke.Thickness = 1
+
+ExecScriptBox.Focused:Connect(function()
+    TweenService:Create(ExecScriptStroke, TweenInfo.new(0.2), { Color = Color3.fromRGB(80, 220, 100), Thickness = 1.5 }):Play()
+end)
+ExecScriptBox.FocusLost:Connect(function()
+    TweenService:Create(ExecScriptStroke, TweenInfo.new(0.3), { Color = Colors.inputBorder, Thickness = 1 }):Play()
+end)
+
+-- Run button
+ExecRunBtn = Instance.new("TextButton")
+ExecRunBtn.Size = UDim2.new(1, 0, 0, 28)
+ExecRunBtn.Position = UDim2.new(0, 0, 0, saveBtnY + 514)
+ExecRunBtn.BackgroundColor3 = Color3.fromRGB(40, 140, 40)
+ExecRunBtn.Text = "▶ RUN SCRIPT"
+ExecRunBtn.TextColor3 = Colors.text
+ExecRunBtn.TextSize = 11
+ExecRunBtn.Font = Enum.Font.GothamBold
+ExecRunBtn.AutoButtonColor = false
+ExecRunBtn.Parent = SettingsScroll
+Instance.new("UICorner", ExecRunBtn).CornerRadius = UDim.new(0, 6)
+addBtnGradient(ExecRunBtn)
+makeHoverable(ExecRunBtn, Color3.fromRGB(40, 140, 40), Color3.fromRGB(60, 180, 60))
+
+SettingsScroll.CanvasSize = UDim2.new(0, 0, 0, saveBtnY + 560)
 
 
 --[[ ═══════ MODULE: 11_preview_ui.luau ═══════ ]]
@@ -4437,13 +4883,26 @@ end
 -- PLAYER LIST (for Player tab)
 --==================================================
 
-refreshPlayerList = function()
+refreshPlayerList = function(filterText)
     -- Clear existing
     for _, child in pairs(PlayerScroll:GetChildren()) do
         if child:IsA("Frame") then child:Destroy() end
     end
 
+    filterText = filterText and filterText:lower() or ""
+
     for _, player in pairs(Players:GetPlayers()) do
+        -- Filter by name/displayname
+        local match = true
+        if filterText ~= "" then
+            local dn = player.DisplayName:lower()
+            local un = player.Name:lower()
+            if not dn:find(filterText, 1, true) and not un:find(filterText, 1, true) then
+                match = false
+            end
+        end
+
+        if match then
         local card = Instance.new("Frame")
         card.Size = UDim2.new(1, -10, 0, 54)
         card.BackgroundColor3 = Colors.card
@@ -4607,6 +5066,7 @@ refreshPlayerList = function()
         trollBtn.MouseButton1Click:Connect(function()
             openTrollPanel(player)
         end)
+        end -- if match
     end
 
     PlayerScroll.CanvasSize = UDim2.new(0, 0, 0, PlayerLayout.AbsoluteContentSize.Y + 10)
@@ -4744,7 +5204,78 @@ end
 --[[ ═══════ MODULE: 19_esp_system.luau ═══════ ]]
 
 --==================================================
--- ESP SYSTEM (Full)
+-- ESP SYSTEM (Full) — 7 new features
+-- Tracers, Skeleton, HeadDot, ThreatLevel, ToolESP,
+-- Footsteps, SoundESP
+--==================================================
+
+--==================================================
+-- TRACER CONTAINER (screen-space lines)
+--==================================================
+
+TracerContainer = Instance.new("Frame")
+TracerContainer.Name = "TracerContainer"
+TracerContainer.Size = UDim2.new(1, 0, 1, 0)
+TracerContainer.BackgroundTransparency = 1
+TracerContainer.Parent = ScreenGui
+
+-- Screen-space line helper: draws a line between two Vector2 points
+local function drawTracerLine(from, to, color)
+    local dx = to.X - from.X
+    local dy = to.Y - from.Y
+    local dist = math.sqrt(dx * dx + dy * dy)
+    local angle = math.atan2(dy, dx)
+
+    local line = Instance.new("Frame")
+    line.Size = UDim2.new(0, dist, 0, 1)
+    line.Position = UDim2.new(0, from.X, 0, from.Y)
+    line.AnchorPoint = Vector2.new(0, 0.5)
+    line.Rotation = math.deg(angle)
+    line.BackgroundColor3 = color or Color3.fromRGB(0, 180, 255)
+    line.BackgroundTransparency = 0.3
+    line.BorderSizePixel = 0
+    line.Parent = TracerContainer
+    return line
+end
+
+--==================================================
+-- SKELETON BONE DEFINITIONS
+--==================================================
+
+local skeletonBones = {
+    -- Spine
+    { "HumanoidRootPart", "UpperTorso" },
+    { "UpperTorso", "Head" },
+    { "HumanoidRootPart", "LowerTorso" },
+    -- Left arm
+    { "UpperTorso", "LeftUpperArm" },
+    { "LeftUpperArm", "LeftLowerArm" },
+    { "LeftLowerArm", "LeftHand" },
+    -- Right arm
+    { "UpperTorso", "RightUpperArm" },
+    { "RightUpperArm", "RightLowerArm" },
+    { "RightLowerArm", "RightHand" },
+    -- Left leg
+    { "LowerTorso", "LeftUpperLeg" },
+    { "LeftUpperLeg", "LeftLowerLeg" },
+    { "LeftLowerLeg", "LeftFoot" },
+    -- Right leg
+    { "LowerTorso", "RightUpperLeg" },
+    { "RightUpperLeg", "RightLowerLeg" },
+    { "RightLowerLeg", "RightFoot" },
+}
+
+-- R6 fallback bones
+local skeletonBonesR6 = {
+    { "Torso", "Head" },
+    { "Torso", "Left Arm" },
+    { "Torso", "Right Arm" },
+    { "Torso", "Left Leg" },
+    { "Torso", "Right Leg" },
+}
+
+--==================================================
+-- CORE ESP FUNCTIONS
 --==================================================
 
 local function createESPObject(target, espName, espColor, isCamera, isNPC)
@@ -4822,12 +5353,30 @@ local function createESPObject(target, espName, espColor, isCamera, isNPC)
     espData.nameLabel = nameLabel
     espData.distLabel = distLabel
 
+    -- Tool ESP label (below distance)
+    if espState.toolESP and not isCamera then
+        local toolLabel = Instance.new("TextLabel")
+        toolLabel.Name = "ESPTool"
+        toolLabel.Size = UDim2.new(1, 0, 0, 12)
+        toolLabel.Position = UDim2.new(0, 0, 0, 32)
+        toolLabel.BackgroundTransparency = 1
+        toolLabel.Text = ""
+        toolLabel.TextColor3 = Color3.fromRGB(180, 120, 255)
+        toolLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+        toolLabel.TextStrokeTransparency = 0.3
+        toolLabel.TextSize = 10
+        toolLabel.Font = Enum.Font.GothamBold
+        toolLabel.Parent = bg
+        espData.toolLabel = toolLabel
+    end
+
     -- Health bar
     if espState.healthBars and not isCamera then
+        local hpY = espState.toolESP and 46 or 32
         local hpBg = Instance.new("Frame")
         hpBg.Name = "ESPHealth"
         hpBg.Size = UDim2.new(0, 100, 0, 6)
-        hpBg.Position = UDim2.new(0.5, -50, 0, 32)
+        hpBg.Position = UDim2.new(0.5, -50, 0, hpY)
         hpBg.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
         hpBg.BorderSizePixel = 0
         hpBg.Parent = bg
@@ -4861,6 +5410,72 @@ local function createESPObject(target, espName, espColor, isCamera, isNPC)
         typeLabel.Parent = bg
     end
 
+    -- Head Dot
+    if espState.headDot and not isCamera then
+        local head = target:FindFirstChild("Head")
+        if head then
+            local dotBG = Instance.new("BillboardGui")
+            dotBG.Name = "VampESP_HeadDot"
+            dotBG.Size = UDim2.new(0, 8, 0, 8)
+            dotBG.StudsOffset = Vector3.new(0, 0, 0)
+            dotBG.AlwaysOnTop = true
+            dotBG.Adornee = head
+            dotBG.Parent = head
+
+            local dot = Instance.new("Frame")
+            dot.Size = UDim2.new(1, 0, 1, 0)
+            dot.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
+            dot.BorderSizePixel = 0
+            dot.Parent = dotBG
+            Instance.new("UICorner", dot).CornerRadius = UDim.new(1, 0)
+
+            espData.headDotBG = dotBG
+            table.insert(headDotObjects, dotBG)
+        end
+    end
+
+    -- Skeleton ESP (Beams between body parts)
+    if espState.skeleton and not isCamera then
+        local bones = skeletonBones
+        -- Detect R6 vs R15
+        if not target:FindFirstChild("UpperTorso") and target:FindFirstChild("Torso") then
+            bones = skeletonBonesR6
+        end
+
+        local beamData = {}
+        for _, bonePair in ipairs(bones) do
+            local partA = target:FindFirstChild(bonePair[1])
+            local partB = target:FindFirstChild(bonePair[2])
+            if partA and partB then
+                local attA = Instance.new("Attachment")
+                attA.Name = "VampSkel_A"
+                attA.Parent = partA
+
+                local attB = Instance.new("Attachment")
+                attB.Name = "VampSkel_B"
+                attB.Parent = partB
+
+                local beam = Instance.new("Beam")
+                beam.Name = "VampSkel_Beam"
+                beam.Attachment0 = attA
+                beam.Attachment1 = attB
+                beam.Color = ColorSequence.new(Color3.fromRGB(200, 200, 200))
+                beam.FaceCamera = true
+                beam.Width0 = 0.05
+                beam.Width1 = 0.05
+                beam.Transparency = NumberSequence.new(0.2)
+                beam.Parent = partA
+
+                table.insert(beamData, { beam = beam, attA = attA, attB = attB })
+            end
+        end
+
+        espData.skeletonBeams = beamData
+        for _, bd in ipairs(beamData) do
+            table.insert(skeletonBeams, bd)
+        end
+    end
+
     table.insert(espObjects, espData)
 end
 
@@ -4869,7 +5484,27 @@ local function removeESPFromTarget(target)
     if hl then hl:Destroy() end
     local bg = target:FindFirstChild("VampESP_BG")
     if bg then bg:Destroy() end
+
+    -- Clean head dots
+    local head = target:FindFirstChild("Head")
+    if head then
+        local hd = head:FindFirstChild("VampESP_HeadDot")
+        if hd then hd:Destroy() end
+    end
+
+    -- Clean skeleton beams
+    for _, part in ipairs(target:GetDescendants()) do
+        if part.Name == "VampSkel_A" or part.Name == "VampSkel_B" then
+            part:Destroy()
+        elseif part.Name == "VampSkel_Beam" then
+            part:Destroy()
+        end
+    end
 end
+
+--==================================================
+-- CLEAR ALL ESP
+--==================================================
 
 clearESP = function()
     if espConnection then
@@ -4877,6 +5512,27 @@ clearESP = function()
         espConnection = nil
     end
 
+    -- Clear tracers
+    for _, line in ipairs(tracerLines) do
+        if line and line.Parent then line:Destroy() end
+    end
+    tracerLines = {}
+
+    -- Clear skeleton beams
+    for _, bd in ipairs(skeletonBeams) do
+        pcall(function() bd.beam:Destroy() end)
+        pcall(function() bd.attA:Destroy() end)
+        pcall(function() bd.attB:Destroy() end)
+    end
+    skeletonBeams = {}
+
+    -- Clear head dots
+    for _, hd in ipairs(headDotObjects) do
+        if hd and hd.Parent then hd:Destroy() end
+    end
+    headDotObjects = {}
+
+    -- Clear ESP objects
     for _, esp in ipairs(espObjects) do
         if esp.target and esp.target.Parent then
             removeESPFromTarget(esp.target)
@@ -4885,15 +5541,27 @@ clearESP = function()
     espObjects = {}
 end
 
+--==================================================
+-- UPDATE ESP (main loop)
+--==================================================
+
 updateESP = function()
     clearESP()
 
+    -- Check if any toggle in espToggles-managed features is active
     local anyActive = false
     for _, v in pairs(espState) do
         if v then anyActive = true break end
     end
 
-    if not anyActive then
+    -- Ignore footsteps and soundESP for the "any active" check
+    -- since they are managed separately
+    local coreActive = espState.players or espState.npcs or espState.cameras
+        or espState.healthBars or espState.boxESP or espState.chams
+        or espState.tracers or espState.skeleton or espState.headDot
+        or espState.threatLevel or espState.toolESP
+
+    if not coreActive then
         ESPStatusLabel.Text = "ESP OFF — toggle features above"
         return
     end
@@ -4944,13 +5612,25 @@ updateESP = function()
         end
     end
 
-    -- Update loop
+    -- Update loop (RenderStepped)
     espConnection = RunService.RenderStepped:Connect(function()
         local char = LP.Character
         local hrp = char and char:FindFirstChild("HumanoidRootPart")
         if not hrp then return end
 
         local myPos = hrp.Position
+        local cam = workspace.CurrentCamera
+
+        -- Clear old tracers each frame
+        if espState.tracers then
+            for _, line in ipairs(tracerLines) do
+                if line and line.Parent then line:Destroy() end
+            end
+            tracerLines = {}
+        end
+
+        -- Screen bottom center (tracer origin)
+        local screenCenter = Vector2.new(cam.ViewportSize.X / 2, cam.ViewportSize.Y)
 
         for i = #espObjects, 1, -1 do
             local esp = espObjects[i]
@@ -4972,6 +5652,49 @@ updateESP = function()
                 if targetPos then
                     local dist = math.floor((myPos - targetPos).Magnitude)
                     esp.distLabel.Text = dist .. " studs"
+
+                    -- Threat Level: color name label based on distance
+                    if espState.threatLevel and esp.nameLabel then
+                        if dist < 30 then
+                            esp.nameLabel.TextColor3 = Color3.fromRGB(255, 40, 40)     -- RED close
+                        elseif dist < 60 then
+                            esp.nameLabel.TextColor3 = Color3.fromRGB(255, 180, 40)    -- YELLOW mid
+                        else
+                            esp.nameLabel.TextColor3 = Color3.fromRGB(40, 255, 80)     -- GREEN far
+                        end
+                    end
+
+                    -- Tool ESP: show equipped tool name
+                    if esp.toolLabel and esp.target:IsA("Model") then
+                        local toolName = ""
+                        for _, child in ipairs(esp.target:GetChildren()) do
+                            if child:IsA("Tool") then
+                                toolName = "🔧 " .. child.Name
+                                break
+                            end
+                        end
+                        esp.toolLabel.Text = toolName
+                    end
+
+                    -- Tracers: draw line from screen bottom to target screen position
+                    if espState.tracers then
+                        local screenPos, onScreen = cam:WorldToScreenPoint(targetPos)
+                        if onScreen then
+                            local targetScreen = Vector2.new(screenPos.X, screenPos.Y)
+                            local tracerColor = Color3.fromRGB(0, 180, 255)
+                            if espState.threatLevel then
+                                if dist < 30 then
+                                    tracerColor = Color3.fromRGB(255, 40, 40)
+                                elseif dist < 60 then
+                                    tracerColor = Color3.fromRGB(255, 180, 40)
+                                else
+                                    tracerColor = Color3.fromRGB(40, 255, 80)
+                                end
+                            end
+                            local line = drawTracerLine(screenCenter, targetScreen, tracerColor)
+                            table.insert(tracerLines, line)
+                        end
+                    end
                 end
 
                 -- Update health bar
@@ -5005,6 +5728,166 @@ toggleESPFeature = function(feature)
     if espToggles[feature] then
         espToggles[feature].refresh()
     end
+end
+
+--==================================================
+-- FOOTSTEPS TRAIL SYSTEM (separate from main ESP)
+--==================================================
+
+startFootsteps = function()
+    espState.footsteps = true
+    FootstepsToggle.refresh()
+
+    -- Track player positions every 0.5s and leave marks
+    footstepConnection = RunService.Heartbeat:Connect(function()
+        -- Throttle: only every ~0.5s
+        if not footstepConnection then return end
+    end)
+
+    -- Use a separate task loop for mark placement
+    footstepConnection = task.spawn(function()
+        while espState.footsteps do
+            for _, player in ipairs(Players:GetPlayers()) do
+                if player ~= LP and player.Character then
+                    local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+                    if hrp then
+                        local pos = hrp.Position
+
+                        local mark = Instance.new("Part")
+                        mark.Name = "VampFootstep"
+                        mark.Size = Vector3.new(0.6, 0.1, 0.6)
+                        mark.Position = Vector3.new(pos.X, pos.Y - 3, pos.Z)
+                        mark.Anchored = true
+                        mark.CanCollide = false
+                        mark.Material = Enum.Material.Neon
+                        mark.Color = Color3.fromRGB(120, 200, 80)
+                        mark.Transparency = 0.4
+                        mark.Parent = workspace
+
+                        table.insert(footstepParts, mark)
+
+                        -- Fade out and destroy after 8s
+                        task.spawn(function()
+                            task.wait(6)
+                            if mark and mark.Parent then
+                                TweenService:Create(mark, TweenInfo.new(2), { Transparency = 1 }):Play()
+                                task.wait(2)
+                                if mark and mark.Parent then mark:Destroy() end
+                            end
+                        end)
+                    end
+                end
+            end
+
+            -- Limit total marks
+            while #footstepParts > 500 do
+                local old = table.remove(footstepParts, 1)
+                if old and old.Parent then old:Destroy() end
+            end
+
+            task.wait(0.5)
+        end
+    end)
+
+    notify("Footsteps Trail ON", "success")
+end
+
+stopFootsteps = function()
+    espState.footsteps = false
+    FootstepsToggle.refresh()
+
+    -- footstepConnection is a thread, it will exit on next loop check
+
+    -- Clear existing marks
+    for _, part in ipairs(footstepParts) do
+        if part and part.Parent then part:Destroy() end
+    end
+    footstepParts = {}
+
+    notify("Footsteps Trail OFF", "info")
+end
+
+--==================================================
+-- SOUND ESP SYSTEM (separate from main ESP)
+--==================================================
+
+startSoundESP = function()
+    espState.soundESP = true
+    SoundESPToggle.refresh()
+
+    -- Periodic scan for playing sounds
+    soundEspConnection = task.spawn(function()
+        while espState.soundESP do
+            -- Clear old billboards
+            for _, obj in ipairs(soundEspObjects) do
+                if obj and obj.Parent then obj:Destroy() end
+            end
+            soundEspObjects = {}
+
+            local myChar = LP.Character
+            local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+            if myHRP then
+                local myPos = myHRP.Position
+
+                for _, desc in ipairs(workspace:GetDescendants()) do
+                    if desc:IsA("Sound") and desc.Playing then
+                        local parent = desc.Parent
+                        if parent and (parent:IsA("BasePart") or parent:IsA("Model")) then
+                            local adornee = parent
+                            if parent:IsA("Model") then
+                                adornee = parent.PrimaryPart or parent:FindFirstChildWhichIsA("BasePart")
+                            end
+
+                            if adornee and adornee:IsA("BasePart") then
+                                local soundPos = adornee.Position
+                                local dist = math.floor((myPos - soundPos).Magnitude)
+
+                                local bg = Instance.new("BillboardGui")
+                                bg.Name = "VampSoundESP"
+                                bg.Size = UDim2.new(0, 160, 0, 30)
+                                bg.StudsOffset = Vector3.new(0, 3, 0)
+                                bg.AlwaysOnTop = true
+                                bg.Adornee = adornee
+                                bg.Parent = adornee
+
+                                local lbl = Instance.new("TextLabel")
+                                lbl.Size = UDim2.new(1, 0, 1, 0)
+                                lbl.BackgroundTransparency = 1
+                                lbl.Text = "🔊 " .. desc.Name .. " [" .. dist .. "m]"
+                                lbl.TextColor3 = Color3.fromRGB(255, 200, 60)
+                                lbl.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+                                lbl.TextStrokeTransparency = 0.3
+                                lbl.TextSize = 10
+                                lbl.Font = Enum.Font.GothamBold
+                                lbl.Parent = bg
+
+                                table.insert(soundEspObjects, bg)
+                            end
+                        end
+                    end
+                end
+            end
+
+            task.wait(2)
+        end
+    end)
+
+    notify("Sound ESP ON", "success")
+end
+
+stopSoundESP = function()
+    espState.soundESP = false
+    SoundESPToggle.refresh()
+
+    -- soundEspConnection is a thread, exits on next loop check
+
+    -- Clear billboards
+    for _, obj in ipairs(soundEspObjects) do
+        if obj and obj.Parent then obj:Destroy() end
+    end
+    soundEspObjects = {}
+
+    notify("Sound ESP OFF", "info")
 end
 
 
@@ -5755,6 +6638,7 @@ end
 --==================================================
 
 flingPlayer = function(player)
+    stopTroll()
     local targetChar = player.Character
     if not targetChar then
         notify("No character found", "error")
@@ -5803,6 +6687,7 @@ headsitPlayer = function(player)
     local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
     if not head or not myHRP or not myHum then return end
 
+    trollSaveCFrame()
     myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
     myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
     myHum.Sit = true
@@ -5828,6 +6713,27 @@ end
 -- MORE TROLLS
 --==================================================
 
+-- Salva posição antes de iniciar troll
+trollSaveCFrame = function()
+    local char = LP.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        trollSavedCFrame = hrp.CFrame
+    end
+end
+
+-- Zera velocity do HRP (chamar dentro do Heartbeat pra reduzir flicker)
+trollZeroVelocity = function()
+    pcall(function()
+        local char = LP.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            hrp.Velocity = Vector3.new(0, 0, 0)
+            hrp.RotVelocity = Vector3.new(0, 0, 0)
+        end
+    end)
+end
+
 stopTroll = function()
     if trollConnection then
         pcall(function()
@@ -5841,11 +6747,20 @@ stopTroll = function()
     end
     local char = LP.Character
     local hum = char and char:FindFirstChildOfClass("Humanoid")
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
     if hum then
         hum.Sit = false
         hum:SetStateEnabled(Enum.HumanoidStateType.Freefall, true)
         hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true)
         hum:ChangeState(Enum.HumanoidStateType.GettingUp)
+
+        -- Restaurar posição salva (evita cair no void)
+        if trollSavedCFrame and hrp then
+            hrp.CFrame = trollSavedCFrame
+            hrp.Velocity = Vector3.new(0, 0, 0)
+            hrp.RotVelocity = Vector3.new(0, 0, 0)
+        end
+        trollSavedCFrame = nil
 
         -- Stop all playing animation tracks
         local animator = hum:FindFirstChildOfClass("Animator")
@@ -5870,33 +6785,16 @@ stopTroll = function()
             end)
         end
 
-        -- Cleanup crash FX do meu char (Fire, Smoke, ParticleEmitter, Sparkles)
-        pcall(function()
-            for _, desc in pairs(char:GetDescendants()) do
-                if desc:IsA("Fire") or desc:IsA("Smoke") or desc:IsA("ParticleEmitter") or desc:IsA("Sparkles") then
-                    pcall(function() desc:Destroy() end)
-                end
-            end
-        end)
-    end
-
-    -- Cleanup crash FX no target também
-    if trollTarget then
-        pcall(function()
-            local tc = trollTarget.Character
-            if tc then
-                for _, desc in pairs(tc:GetDescendants()) do
-                    if desc:IsA("Fire") or desc:IsA("Smoke") or desc:IsA("ParticleEmitter") or desc:IsA("Sparkles") then
-                        pcall(function() desc:Destroy() end)
-                    end
-                    if desc:IsA("BodyVelocity") or desc:IsA("BodyAngularVelocity") then
-                        pcall(function() desc:Destroy() end)
-                    end
-                end
-            end
-        end)
     end
 end
+
+-- Auto velocity zero — roda sempre, zera velocity quando troll ativo
+-- Reduz flicker pra outros clients (menos rubber-banding)
+RunService.Heartbeat:Connect(function()
+    if trollConnection then
+        trollZeroVelocity()
+    end
+end)
 
 bangPlayer = function(player)
     stopTroll()
@@ -5908,6 +6806,7 @@ bangPlayer = function(player)
     local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
     if not targetHRP or not myHRP or not myHum then return end
 
+    trollSaveCFrame()
     myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
     myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
 
@@ -5945,6 +6844,7 @@ bangFrontPlayer = function(player)
     local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
     if not targetHRP or not myHRP or not myHum then return end
 
+    trollSaveCFrame()
     myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
     myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
 
@@ -5977,6 +6877,7 @@ orbitTrollPlayer = function(player)
     local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
     if not myHRP or not myHum then return end
 
+    trollSaveCFrame()
     myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
     myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
 
@@ -6008,6 +6909,7 @@ backpackPlayer = function(player)
     local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
     if not myHRP or not myHum then return end
 
+    trollSaveCFrame()
     myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
     myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
 
@@ -6027,6 +6929,7 @@ backpackPlayer = function(player)
 end
 
 flingAllPlayers = function()
+    stopTroll()
     local myChar = LP.Character
     local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
     if not myHRP then return end
@@ -6075,6 +6978,7 @@ helicopterPlayer = function(player)
     local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
     if not head or not myHRP or not myHum then return end
 
+    trollSaveCFrame()
     myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
     myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
 
@@ -6112,6 +7016,7 @@ spinTopPlayer = function(player)
     local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
     if not head or not myHRP or not myHum then return end
 
+    trollSaveCFrame()
     myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
     myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
 
@@ -6148,6 +7053,7 @@ trampolinePlayer = function(player)
     local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
     if not myHRP or not myHum then return end
 
+    trollSaveCFrame()
     myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
     myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
 
@@ -6183,6 +7089,7 @@ creepPlayer = function(player)
     local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
     if not myHRP or not myHum then return end
 
+    trollSaveCFrame()
     myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
     myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
 
@@ -6261,6 +7168,7 @@ carpetPlayer = function(player)
     local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
     if not myHRP or not myHum then return end
 
+    trollSaveCFrame()
     myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
     myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
 
@@ -6295,6 +7203,7 @@ dizzyPlayer = function(player)
     local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
     if not myHRP or not myHum then return end
 
+    trollSaveCFrame()
     myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
     myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
 
@@ -6499,199 +7408,898 @@ massFireRemotes = function()
 end
 
 --==================================================
--- CRASH TROLLS — focados no TARGET, você fica safe
+-- MORE FUN TROLLS
 --==================================================
 
--- CRASH FX — spam efeitos no CHARACTER DO TARGET
--- O client dele tem que renderizar tudo = lag/crash nele, não em você
-crashFxPlayer = function(player)
+-- MAGNET — gruda nas costas do alvo (piggyback)
+magnetPlayer = function(player)
     stopTroll()
     local targetChar = player.Character
     if not targetChar then notify("No character", "error") return end
-
-    local parts = {}
-    for _, p in pairs(targetChar:GetDescendants()) do
-        if p:IsA("BasePart") then
-            table.insert(parts, p)
-        end
-    end
-    if #parts == 0 then return end
-
-    trollConnection = task.spawn(function()
-        while true do
-            -- Re-check target alive
-            targetChar = player.Character
-            if not targetChar then break end
-
-            for _, part in ipairs(parts) do
-                pcall(function()
-                    if not part or not part.Parent then return end
-
-                    local pe = Instance.new("ParticleEmitter")
-                    pe.Rate = 500
-                    pe.Lifetime = NumberRange.new(3, 8)
-                    pe.Speed = NumberRange.new(30, 80)
-                    pe.SpreadAngle = Vector2.new(180, 180)
-                    pe.Parent = part
-
-                    local fire = Instance.new("Fire")
-                    fire.Size = 25
-                    fire.Heat = 25
-                    fire.Parent = part
-
-                    local smoke = Instance.new("Smoke")
-                    smoke.Size = 20
-                    smoke.Opacity = 1
-                    smoke.RiseVelocity = 25
-                    smoke.Parent = part
-
-                    local sparkles = Instance.new("Sparkles")
-                    sparkles.SparkleColor = Color3.new(math.random(), math.random(), math.random())
-                    sparkles.Parent = part
-                end)
-            end
-            task.wait(0.05)
-        end
-    end)
-    notify("CRASH FX no " .. player.DisplayName .. " — ele vai lagar", "success")
-end
-
--- MEGA FLING — velocidade insana no target, múltiplos BodyVelocity + BodyAngularVelocity
--- Manda pro espaço e buga o physics dele
-megaFlingPlayer = function(player)
-    local targetChar = player.Character
-    if not targetChar then notify("No character", "error") return end
-    local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
     local myChar = LP.Character
     local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
-    if not targetHRP or not myHRP then return end
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not myHRP or not myHum then return end
 
-    -- TP rápido pra perto, aplica forces, volta
-    local savedCF = myHRP.CFrame
-    myHRP.CFrame = targetHRP.CFrame * CFrame.new(0, 0, -1)
-
-    task.delay(0.1, function()
-        -- Spam de BodyVelocity em rajada
-        for i = 1, 8 do
-            task.delay(i * 0.03, function()
-                pcall(function()
-                    local bv = Instance.new("BodyVelocity")
-                    bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-                    bv.Velocity = Vector3.new(
-                        math.random(-99999, 99999),
-                        99999,
-                        math.random(-99999, 99999)
-                    )
-                    bv.Parent = targetHRP
-
-                    -- Angular velocity pra girar loucamente
-                    local bav = Instance.new("BodyAngularVelocity")
-                    bav.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
-                    bav.AngularVelocity = Vector3.new(
-                        math.random(-999, 999),
-                        math.random(-999, 999),
-                        math.random(-999, 999)
-                    )
-                    bav.Parent = targetHRP
-
-                    task.delay(0.4, function()
-                        pcall(function() bv:Destroy() end)
-                        pcall(function() bav:Destroy() end)
-                    end)
-                end)
-            end)
-        end
-
-        -- Volta pra posição original
-        task.delay(0.5, function()
-            if myHRP and myHRP.Parent then
-                myHRP.CFrame = savedCF
-            end
-        end)
-    end)
-    notify("MEGA FLING: " .. player.DisplayName, "success")
-end
-
--- SEIZURE — spam BodyVelocity + BodyAngularVelocity aleatórios no TARGET
--- Physics do target enlouquece, ele sai voando/girando sem parar
--- Você fica parado safe
-seizurePlayer = function(player)
-    stopTroll()
-    local targetChar = player.Character
-    if not targetChar then notify("No character", "error") return end
-    local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
-    if not targetHRP then return end
+    trollSaveCFrame()
+    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
 
     trollConnection = RunService.Heartbeat:Connect(function()
-        targetChar = player.Character
-        if not targetChar then
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
             stopTroll()
             return
         end
-        targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
-        if not targetHRP then return end
+        myChar = LP.Character
+        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
 
-        -- Cada frame: cria BodyVelocity aleatório no target
-        pcall(function()
-            local bv = Instance.new("BodyVelocity")
-            bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-            bv.Velocity = Vector3.new(
-                math.random(-500, 500),
-                math.random(-200, 500),
-                math.random(-500, 500)
-            )
-            bv.Parent = targetHRP
-            -- Auto-destroy rápido
-            task.delay(0.1, function()
-                pcall(function() bv:Destroy() end)
-            end)
-        end)
-
-        -- A cada ~5 frames, joga um angular velocity também
-        if math.random(1, 5) == 1 then
-            pcall(function()
-                local bav = Instance.new("BodyAngularVelocity")
-                bav.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
-                bav.AngularVelocity = Vector3.new(
-                    math.random(-200, 200),
-                    math.random(-200, 200),
-                    math.random(-200, 200)
-                )
-                bav.Parent = targetHRP
-                task.delay(0.15, function()
-                    pcall(function() bav:Destroy() end)
-                end)
-            end)
-        end
+        local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+        -- Costas do alvo, um pouco acima (piggyback)
+        myHRP.CFrame = targetHRP.CFrame * CFrame.new(0, 1.5, 1)
     end)
-    notify("SEIZURE: " .. player.DisplayName .. " — physics dele bugou", "success")
+    notify("Magnet: " .. player.DisplayName, "success")
 end
 
--- REMOTE FLOOD — spam contínuo de todos os remotes (server stress)
-remoteFloodStart = function()
+-- CLONE — sobrepor exatamente no avatar do alvo (impostor)
+clonePlayer = function(player)
     stopTroll()
-    if #scannedRemotes == 0 then
-        scanRemotes()
-    end
-    if #scannedRemotes == 0 then
-        notify("No remotes found — scan first", "error")
-        return
+    local targetChar = player.Character
+    if not targetChar then notify("No character", "error") return end
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not myHRP or not myHum then return end
+
+    trollSaveCFrame()
+    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+
+    trollConnection = RunService.Heartbeat:Connect(function()
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            stopTroll()
+            return
+        end
+        myChar = LP.Character
+        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+
+        local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+        -- Exatamente na mesma posição (overlap total)
+        myHRP.CFrame = targetHRP.CFrame
+    end)
+    notify("Clone: " .. player.DisplayName, "success")
+end
+
+-- UPSIDE DOWN — pendurado de cabeça pra baixo acima do alvo
+upsideDownPlayer = function(player)
+    stopTroll()
+    local targetChar = player.Character
+    if not targetChar then notify("No character", "error") return end
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not myHRP or not myHum then return end
+
+    trollSaveCFrame()
+    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+
+    trollConnection = RunService.Heartbeat:Connect(function()
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            stopTroll()
+            return
+        end
+        myChar = LP.Character
+        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+
+        local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+        -- Acima do alvo, invertido 180° no eixo Z
+        myHRP.CFrame = targetHRP.CFrame
+            * CFrame.new(0, 6, 0)
+            * CFrame.Angles(0, 0, math.rad(180))
+    end)
+    notify("Upside Down: " .. player.DisplayName, "success")
+end
+
+-- TORNADO — orbita que pulsa (raio muda, sobe e desce)
+tornadoPlayer = function(player)
+    stopTroll()
+    local targetChar = player.Character
+    if not targetChar then notify("No character", "error") return end
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not myHRP or not myHum then return end
+
+    trollSaveCFrame()
+    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+
+    local angle = 0
+    local t = 0
+    trollConnection = RunService.Heartbeat:Connect(function()
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            stopTroll()
+            return
+        end
+        myChar = LP.Character
+        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+
+        local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+        angle = (angle + 12 * trollSpeedMul) % 360
+        t = t + 0.08 * trollSpeedMul
+        -- Raio pulsa entre 2 e 6
+        local radius = 4 + math.sin(t) * 2
+        -- Altura sobe e desce
+        local yOffset = math.sin(t * 1.5) * 3
+        local rad = math.rad(angle)
+        local pos = targetHRP.CFrame * CFrame.new(math.sin(rad) * radius, yOffset, math.cos(rad) * radius)
+        myHRP.CFrame = CFrame.lookAt(pos.Position, targetHRP.Position)
+    end)
+    notify("Tornado: " .. player.DisplayName, "success")
+end
+
+--==================================================
+-- NEW TROLLS (15)
+--==================================================
+
+snakePlayer = function(player)
+    stopTroll()
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not myHRP or not myHum then return end
+    trollSaveCFrame()
+    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+    local t = 0
+    trollConnection = RunService.Heartbeat:Connect(function()
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            stopTroll()
+            return
+        end
+        myChar = LP.Character
+        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+        local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+        t = t + 0.05 * trollSpeedMul
+        local behind = targetHRP.CFrame * CFrame.new(math.sin(t * 3) * 2, -2.5, -4)
+        myHRP.CFrame = CFrame.new(behind.Position, targetHRP.Position) * CFrame.Angles(math.rad(80), 0, 0)
+    end)
+    notify("Snake: " .. player.DisplayName, "success")
+end
+
+mirrorPlayer = function(player)
+    stopTroll()
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not myHRP or not myHum then return end
+    trollSaveCFrame()
+    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+    trollConnection = RunService.Heartbeat:Connect(function()
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            stopTroll()
+            return
+        end
+        myChar = LP.Character
+        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+        local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+        local frontPos = targetHRP.CFrame * CFrame.new(0, 0, -3)
+        myHRP.CFrame = CFrame.lookAt(frontPos.Position, targetHRP.Position)
+    end)
+    notify("Mirror: " .. player.DisplayName, "success")
+end
+
+stackPlayer = function(player)
+    stopTroll()
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not myHRP or not myHum then return end
+    trollSaveCFrame()
+    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+    trollConnection = RunService.Heartbeat:Connect(function()
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            stopTroll()
+            return
+        end
+        myChar = LP.Character
+        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+        local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+        myHRP.CFrame = targetHRP.CFrame * CFrame.new(0, 5, 0)
+    end)
+    notify("Stack: " .. player.DisplayName, "success")
+end
+
+figure8Player = function(player)
+    stopTroll()
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not myHRP or not myHum then return end
+    trollSaveCFrame()
+    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+    local t = 0
+    trollConnection = RunService.Heartbeat:Connect(function()
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            stopTroll()
+            return
+        end
+        myChar = LP.Character
+        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+        local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+        t = t + 0.03 * trollSpeedMul
+        local scale = 5
+        local x = scale * math.sin(t)
+        local z = scale * math.sin(t) * math.cos(t)
+        local pos = targetHRP.CFrame * CFrame.new(x, 0, z)
+        myHRP.CFrame = CFrame.lookAt(pos.Position, targetHRP.Position)
+    end)
+    notify("Figure 8: " .. player.DisplayName, "success")
+end
+
+dogPlayer = function(player)
+    stopTroll()
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not myHRP or not myHum then return end
+    trollSaveCFrame()
+    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+    trollConnection = RunService.Heartbeat:Connect(function()
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            stopTroll()
+            return
+        end
+        myChar = LP.Character
+        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+        local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+        local behindPos = targetHRP.CFrame * CFrame.new(0, -2, -4)
+        myHRP.CFrame = CFrame.new(behindPos.Position, targetHRP.Position) * CFrame.Angles(math.rad(90), 0, 0)
+    end)
+    notify("Dog: " .. player.DisplayName, "success")
+end
+
+ferrisPlayer = function(player)
+    stopTroll()
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not myHRP or not myHum then return end
+    trollSaveCFrame()
+    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+    local angle = 0
+    trollConnection = RunService.Heartbeat:Connect(function()
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            stopTroll()
+            return
+        end
+        myChar = LP.Character
+        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+        local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+        angle = (angle + 3 * trollSpeedMul) % 360
+        local rad = math.rad(angle)
+        local radius = 5
+        local pos = targetHRP.CFrame * CFrame.new(0, math.sin(rad) * radius, math.cos(rad) * radius)
+        myHRP.CFrame = CFrame.lookAt(pos.Position, targetHRP.Position)
+    end)
+    notify("Ferris: " .. player.DisplayName, "success")
+end
+
+salsaPlayer = function(player)
+    stopTroll()
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not myHRP or not myHum then return end
+    trollSaveCFrame()
+    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+    local t = 0
+    trollConnection = RunService.Heartbeat:Connect(function()
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            stopTroll()
+            return
+        end
+        myChar = LP.Character
+        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+        local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+        t = t + 0.06 * trollSpeedMul
+        local xOffset = math.sin(t * 2) * 3
+        local zOffset = -3 + math.sin(t * 4) * 0.5
+        local pos = targetHRP.CFrame * CFrame.new(xOffset, 0, zOffset)
+        myHRP.CFrame = CFrame.lookAt(pos.Position, targetHRP.Position)
+    end)
+    notify("Salsa: " .. player.DisplayName, "success")
+end
+
+ufoPlayer = function(player)
+    stopTroll()
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not myHRP or not myHum then return end
+    trollSaveCFrame()
+    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+    local angle = 0
+    trollConnection = RunService.Heartbeat:Connect(function()
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            stopTroll()
+            return
+        end
+        myChar = LP.Character
+        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+        local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+        angle = (angle + 10 * trollSpeedMul) % 360
+        local pos = targetHRP.CFrame * CFrame.new(0, 20, 0)
+        myHRP.CFrame = CFrame.new(pos.Position) * CFrame.Angles(0, math.rad(angle), 0)
+    end)
+    notify("UFO: " .. player.DisplayName, "success")
+end
+
+boomerangPlayer = function(player)
+    stopTroll()
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not myHRP or not myHum then return end
+    trollSaveCFrame()
+    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+    local t = 0
+    trollConnection = RunService.Heartbeat:Connect(function()
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            stopTroll()
+            return
+        end
+        myChar = LP.Character
+        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+        local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+        t = t + 0.02 * trollSpeedMul
+        local dist = 30 * (1 - math.cos(t))
+        local yOff = math.sin(t * 2) * 5
+        local pos = targetHRP.CFrame * CFrame.new(0, yOff, -dist)
+        myHRP.CFrame = CFrame.lookAt(pos.Position, targetHRP.Position)
+    end)
+    notify("Boomerang: " .. player.DisplayName, "success")
+end
+
+rollerPlayer = function(player)
+    stopTroll()
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not myHRP or not myHum then return end
+    trollSaveCFrame()
+    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+    local angle = 0
+    trollConnection = RunService.Heartbeat:Connect(function()
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            stopTroll()
+            return
+        end
+        myChar = LP.Character
+        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+        local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+        angle = (angle + 4 * trollSpeedMul) % 360
+        local rad = math.rad(angle)
+        local radius = 6
+        local yOff = math.sin(rad * 3) * 8
+        local pos = targetHRP.CFrame * CFrame.new(math.sin(rad) * radius, yOff, math.cos(rad) * radius)
+        myHRP.CFrame = CFrame.lookAt(pos.Position, targetHRP.Position)
+    end)
+    notify("Roller: " .. player.DisplayName, "success")
+end
+
+spiralPlayer = function(player)
+    stopTroll()
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not myHRP or not myHum then return end
+    trollSaveCFrame()
+    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+    local angle = 0
+    local height = 0
+    trollConnection = RunService.Heartbeat:Connect(function()
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            stopTroll()
+            return
+        end
+        myChar = LP.Character
+        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+        local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+        angle = (angle + 8 * trollSpeedMul) % 360
+        height = height + 0.15 * trollSpeedMul
+        if height > 20 then height = 0 end
+        local rad = math.rad(angle)
+        local radius = 4
+        local pos = targetHRP.CFrame * CFrame.new(math.sin(rad) * radius, height, math.cos(rad) * radius)
+        myHRP.CFrame = CFrame.lookAt(pos.Position, targetHRP.Position)
+    end)
+    notify("Spiral: " .. player.DisplayName, "success")
+end
+
+surfPlayer = function(player)
+    stopTroll()
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not myHRP or not myHum then return end
+    trollSaveCFrame()
+    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+    local angle = 0
+    trollConnection = RunService.Heartbeat:Connect(function()
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            stopTroll()
+            return
+        end
+        myChar = LP.Character
+        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+        local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+        angle = (angle + 5 * trollSpeedMul) % 360
+        local rad = math.rad(angle)
+        local radius = 5
+        local pos = targetHRP.CFrame * CFrame.new(math.sin(rad) * radius, -1, math.cos(rad) * radius)
+        local lookDir = targetHRP.CFrame * CFrame.new(math.sin(rad + 0.1) * radius, -1, math.cos(rad + 0.1) * radius)
+        myHRP.CFrame = CFrame.lookAt(pos.Position, lookDir.Position) * CFrame.Angles(0, 0, math.rad(90))
+    end)
+    notify("Surf: " .. player.DisplayName, "success")
+end
+
+bouncerPlayer = function(player)
+    stopTroll()
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not myHRP or not myHum then return end
+    trollSaveCFrame()
+    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+    local t = 0
+    trollConnection = RunService.Heartbeat:Connect(function()
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            stopTroll()
+            return
+        end
+        myChar = LP.Character
+        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+        local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+        t = t + 0.08 * trollSpeedMul
+        local xOff = math.sin(t) * 6
+        local yOff = math.abs(math.sin(t * 2)) * 3
+        local pos = targetHRP.CFrame * CFrame.new(xOff, yOff, -2)
+        myHRP.CFrame = CFrame.lookAt(pos.Position, targetHRP.Position)
+    end)
+    notify("Bouncer: " .. player.DisplayName, "success")
+end
+
+lapSitPlayer = function(player)
+    stopTroll()
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not myHRP or not myHum then return end
+    trollSaveCFrame()
+    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+    myHum.Sit = true
+    trollConnection = RunService.Heartbeat:Connect(function()
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            stopTroll()
+            return
+        end
+        myChar = LP.Character
+        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+        if not myHRP then return end
+        if myHum then myHum.Sit = true end
+        local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+        myHRP.CFrame = targetHRP.CFrame * CFrame.new(0, -0.5, -1)
+    end)
+    notify("Lap Sit: " .. player.DisplayName, "success")
+end
+
+wavePlayer = function(player)
+    stopTroll()
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not myHRP or not myHum then return end
+    trollSaveCFrame()
+    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+    local t = 0
+    trollConnection = RunService.Heartbeat:Connect(function()
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            stopTroll()
+            return
+        end
+        myChar = LP.Character
+        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+        local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+        t = t + 0.04 * trollSpeedMul
+        local zOff = math.sin(t) * 8
+        local xOff = math.sin(t * 2) * 4
+        local yOff = math.sin(t * 3) * 2
+        local pos = targetHRP.CFrame * CFrame.new(xOff, yOff, zOff)
+        myHRP.CFrame = CFrame.lookAt(pos.Position, targetHRP.Position)
+    end)
+    notify("Wave: " .. player.DisplayName, "success")
+end
+
+--==================================================
+-- PLAYER INFO CARDS
+--==================================================
+
+createPlayerInfoCard = function(player)
+    if not player or not player.Character then return end
+    if player == LP then return end
+    local char = player.Character
+
+    -- Remove existing
+    local existing = char:FindFirstChild("VampPlayerInfo")
+    if existing then existing:Destroy() end
+
+    local bg = Instance.new("BillboardGui")
+    bg.Name = "VampPlayerInfo"
+    bg.Size = UDim2.new(0, 160, 0, 80)
+    bg.StudsOffset = Vector3.new(0, 6, 0)
+    bg.AlwaysOnTop = true
+    bg.Adornee = char
+    bg.Parent = char
+
+    -- Card frame
+    local card = Instance.new("Frame")
+    card.Size = UDim2.new(1, 0, 1, 0)
+    card.BackgroundColor3 = Color3.fromRGB(12, 12, 14)
+    card.BackgroundTransparency = 0.1
+    card.Parent = bg
+    Instance.new("UICorner", card).CornerRadius = UDim.new(0, 8)
+    local cardStroke = Instance.new("UIStroke", card)
+    cardStroke.Color = Color3.fromRGB(40, 180, 60)
+    cardStroke.Thickness = 1
+    cardStroke.Transparency = 0.3
+    addGradient(card, Color3.fromRGB(20, 20, 24), Color3.fromRGB(8, 8, 10), 90)
+
+    -- Photo (circular)
+    local photoFrame = Instance.new("Frame")
+    photoFrame.Size = UDim2.new(0, 36, 0, 36)
+    photoFrame.Position = UDim2.new(0, 6, 0, 6)
+    photoFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    photoFrame.Parent = card
+    Instance.new("UICorner", photoFrame).CornerRadius = UDim.new(1, 0)
+    local photoStroke = Instance.new("UIStroke", photoFrame)
+    photoStroke.Color = Colors.blood
+    photoStroke.Thickness = 1
+
+    local photo = Instance.new("ImageLabel")
+    photo.Size = UDim2.new(1, 0, 1, 0)
+    photo.BackgroundTransparency = 1
+    photo.Parent = photoFrame
+    Instance.new("UICorner", photo).CornerRadius = UDim.new(1, 0)
+
+    -- Load thumbnail async
+    task.spawn(function()
+        local ok, thumb = pcall(function()
+            return Players:GetUserThumbnailAsync(
+                player.UserId,
+                Enum.ThumbnailType.HeadShot,
+                Enum.ThumbnailSize.Size100x100
+            )
+        end)
+        if ok and thumb then photo.Image = thumb end
+    end)
+
+    -- Display name
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Size = UDim2.new(1, -48, 0, 14)
+    nameLabel.Position = UDim2.new(0, 46, 0, 4)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Text = player.DisplayName
+    nameLabel.TextColor3 = Colors.text
+    nameLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    nameLabel.TextStrokeTransparency = 0.5
+    nameLabel.TextSize = 11
+    nameLabel.Font = Enum.Font.GothamBold
+    nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+    nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+    nameLabel.Parent = card
+
+    -- @username
+    local userLabel = Instance.new("TextLabel")
+    userLabel.Size = UDim2.new(1, -48, 0, 12)
+    userLabel.Position = UDim2.new(0, 46, 0, 18)
+    userLabel.BackgroundTransparency = 1
+    userLabel.Text = "@" .. player.Name
+    userLabel.TextColor3 = Colors.textDim
+    userLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    userLabel.TextStrokeTransparency = 0.5
+    userLabel.TextSize = 9
+    userLabel.Font = Enum.Font.Gotham
+    userLabel.TextXAlignment = Enum.TextXAlignment.Left
+    userLabel.TextTruncate = Enum.TextTruncate.AtEnd
+    userLabel.Parent = card
+
+    -- ID
+    local idLabel = Instance.new("TextLabel")
+    idLabel.Size = UDim2.new(1, -48, 0, 12)
+    idLabel.Position = UDim2.new(0, 46, 0, 30)
+    idLabel.BackgroundTransparency = 1
+    idLabel.Text = "ID: " .. tostring(player.UserId)
+    idLabel.TextColor3 = Colors.textDim
+    idLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    idLabel.TextStrokeTransparency = 0.5
+    idLabel.TextSize = 8
+    idLabel.Font = Enum.Font.Code
+    idLabel.TextXAlignment = Enum.TextXAlignment.Left
+    idLabel.Parent = card
+
+    -- Account age
+    local ageText
+    local ageDays = player.AccountAge
+    if ageDays >= 365 then
+        ageText = string.format("%.1f years", ageDays / 365)
+    elseif ageDays >= 30 then
+        ageText = math.floor(ageDays / 30) .. " months"
+    else
+        ageText = ageDays .. " days"
     end
 
-    trollConnection = task.spawn(function()
-        while true do
-            for _, data in ipairs(scannedRemotes) do
-                pcall(function()
-                    local remote = data.instance
-                    if remote and remote.Parent and remote:IsA("RemoteEvent") then
-                        remote:FireServer()
-                    end
-                end)
+    local ageLabel = Instance.new("TextLabel")
+    ageLabel.Size = UDim2.new(1, -12, 0, 12)
+    ageLabel.Position = UDim2.new(0, 6, 0, 48)
+    ageLabel.BackgroundTransparency = 1
+    ageLabel.Text = "📅 " .. ageText
+    ageLabel.TextColor3 = Color3.fromRGB(80, 220, 100)
+    ageLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    ageLabel.TextStrokeTransparency = 0.5
+    ageLabel.TextSize = 9
+    ageLabel.Font = Enum.Font.GothamBold
+    ageLabel.TextXAlignment = Enum.TextXAlignment.Left
+    ageLabel.Parent = card
+
+    -- Distance (updated every frame)
+    local distLabel = Instance.new("TextLabel")
+    distLabel.Name = "DistLabel"
+    distLabel.Size = UDim2.new(1, -12, 0, 12)
+    distLabel.Position = UDim2.new(0, 6, 0, 62)
+    distLabel.BackgroundTransparency = 1
+    distLabel.Text = "? studs"
+    distLabel.TextColor3 = Colors.textDim
+    distLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    distLabel.TextStrokeTransparency = 0.5
+    distLabel.TextSize = 8
+    distLabel.Font = Enum.Font.Code
+    distLabel.TextXAlignment = Enum.TextXAlignment.Left
+    distLabel.Parent = card
+
+    table.insert(playerInfoBillboards, {
+        player = player,
+        billboard = bg,
+        distLabel = distLabel,
+    })
+end
+
+clearPlayerInfo = function()
+    if playerInfoConnection then
+        playerInfoConnection:Disconnect()
+        playerInfoConnection = nil
+    end
+    for _, info in ipairs(playerInfoBillboards) do
+        if info.billboard and info.billboard.Parent then
+            info.billboard:Destroy()
+        end
+    end
+    playerInfoBillboards = {}
+end
+
+updatePlayerInfo = function()
+    clearPlayerInfo()
+    if not playerInfoActive then return end
+
+    -- Create for all existing players
+    for _, player in ipairs(Players:GetPlayers()) do
+        createPlayerInfoCard(player)
+    end
+
+    -- Update loop: distance + auto-detect new/respawned players
+    local checkTimer = 0
+    playerInfoConnection = RunService.RenderStepped:Connect(function(dt)
+        local myChar = LP.Character
+        local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+        local myPos = myHRP.Position
+
+        -- Update distance for tracked players
+        for i = #playerInfoBillboards, 1, -1 do
+            local info = playerInfoBillboards[i]
+            if not info.player or not info.player.Parent or not info.player.Character or not info.billboard.Parent then
+                if info.billboard and info.billboard.Parent then
+                    info.billboard:Destroy()
+                end
+                table.remove(playerInfoBillboards, i)
+            else
+                local tHRP = info.player.Character:FindFirstChild("HumanoidRootPart")
+                if tHRP then
+                    local dist = math.floor((myPos - tHRP.Position).Magnitude)
+                    info.distLabel.Text = dist .. " studs"
+                end
             end
-            task.wait()
+        end
+
+        -- Check for new/respawned players every 2 seconds
+        checkTimer = checkTimer + dt
+        if checkTimer >= 2 then
+            checkTimer = 0
+            for _, player in ipairs(Players:GetPlayers()) do
+                if player ~= LP and player.Character then
+                    local found = false
+                    for _, info in ipairs(playerInfoBillboards) do
+                        if info.player == player then
+                            found = true
+                            break
+                        end
+                    end
+                    if not found then
+                        createPlayerInfoCard(player)
+                    end
+                end
+            end
         end
     end)
-    notify("REMOTE FLOOD ativo — spammando " .. #scannedRemotes .. " remotes", "success")
+
+    notify("Player Info Cards ON", "success")
+end
+
+--==================================================
+-- ANTI-AFK
+--==================================================
+
+startAntiAfk = function()
+    if antiAfkActive then return end
+    antiAfkActive = true
+    antiAfkConnection = task.spawn(function()
+        while antiAfkActive do
+            pcall(function()
+                local vu = game:GetService("VirtualUser")
+                vu:CaptureController()
+                vu:ClickButton2(Vector2.new())
+            end)
+            task.wait(60)
+        end
+    end)
+    AntiAfkBtn.Text = "⚡ ANTI-AFK: ON"
+    AntiAfkBtn.BackgroundColor3 = Colors.green
+    notify("Anti-AFK ON", "success")
+end
+
+stopAntiAfk = function()
+    antiAfkActive = false
+    if antiAfkConnection then
+        pcall(function() task.cancel(antiAfkConnection) end)
+        antiAfkConnection = nil
+    end
+    AntiAfkBtn.Text = "⚡ ANTI-AFK: OFF"
+    AntiAfkBtn.BackgroundColor3 = Color3.fromRGB(50, 25, 25)
+    notify("Anti-AFK OFF", "info")
+end
+
+--==================================================
+-- CHAT SPY
+--==================================================
+
+startChatSpy = function()
+    if chatSpyActive then return end
+    chatSpyActive = true
+    chatSpyConnections = {}
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LP then
+            local conn = player.Chatted:Connect(function(msg)
+                if not chatSpyActive then return end
+                table.insert(chatSpyLog, {
+                    time = os.time(),
+                    player = player.DisplayName,
+                    message = msg,
+                })
+                if #chatSpyLog > 200 then
+                    table.remove(chatSpyLog, 1)
+                end
+                refreshChatSpyLog()
+            end)
+            table.insert(chatSpyConnections, conn)
+        end
+    end
+
+    -- Listen for new players joining
+    local addedConn = Players.PlayerAdded:Connect(function(player)
+        local conn = player.Chatted:Connect(function(msg)
+            if not chatSpyActive then return end
+            table.insert(chatSpyLog, {
+                time = os.time(),
+                player = player.DisplayName,
+                message = msg,
+            })
+            if #chatSpyLog > 200 then
+                table.remove(chatSpyLog, 1)
+            end
+            refreshChatSpyLog()
+        end)
+        table.insert(chatSpyConnections, conn)
+    end)
+    table.insert(chatSpyConnections, addedConn)
+
+    ChatSpyToggleBtn.Text = "🛑 STOP SPY"
+    ChatSpyToggleBtn.BackgroundColor3 = Colors.blood
+    ChatSpyStatusLabel.Text = "Spy: ON"
+    ChatSpyStatusLabel.TextColor3 = Color3.fromRGB(80, 220, 100)
+    notify("Chat Spy ON", "success")
+end
+
+stopChatSpy = function()
+    chatSpyActive = false
+    if chatSpyConnections then
+        for _, conn in ipairs(chatSpyConnections) do
+            pcall(function() conn:Disconnect() end)
+        end
+        chatSpyConnections = {}
+    end
+    ChatSpyToggleBtn.Text = "🕵 START SPY"
+    ChatSpyToggleBtn.BackgroundColor3 = Color3.fromRGB(40, 140, 40)
+    ChatSpyStatusLabel.Text = "Spy: OFF"
+    ChatSpyStatusLabel.TextColor3 = Colors.textDim
+    notify("Chat Spy OFF", "info")
+end
+
+--==================================================
+-- EXECUTE SCRIPT
+--==================================================
+
+executeScript = function(code)
+    if not code or code == "" then
+        notify("No script to execute", "error")
+        return
+    end
+    local ok, err = pcall(function()
+        local fn = loadstring(code)
+        if fn then
+            fn()
+        else
+            error("Failed to parse script")
+        end
+    end)
+    if ok then
+        notify("Script executed!", "success")
+    else
+        notify("Error: " .. tostring(err):sub(1, 60), "error")
+    end
 end
 
 --==================================================
@@ -7227,7 +8835,29 @@ for feature, toggle in pairs(espToggles) do
     end)
 end
 
+-- Footsteps toggle (separate from espToggles)
+FootstepsToggle.btn.MouseButton1Click:Connect(function()
+    if espState.footsteps then
+        stopFootsteps()
+    else
+        startFootsteps()
+    end
+end)
+
+-- Sound ESP toggle (separate from espToggles)
+SoundESPToggle.btn.MouseButton1Click:Connect(function()
+    if espState.soundESP then
+        stopSoundESP()
+    else
+        startSoundESP()
+    end
+end)
+
 ESPOffBtn.MouseButton1Click:Connect(function()
+    -- Stop separate systems first
+    if espState.footsteps then stopFootsteps() end
+    if espState.soundESP then stopSoundESP() end
+    -- Reset all state
     for k in pairs(espState) do
         espState[k] = false
     end
@@ -7235,6 +8865,8 @@ ESPOffBtn.MouseButton1Click:Connect(function()
     for _, toggle in pairs(espToggles) do
         toggle.refresh()
     end
+    FootstepsToggle.refresh()
+    SoundESPToggle.refresh()
     ESPStatusLabel.Text = "ESP OFF — toggle features above"
     notify("All ESP disabled", "info")
 end)
@@ -7244,9 +8876,23 @@ end)
 --==================================================
 
 RefreshPlayersBtn.MouseButton1Click:Connect(function()
-    refreshPlayerList()
+    refreshPlayerList(PlayerSearchBox.Text)
     notify("Player list refreshed", "info")
 end)
+
+-- Player search filter
+do
+    local playerFilterTimer = nil
+    PlayerSearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+        if playerFilterTimer then
+            task.cancel(playerFilterTimer)
+        end
+        playerFilterTimer = task.delay(0.3, function()
+            playerFilterTimer = nil
+            refreshPlayerList(PlayerSearchBox.Text)
+        end)
+    end)
+end
 
 -- Auto-refresh when tab switches to player
 -- (handled in switchTab below)
@@ -7601,21 +9247,80 @@ TrollDizzyBtn.MouseButton1Click:Connect(function()
     if trollTarget then dizzyPlayer(trollTarget) end
 end)
 
--- CRASH TROLLS
-TrollCrashFxBtn.MouseButton1Click:Connect(function()
-    if trollTarget then crashFxPlayer(trollTarget) end
+TrollMagnetBtn.MouseButton1Click:Connect(function()
+    if trollTarget then magnetPlayer(trollTarget) end
 end)
 
-TrollMegaFlingBtn.MouseButton1Click:Connect(function()
-    if trollTarget then megaFlingPlayer(trollTarget) end
+TrollCloneBtn.MouseButton1Click:Connect(function()
+    if trollTarget then clonePlayer(trollTarget) end
 end)
 
-TrollSeizureBtn.MouseButton1Click:Connect(function()
-    if trollTarget then seizurePlayer(trollTarget) end
+TrollUpsideDownBtn.MouseButton1Click:Connect(function()
+    if trollTarget then upsideDownPlayer(trollTarget) end
 end)
 
-TrollRemoteFloodBtn.MouseButton1Click:Connect(function()
-    remoteFloodStart()
+TrollTornadoBtn.MouseButton1Click:Connect(function()
+    if trollTarget then tornadoPlayer(trollTarget) end
+end)
+
+TrollSnakeBtn.MouseButton1Click:Connect(function()
+    if trollTarget then snakePlayer(trollTarget) end
+end)
+
+TrollMirrorBtn.MouseButton1Click:Connect(function()
+    if trollTarget then mirrorPlayer(trollTarget) end
+end)
+
+TrollStackBtn.MouseButton1Click:Connect(function()
+    if trollTarget then stackPlayer(trollTarget) end
+end)
+
+TrollFigure8Btn.MouseButton1Click:Connect(function()
+    if trollTarget then figure8Player(trollTarget) end
+end)
+
+TrollDogBtn.MouseButton1Click:Connect(function()
+    if trollTarget then dogPlayer(trollTarget) end
+end)
+
+TrollFerrisBtn.MouseButton1Click:Connect(function()
+    if trollTarget then ferrisPlayer(trollTarget) end
+end)
+
+TrollSalsaBtn.MouseButton1Click:Connect(function()
+    if trollTarget then salsaPlayer(trollTarget) end
+end)
+
+TrollUfoBtn.MouseButton1Click:Connect(function()
+    if trollTarget then ufoPlayer(trollTarget) end
+end)
+
+TrollBoomerangBtn.MouseButton1Click:Connect(function()
+    if trollTarget then boomerangPlayer(trollTarget) end
+end)
+
+TrollRollerBtn.MouseButton1Click:Connect(function()
+    if trollTarget then rollerPlayer(trollTarget) end
+end)
+
+TrollSpiralBtn.MouseButton1Click:Connect(function()
+    if trollTarget then spiralPlayer(trollTarget) end
+end)
+
+TrollSurfBtn.MouseButton1Click:Connect(function()
+    if trollTarget then surfPlayer(trollTarget) end
+end)
+
+TrollBouncerBtn.MouseButton1Click:Connect(function()
+    if trollTarget then bouncerPlayer(trollTarget) end
+end)
+
+TrollLapSitBtn.MouseButton1Click:Connect(function()
+    if trollTarget then lapSitPlayer(trollTarget) end
+end)
+
+TrollWaveBtn.MouseButton1Click:Connect(function()
+    if trollTarget then wavePlayer(trollTarget) end
 end)
 
 TrollStopBtn.MouseButton1Click:Connect(function()
@@ -7788,6 +9493,82 @@ do
     end)
 end
 
+--==================================================
+-- PLAYER INFO EVENTS
+--==================================================
+
+PlayerInfoToggle.btn.MouseButton1Click:Connect(function()
+    playerInfoState.active = not playerInfoState.active
+    PlayerInfoToggle.refresh()
+    playerInfoActive = playerInfoState.active
+    if playerInfoActive then
+        updatePlayerInfo()
+    else
+        clearPlayerInfo()
+        notify("Player Info Cards OFF", "info")
+    end
+end)
+
+--==================================================
+-- DEV TOOLS EVENTS
+--==================================================
+
+AntiAfkBtn.MouseButton1Click:Connect(function()
+    if antiAfkActive then
+        stopAntiAfk()
+    else
+        startAntiAfk()
+    end
+end)
+
+ChatSpyOpenBtn.MouseButton1Click:Connect(function()
+    openChatSpyPanel()
+end)
+
+ExecRunBtn.MouseButton1Click:Connect(function()
+    executeScript(ExecScriptBox.Text)
+end)
+
+--==================================================
+-- CHAT SPY EVENTS
+--==================================================
+
+ChatSpyToggleBtn.MouseButton1Click:Connect(function()
+    if chatSpyActive then
+        stopChatSpy()
+    else
+        startChatSpy()
+    end
+end)
+
+ChatSpyClearBtn.MouseButton1Click:Connect(function()
+    chatSpyLog = {}
+    refreshChatSpyLog()
+    notify("Chat log cleared", "info")
+end)
+
+ChatSpyCloseX.MouseButton1Click:Connect(function()
+    ChatSpyPanel.Visible = false
+end)
+
+ChatSpyCloseBtn.MouseButton1Click:Connect(function()
+    ChatSpyPanel.Visible = false
+end)
+
+-- Chat spy filter debounce
+do
+    local chatFilterTimer = nil
+    ChatSpyFilterBox:GetPropertyChangedSignal("Text"):Connect(function()
+        if chatFilterTimer then
+            task.cancel(chatFilterTimer)
+        end
+        chatFilterTimer = task.delay(0.3, function()
+            chatFilterTimer = nil
+            refreshChatSpyLog()
+        end)
+    end)
+end
+
 -- Helper: carrega SynSaveInstance
 local function loadSSI()
     local Params = {
@@ -7883,6 +9664,14 @@ CloseBtn.MouseButton1Click:Connect(function()
     TrollPanel.Visible = false
     stopRemoteSpy()
     RemoteSpyPanel.Visible = false
+    stopChatSpy()
+    ChatSpyPanel.Visible = false
+    if antiAfkActive then stopAntiAfk() end
+    clearPlayerInfo()
+    playerInfoActive = false
+    playerInfoState.active = false
+    if espState.footsteps then stopFootsteps() end
+    if espState.soundESP then stopSoundESP() end
     clearESP()
     clearPreview()
     clearResults()

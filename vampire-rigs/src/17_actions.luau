@@ -540,13 +540,26 @@ end
 -- PLAYER LIST (for Player tab)
 --==================================================
 
-refreshPlayerList = function()
+refreshPlayerList = function(filterText)
     -- Clear existing
     for _, child in pairs(PlayerScroll:GetChildren()) do
         if child:IsA("Frame") then child:Destroy() end
     end
 
+    filterText = filterText and filterText:lower() or ""
+
     for _, player in pairs(Players:GetPlayers()) do
+        -- Filter by name/displayname
+        local match = true
+        if filterText ~= "" then
+            local dn = player.DisplayName:lower()
+            local un = player.Name:lower()
+            if not dn:find(filterText, 1, true) and not un:find(filterText, 1, true) then
+                match = false
+            end
+        end
+
+        if match then
         local card = Instance.new("Frame")
         card.Size = UDim2.new(1, -10, 0, 54)
         card.BackgroundColor3 = Colors.card
@@ -710,6 +723,7 @@ refreshPlayerList = function()
         trollBtn.MouseButton1Click:Connect(function()
             openTrollPanel(player)
         end)
+        end -- if match
     end
 
     PlayerScroll.CanvasSize = UDim2.new(0, 0, 0, PlayerLayout.AbsoluteContentSize.Y + 10)

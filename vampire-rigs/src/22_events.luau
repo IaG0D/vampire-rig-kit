@@ -52,7 +52,29 @@ for feature, toggle in pairs(espToggles) do
     end)
 end
 
+-- Footsteps toggle (separate from espToggles)
+FootstepsToggle.btn.MouseButton1Click:Connect(function()
+    if espState.footsteps then
+        stopFootsteps()
+    else
+        startFootsteps()
+    end
+end)
+
+-- Sound ESP toggle (separate from espToggles)
+SoundESPToggle.btn.MouseButton1Click:Connect(function()
+    if espState.soundESP then
+        stopSoundESP()
+    else
+        startSoundESP()
+    end
+end)
+
 ESPOffBtn.MouseButton1Click:Connect(function()
+    -- Stop separate systems first
+    if espState.footsteps then stopFootsteps() end
+    if espState.soundESP then stopSoundESP() end
+    -- Reset all state
     for k in pairs(espState) do
         espState[k] = false
     end
@@ -60,6 +82,8 @@ ESPOffBtn.MouseButton1Click:Connect(function()
     for _, toggle in pairs(espToggles) do
         toggle.refresh()
     end
+    FootstepsToggle.refresh()
+    SoundESPToggle.refresh()
     ESPStatusLabel.Text = "ESP OFF — toggle features above"
     notify("All ESP disabled", "info")
 end)
@@ -69,9 +93,23 @@ end)
 --==================================================
 
 RefreshPlayersBtn.MouseButton1Click:Connect(function()
-    refreshPlayerList()
+    refreshPlayerList(PlayerSearchBox.Text)
     notify("Player list refreshed", "info")
 end)
+
+-- Player search filter
+do
+    local playerFilterTimer = nil
+    PlayerSearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+        if playerFilterTimer then
+            task.cancel(playerFilterTimer)
+        end
+        playerFilterTimer = task.delay(0.3, function()
+            playerFilterTimer = nil
+            refreshPlayerList(PlayerSearchBox.Text)
+        end)
+    end)
+end
 
 -- Auto-refresh when tab switches to player
 -- (handled in switchTab below)
@@ -426,21 +464,80 @@ TrollDizzyBtn.MouseButton1Click:Connect(function()
     if trollTarget then dizzyPlayer(trollTarget) end
 end)
 
--- CRASH TROLLS
-TrollCrashFxBtn.MouseButton1Click:Connect(function()
-    if trollTarget then crashFxPlayer(trollTarget) end
+TrollMagnetBtn.MouseButton1Click:Connect(function()
+    if trollTarget then magnetPlayer(trollTarget) end
 end)
 
-TrollMegaFlingBtn.MouseButton1Click:Connect(function()
-    if trollTarget then megaFlingPlayer(trollTarget) end
+TrollCloneBtn.MouseButton1Click:Connect(function()
+    if trollTarget then clonePlayer(trollTarget) end
 end)
 
-TrollSeizureBtn.MouseButton1Click:Connect(function()
-    if trollTarget then seizurePlayer(trollTarget) end
+TrollUpsideDownBtn.MouseButton1Click:Connect(function()
+    if trollTarget then upsideDownPlayer(trollTarget) end
 end)
 
-TrollRemoteFloodBtn.MouseButton1Click:Connect(function()
-    remoteFloodStart()
+TrollTornadoBtn.MouseButton1Click:Connect(function()
+    if trollTarget then tornadoPlayer(trollTarget) end
+end)
+
+TrollSnakeBtn.MouseButton1Click:Connect(function()
+    if trollTarget then snakePlayer(trollTarget) end
+end)
+
+TrollMirrorBtn.MouseButton1Click:Connect(function()
+    if trollTarget then mirrorPlayer(trollTarget) end
+end)
+
+TrollStackBtn.MouseButton1Click:Connect(function()
+    if trollTarget then stackPlayer(trollTarget) end
+end)
+
+TrollFigure8Btn.MouseButton1Click:Connect(function()
+    if trollTarget then figure8Player(trollTarget) end
+end)
+
+TrollDogBtn.MouseButton1Click:Connect(function()
+    if trollTarget then dogPlayer(trollTarget) end
+end)
+
+TrollFerrisBtn.MouseButton1Click:Connect(function()
+    if trollTarget then ferrisPlayer(trollTarget) end
+end)
+
+TrollSalsaBtn.MouseButton1Click:Connect(function()
+    if trollTarget then salsaPlayer(trollTarget) end
+end)
+
+TrollUfoBtn.MouseButton1Click:Connect(function()
+    if trollTarget then ufoPlayer(trollTarget) end
+end)
+
+TrollBoomerangBtn.MouseButton1Click:Connect(function()
+    if trollTarget then boomerangPlayer(trollTarget) end
+end)
+
+TrollRollerBtn.MouseButton1Click:Connect(function()
+    if trollTarget then rollerPlayer(trollTarget) end
+end)
+
+TrollSpiralBtn.MouseButton1Click:Connect(function()
+    if trollTarget then spiralPlayer(trollTarget) end
+end)
+
+TrollSurfBtn.MouseButton1Click:Connect(function()
+    if trollTarget then surfPlayer(trollTarget) end
+end)
+
+TrollBouncerBtn.MouseButton1Click:Connect(function()
+    if trollTarget then bouncerPlayer(trollTarget) end
+end)
+
+TrollLapSitBtn.MouseButton1Click:Connect(function()
+    if trollTarget then lapSitPlayer(trollTarget) end
+end)
+
+TrollWaveBtn.MouseButton1Click:Connect(function()
+    if trollTarget then wavePlayer(trollTarget) end
 end)
 
 TrollStopBtn.MouseButton1Click:Connect(function()
@@ -613,6 +710,82 @@ do
     end)
 end
 
+--==================================================
+-- PLAYER INFO EVENTS
+--==================================================
+
+PlayerInfoToggle.btn.MouseButton1Click:Connect(function()
+    playerInfoState.active = not playerInfoState.active
+    PlayerInfoToggle.refresh()
+    playerInfoActive = playerInfoState.active
+    if playerInfoActive then
+        updatePlayerInfo()
+    else
+        clearPlayerInfo()
+        notify("Player Info Cards OFF", "info")
+    end
+end)
+
+--==================================================
+-- DEV TOOLS EVENTS
+--==================================================
+
+AntiAfkBtn.MouseButton1Click:Connect(function()
+    if antiAfkActive then
+        stopAntiAfk()
+    else
+        startAntiAfk()
+    end
+end)
+
+ChatSpyOpenBtn.MouseButton1Click:Connect(function()
+    openChatSpyPanel()
+end)
+
+ExecRunBtn.MouseButton1Click:Connect(function()
+    executeScript(ExecScriptBox.Text)
+end)
+
+--==================================================
+-- CHAT SPY EVENTS
+--==================================================
+
+ChatSpyToggleBtn.MouseButton1Click:Connect(function()
+    if chatSpyActive then
+        stopChatSpy()
+    else
+        startChatSpy()
+    end
+end)
+
+ChatSpyClearBtn.MouseButton1Click:Connect(function()
+    chatSpyLog = {}
+    refreshChatSpyLog()
+    notify("Chat log cleared", "info")
+end)
+
+ChatSpyCloseX.MouseButton1Click:Connect(function()
+    ChatSpyPanel.Visible = false
+end)
+
+ChatSpyCloseBtn.MouseButton1Click:Connect(function()
+    ChatSpyPanel.Visible = false
+end)
+
+-- Chat spy filter debounce
+do
+    local chatFilterTimer = nil
+    ChatSpyFilterBox:GetPropertyChangedSignal("Text"):Connect(function()
+        if chatFilterTimer then
+            task.cancel(chatFilterTimer)
+        end
+        chatFilterTimer = task.delay(0.3, function()
+            chatFilterTimer = nil
+            refreshChatSpyLog()
+        end)
+    end)
+end
+
 -- Helper: carrega SynSaveInstance
 local function loadSSI()
     local Params = {
@@ -708,6 +881,14 @@ CloseBtn.MouseButton1Click:Connect(function()
     TrollPanel.Visible = false
     stopRemoteSpy()
     RemoteSpyPanel.Visible = false
+    stopChatSpy()
+    ChatSpyPanel.Visible = false
+    if antiAfkActive then stopAntiAfk() end
+    clearPlayerInfo()
+    playerInfoActive = false
+    playerInfoState.active = false
+    if espState.footsteps then stopFootsteps() end
+    if espState.soundESP then stopSoundESP() end
     clearESP()
     clearPreview()
     clearResults()

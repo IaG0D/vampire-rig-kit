@@ -110,9 +110,23 @@ espState = {
     healthBars = false,
     boxESP = false,
     chams = false,
+    tracers = false,
+    skeleton = false,
+    headDot = false,
+    threatLevel = false,
+    toolESP = false,
+    soundESP = false,
+    footsteps = false,
 }
 espConnection = nil
 espObjects = {}
+tracerLines = {}
+skeletonBeams = {}
+headDotObjects = {}
+footstepParts = {}
+footstepConnection = nil
+soundEspObjects = {}
+soundEspConnection = nil
 
 -- Movement state
 movementState = {
@@ -195,12 +209,28 @@ cosmeticState = {
 trollConnection = nil
 trollTarget = nil
 trollSpeedMul = 1
+trollSavedCFrame = nil
 
 -- Remote spy state
 remoteSpyActive = false
 remoteSpyLog = {}
 remoteSpyHook = nil
 scannedRemotes = {}
+
+-- Anti-AFK state
+antiAfkActive = false
+antiAfkConnection = nil
+
+-- Chat spy state
+chatSpyActive = false
+chatSpyLog = {}
+chatSpyConnections = {}
+
+-- Player info state
+playerInfoState = { active = false }
+playerInfoActive = false
+playerInfoBillboards = {}
+playerInfoConnection = nil
 
 -- Forward-declared functions are assigned as globals by later modules
 -- (removed local forward declarations to stay under Lua's 200 local limit)

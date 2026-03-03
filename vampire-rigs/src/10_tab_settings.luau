@@ -208,4 +208,99 @@ Instance.new("UICorner", RemoteSpyOpenBtn).CornerRadius = UDim.new(0, 6)
 addBtnGradient(RemoteSpyOpenBtn)
 makeHoverable(RemoteSpyOpenBtn, Color3.fromRGB(0, 140, 120), Color3.fromRGB(0, 180, 160))
 
-SettingsScroll.CanvasSize = UDim2.new(0, 0, 0, saveBtnY + 340)
+--==================================================
+-- DEV TOOLS
+--==================================================
+
+createSectionHeader(SettingsScroll, "Dev Tools", saveBtnY + 334)
+
+-- Anti-AFK toggle button
+AntiAfkBtn = Instance.new("TextButton")
+AntiAfkBtn.Size = UDim2.new(1, 0, 0, 28)
+AntiAfkBtn.Position = UDim2.new(0, 0, 0, saveBtnY + 360)
+AntiAfkBtn.BackgroundColor3 = Color3.fromRGB(50, 25, 25)
+AntiAfkBtn.Text = "⚡ ANTI-AFK: OFF"
+AntiAfkBtn.TextColor3 = Colors.text
+AntiAfkBtn.TextSize = 11
+AntiAfkBtn.Font = Enum.Font.GothamBold
+AntiAfkBtn.AutoButtonColor = false
+AntiAfkBtn.Parent = SettingsScroll
+Instance.new("UICorner", AntiAfkBtn).CornerRadius = UDim.new(0, 6)
+addBtnGradient(AntiAfkBtn)
+makeHoverable(AntiAfkBtn, Color3.fromRGB(50, 25, 25), Color3.fromRGB(70, 40, 40))
+
+-- Chat Spy open button
+ChatSpyOpenBtn = Instance.new("TextButton")
+ChatSpyOpenBtn.Size = UDim2.new(1, 0, 0, 28)
+ChatSpyOpenBtn.Position = UDim2.new(0, 0, 0, saveBtnY + 394)
+ChatSpyOpenBtn.BackgroundColor3 = Color3.fromRGB(40, 140, 40)
+ChatSpyOpenBtn.Text = "💬 OPEN CHAT SPY"
+ChatSpyOpenBtn.TextColor3 = Colors.text
+ChatSpyOpenBtn.TextSize = 11
+ChatSpyOpenBtn.Font = Enum.Font.GothamBold
+ChatSpyOpenBtn.AutoButtonColor = false
+ChatSpyOpenBtn.Parent = SettingsScroll
+Instance.new("UICorner", ChatSpyOpenBtn).CornerRadius = UDim.new(0, 6)
+addBtnGradient(ChatSpyOpenBtn)
+makeHoverable(ChatSpyOpenBtn, Color3.fromRGB(40, 140, 40), Color3.fromRGB(60, 180, 60))
+
+-- Execute Script label
+ExecLabel = Instance.new("TextLabel")
+ExecLabel.Size = UDim2.new(1, 0, 0, 16)
+ExecLabel.Position = UDim2.new(0, 0, 0, saveBtnY + 430)
+ExecLabel.BackgroundTransparency = 1
+ExecLabel.Text = "Execute Script:"
+ExecLabel.TextColor3 = Colors.textDim
+ExecLabel.TextSize = 11
+ExecLabel.Font = Enum.Font.GothamBold
+ExecLabel.TextXAlignment = Enum.TextXAlignment.Left
+ExecLabel.Parent = SettingsScroll
+
+-- Execute TextBox
+ExecScriptBox = Instance.new("TextBox")
+ExecScriptBox.Size = UDim2.new(1, 0, 0, 60)
+ExecScriptBox.Position = UDim2.new(0, 0, 0, saveBtnY + 448)
+ExecScriptBox.BackgroundColor3 = Colors.inputBg
+ExecScriptBox.Text = ""
+ExecScriptBox.PlaceholderText = "paste lua code here..."
+ExecScriptBox.TextColor3 = Colors.text
+ExecScriptBox.PlaceholderColor3 = Colors.textDim
+ExecScriptBox.TextSize = 10
+ExecScriptBox.Font = Enum.Font.Code
+ExecScriptBox.TextXAlignment = Enum.TextXAlignment.Left
+ExecScriptBox.TextYAlignment = Enum.TextYAlignment.Top
+ExecScriptBox.ClearTextOnFocus = false
+ExecScriptBox.TextWrapped = true
+ExecScriptBox.MultiLine = true
+ExecScriptBox.Parent = SettingsScroll
+Instance.new("UICorner", ExecScriptBox).CornerRadius = UDim.new(0, 6)
+ExecScriptBoxPad = Instance.new("UIPadding", ExecScriptBox)
+ExecScriptBoxPad.PaddingLeft = UDim.new(0, 6)
+ExecScriptBoxPad.PaddingTop = UDim.new(0, 4)
+ExecScriptStroke = Instance.new("UIStroke", ExecScriptBox)
+ExecScriptStroke.Color = Colors.inputBorder
+ExecScriptStroke.Thickness = 1
+
+ExecScriptBox.Focused:Connect(function()
+    TweenService:Create(ExecScriptStroke, TweenInfo.new(0.2), { Color = Color3.fromRGB(80, 220, 100), Thickness = 1.5 }):Play()
+end)
+ExecScriptBox.FocusLost:Connect(function()
+    TweenService:Create(ExecScriptStroke, TweenInfo.new(0.3), { Color = Colors.inputBorder, Thickness = 1 }):Play()
+end)
+
+-- Run button
+ExecRunBtn = Instance.new("TextButton")
+ExecRunBtn.Size = UDim2.new(1, 0, 0, 28)
+ExecRunBtn.Position = UDim2.new(0, 0, 0, saveBtnY + 514)
+ExecRunBtn.BackgroundColor3 = Color3.fromRGB(40, 140, 40)
+ExecRunBtn.Text = "▶ RUN SCRIPT"
+ExecRunBtn.TextColor3 = Colors.text
+ExecRunBtn.TextSize = 11
+ExecRunBtn.Font = Enum.Font.GothamBold
+ExecRunBtn.AutoButtonColor = false
+ExecRunBtn.Parent = SettingsScroll
+Instance.new("UICorner", ExecRunBtn).CornerRadius = UDim.new(0, 6)
+addBtnGradient(ExecRunBtn)
+makeHoverable(ExecRunBtn, Color3.fromRGB(40, 140, 40), Color3.fromRGB(60, 180, 60))
+
+SettingsScroll.CanvasSize = UDim2.new(0, 0, 0, saveBtnY + 560)

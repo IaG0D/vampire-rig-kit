@@ -505,6 +505,7 @@ end
 --==================================================
 
 flingPlayer = function(player)
+    stopTroll()
     local targetChar = player.Character
     if not targetChar then
         notify("No character found", "error")
@@ -553,6 +554,7 @@ headsitPlayer = function(player)
     local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
     if not head or not myHRP or not myHum then return end
 
+    trollSaveCFrame()
     myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
     myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
     myHum.Sit = true
@@ -578,6 +580,27 @@ end
 -- MORE TROLLS
 --==================================================
 
+-- Salva posição antes de iniciar troll
+trollSaveCFrame = function()
+    local char = LP.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        trollSavedCFrame = hrp.CFrame
+    end
+end
+
+-- Zera velocity do HRP (chamar dentro do Heartbeat pra reduzir flicker)
+trollZeroVelocity = function()
+    pcall(function()
+        local char = LP.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            hrp.Velocity = Vector3.new(0, 0, 0)
+            hrp.RotVelocity = Vector3.new(0, 0, 0)
+        end
+    end)
+end
+
 stopTroll = function()
     if trollConnection then
         pcall(function()
@@ -591,11 +614,20 @@ stopTroll = function()
     end
     local char = LP.Character
     local hum = char and char:FindFirstChildOfClass("Humanoid")
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
     if hum then
         hum.Sit = false
         hum:SetStateEnabled(Enum.HumanoidStateType.Freefall, true)
         hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true)
         hum:ChangeState(Enum.HumanoidStateType.GettingUp)
+
+        -- Restaurar posição salva (evita cair no void)
+        if trollSavedCFrame and hrp then
+            hrp.CFrame = trollSavedCFrame
+            hrp.Velocity = Vector3.new(0, 0, 0)
+            hrp.RotVelocity = Vector3.new(0, 0, 0)
+        end
+        trollSavedCFrame = nil
 
         -- Stop all playing animation tracks
         local animator = hum:FindFirstChildOfClass("Animator")
@@ -620,33 +652,16 @@ stopTroll = function()
             end)
         end
 
-        -- Cleanup crash FX do meu char (Fire, Smoke, ParticleEmitter, Sparkles)
-        pcall(function()
-            for _, desc in pairs(char:GetDescendants()) do
-                if desc:IsA("Fire") or desc:IsA("Smoke") or desc:IsA("ParticleEmitter") or desc:IsA("Sparkles") then
-                    pcall(function() desc:Destroy() end)
-                end
-            end
-        end)
-    end
-
-    -- Cleanup crash FX no target também
-    if trollTarget then
-        pcall(function()
-            local tc = trollTarget.Character
-            if tc then
-                for _, desc in pairs(tc:GetDescendants()) do
-                    if desc:IsA("Fire") or desc:IsA("Smoke") or desc:IsA("ParticleEmitter") or desc:IsA("Sparkles") then
-                        pcall(function() desc:Destroy() end)
-                    end
-                    if desc:IsA("BodyVelocity") or desc:IsA("BodyAngularVelocity") then
-                        pcall(function() desc:Destroy() end)
-                    end
-                end
-            end
-        end)
     end
 end
+
+-- Auto velocity zero — roda sempre, zera velocity quando troll ativo
+-- Reduz flicker pra outros clients (menos rubber-banding)
+RunService.Heartbeat:Connect(function()
+    if trollConnection then
+        trollZeroVelocity()
+    end
+end)
 
 bangPlayer = function(player)
     stopTroll()
@@ -658,6 +673,7 @@ bangPlayer = function(player)
     local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
     if not targetHRP or not myHRP or not myHum then return end
 
+    trollSaveCFrame()
     myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
     myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
 
@@ -695,6 +711,7 @@ bangFrontPlayer = function(player)
     local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
     if not targetHRP or not myHRP or not myHum then return end
 
+    trollSaveCFrame()
     myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
     myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
 
@@ -727,6 +744,7 @@ orbitTrollPlayer = function(player)
     local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
     if not myHRP or not myHum then return end
 
+    trollSaveCFrame()
     myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
     myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
 
@@ -758,6 +776,7 @@ backpackPlayer = function(player)
     local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
     if not myHRP or not myHum then return end
 
+    trollSaveCFrame()
     myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
     myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
 
@@ -777,6 +796,7 @@ backpackPlayer = function(player)
 end
 
 flingAllPlayers = function()
+    stopTroll()
     local myChar = LP.Character
     local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
     if not myHRP then return end
@@ -825,6 +845,7 @@ helicopterPlayer = function(player)
     local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
     if not head or not myHRP or not myHum then return end
 
+    trollSaveCFrame()
     myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
     myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
 
@@ -862,6 +883,7 @@ spinTopPlayer = function(player)
     local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
     if not head or not myHRP or not myHum then return end
 
+    trollSaveCFrame()
     myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
     myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
 
@@ -898,6 +920,7 @@ trampolinePlayer = function(player)
     local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
     if not myHRP or not myHum then return end
 
+    trollSaveCFrame()
     myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
     myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
 
@@ -933,6 +956,7 @@ creepPlayer = function(player)
     local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
     if not myHRP or not myHum then return end
 
+    trollSaveCFrame()
     myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
     myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
 
@@ -1011,6 +1035,7 @@ carpetPlayer = function(player)
     local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
     if not myHRP or not myHum then return end
 
+    trollSaveCFrame()
     myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
     myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
 
@@ -1045,6 +1070,7 @@ dizzyPlayer = function(player)
     local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
     if not myHRP or not myHum then return end
 
+    trollSaveCFrame()
     myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
     myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
 
@@ -1249,199 +1275,898 @@ massFireRemotes = function()
 end
 
 --==================================================
--- CRASH TROLLS — focados no TARGET, você fica safe
+-- MORE FUN TROLLS
 --==================================================
 
--- CRASH FX — spam efeitos no CHARACTER DO TARGET
--- O client dele tem que renderizar tudo = lag/crash nele, não em você
-crashFxPlayer = function(player)
+-- MAGNET — gruda nas costas do alvo (piggyback)
+magnetPlayer = function(player)
     stopTroll()
     local targetChar = player.Character
     if not targetChar then notify("No character", "error") return end
-
-    local parts = {}
-    for _, p in pairs(targetChar:GetDescendants()) do
-        if p:IsA("BasePart") then
-            table.insert(parts, p)
-        end
-    end
-    if #parts == 0 then return end
-
-    trollConnection = task.spawn(function()
-        while true do
-            -- Re-check target alive
-            targetChar = player.Character
-            if not targetChar then break end
-
-            for _, part in ipairs(parts) do
-                pcall(function()
-                    if not part or not part.Parent then return end
-
-                    local pe = Instance.new("ParticleEmitter")
-                    pe.Rate = 500
-                    pe.Lifetime = NumberRange.new(3, 8)
-                    pe.Speed = NumberRange.new(30, 80)
-                    pe.SpreadAngle = Vector2.new(180, 180)
-                    pe.Parent = part
-
-                    local fire = Instance.new("Fire")
-                    fire.Size = 25
-                    fire.Heat = 25
-                    fire.Parent = part
-
-                    local smoke = Instance.new("Smoke")
-                    smoke.Size = 20
-                    smoke.Opacity = 1
-                    smoke.RiseVelocity = 25
-                    smoke.Parent = part
-
-                    local sparkles = Instance.new("Sparkles")
-                    sparkles.SparkleColor = Color3.new(math.random(), math.random(), math.random())
-                    sparkles.Parent = part
-                end)
-            end
-            task.wait(0.05)
-        end
-    end)
-    notify("CRASH FX no " .. player.DisplayName .. " — ele vai lagar", "success")
-end
-
--- MEGA FLING — velocidade insana no target, múltiplos BodyVelocity + BodyAngularVelocity
--- Manda pro espaço e buga o physics dele
-megaFlingPlayer = function(player)
-    local targetChar = player.Character
-    if not targetChar then notify("No character", "error") return end
-    local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
     local myChar = LP.Character
     local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
-    if not targetHRP or not myHRP then return end
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not myHRP or not myHum then return end
 
-    -- TP rápido pra perto, aplica forces, volta
-    local savedCF = myHRP.CFrame
-    myHRP.CFrame = targetHRP.CFrame * CFrame.new(0, 0, -1)
-
-    task.delay(0.1, function()
-        -- Spam de BodyVelocity em rajada
-        for i = 1, 8 do
-            task.delay(i * 0.03, function()
-                pcall(function()
-                    local bv = Instance.new("BodyVelocity")
-                    bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-                    bv.Velocity = Vector3.new(
-                        math.random(-99999, 99999),
-                        99999,
-                        math.random(-99999, 99999)
-                    )
-                    bv.Parent = targetHRP
-
-                    -- Angular velocity pra girar loucamente
-                    local bav = Instance.new("BodyAngularVelocity")
-                    bav.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
-                    bav.AngularVelocity = Vector3.new(
-                        math.random(-999, 999),
-                        math.random(-999, 999),
-                        math.random(-999, 999)
-                    )
-                    bav.Parent = targetHRP
-
-                    task.delay(0.4, function()
-                        pcall(function() bv:Destroy() end)
-                        pcall(function() bav:Destroy() end)
-                    end)
-                end)
-            end)
-        end
-
-        -- Volta pra posição original
-        task.delay(0.5, function()
-            if myHRP and myHRP.Parent then
-                myHRP.CFrame = savedCF
-            end
-        end)
-    end)
-    notify("MEGA FLING: " .. player.DisplayName, "success")
-end
-
--- SEIZURE — spam BodyVelocity + BodyAngularVelocity aleatórios no TARGET
--- Physics do target enlouquece, ele sai voando/girando sem parar
--- Você fica parado safe
-seizurePlayer = function(player)
-    stopTroll()
-    local targetChar = player.Character
-    if not targetChar then notify("No character", "error") return end
-    local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
-    if not targetHRP then return end
+    trollSaveCFrame()
+    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
 
     trollConnection = RunService.Heartbeat:Connect(function()
-        targetChar = player.Character
-        if not targetChar then
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
             stopTroll()
             return
         end
-        targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
-        if not targetHRP then return end
+        myChar = LP.Character
+        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
 
-        -- Cada frame: cria BodyVelocity aleatório no target
-        pcall(function()
-            local bv = Instance.new("BodyVelocity")
-            bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-            bv.Velocity = Vector3.new(
-                math.random(-500, 500),
-                math.random(-200, 500),
-                math.random(-500, 500)
-            )
-            bv.Parent = targetHRP
-            -- Auto-destroy rápido
-            task.delay(0.1, function()
-                pcall(function() bv:Destroy() end)
-            end)
-        end)
-
-        -- A cada ~5 frames, joga um angular velocity também
-        if math.random(1, 5) == 1 then
-            pcall(function()
-                local bav = Instance.new("BodyAngularVelocity")
-                bav.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
-                bav.AngularVelocity = Vector3.new(
-                    math.random(-200, 200),
-                    math.random(-200, 200),
-                    math.random(-200, 200)
-                )
-                bav.Parent = targetHRP
-                task.delay(0.15, function()
-                    pcall(function() bav:Destroy() end)
-                end)
-            end)
-        end
+        local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+        -- Costas do alvo, um pouco acima (piggyback)
+        myHRP.CFrame = targetHRP.CFrame * CFrame.new(0, 1.5, 1)
     end)
-    notify("SEIZURE: " .. player.DisplayName .. " — physics dele bugou", "success")
+    notify("Magnet: " .. player.DisplayName, "success")
 end
 
--- REMOTE FLOOD — spam contínuo de todos os remotes (server stress)
-remoteFloodStart = function()
+-- CLONE — sobrepor exatamente no avatar do alvo (impostor)
+clonePlayer = function(player)
     stopTroll()
-    if #scannedRemotes == 0 then
-        scanRemotes()
-    end
-    if #scannedRemotes == 0 then
-        notify("No remotes found — scan first", "error")
-        return
+    local targetChar = player.Character
+    if not targetChar then notify("No character", "error") return end
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not myHRP or not myHum then return end
+
+    trollSaveCFrame()
+    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+
+    trollConnection = RunService.Heartbeat:Connect(function()
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            stopTroll()
+            return
+        end
+        myChar = LP.Character
+        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+
+        local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+        -- Exatamente na mesma posição (overlap total)
+        myHRP.CFrame = targetHRP.CFrame
+    end)
+    notify("Clone: " .. player.DisplayName, "success")
+end
+
+-- UPSIDE DOWN — pendurado de cabeça pra baixo acima do alvo
+upsideDownPlayer = function(player)
+    stopTroll()
+    local targetChar = player.Character
+    if not targetChar then notify("No character", "error") return end
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not myHRP or not myHum then return end
+
+    trollSaveCFrame()
+    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+
+    trollConnection = RunService.Heartbeat:Connect(function()
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            stopTroll()
+            return
+        end
+        myChar = LP.Character
+        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+
+        local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+        -- Acima do alvo, invertido 180° no eixo Z
+        myHRP.CFrame = targetHRP.CFrame
+            * CFrame.new(0, 6, 0)
+            * CFrame.Angles(0, 0, math.rad(180))
+    end)
+    notify("Upside Down: " .. player.DisplayName, "success")
+end
+
+-- TORNADO — orbita que pulsa (raio muda, sobe e desce)
+tornadoPlayer = function(player)
+    stopTroll()
+    local targetChar = player.Character
+    if not targetChar then notify("No character", "error") return end
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not myHRP or not myHum then return end
+
+    trollSaveCFrame()
+    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+
+    local angle = 0
+    local t = 0
+    trollConnection = RunService.Heartbeat:Connect(function()
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            stopTroll()
+            return
+        end
+        myChar = LP.Character
+        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+
+        local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+        angle = (angle + 12 * trollSpeedMul) % 360
+        t = t + 0.08 * trollSpeedMul
+        -- Raio pulsa entre 2 e 6
+        local radius = 4 + math.sin(t) * 2
+        -- Altura sobe e desce
+        local yOffset = math.sin(t * 1.5) * 3
+        local rad = math.rad(angle)
+        local pos = targetHRP.CFrame * CFrame.new(math.sin(rad) * radius, yOffset, math.cos(rad) * radius)
+        myHRP.CFrame = CFrame.lookAt(pos.Position, targetHRP.Position)
+    end)
+    notify("Tornado: " .. player.DisplayName, "success")
+end
+
+--==================================================
+-- NEW TROLLS (15)
+--==================================================
+
+snakePlayer = function(player)
+    stopTroll()
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not myHRP or not myHum then return end
+    trollSaveCFrame()
+    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+    local t = 0
+    trollConnection = RunService.Heartbeat:Connect(function()
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            stopTroll()
+            return
+        end
+        myChar = LP.Character
+        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+        local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+        t = t + 0.05 * trollSpeedMul
+        local behind = targetHRP.CFrame * CFrame.new(math.sin(t * 3) * 2, -2.5, -4)
+        myHRP.CFrame = CFrame.new(behind.Position, targetHRP.Position) * CFrame.Angles(math.rad(80), 0, 0)
+    end)
+    notify("Snake: " .. player.DisplayName, "success")
+end
+
+mirrorPlayer = function(player)
+    stopTroll()
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not myHRP or not myHum then return end
+    trollSaveCFrame()
+    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+    trollConnection = RunService.Heartbeat:Connect(function()
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            stopTroll()
+            return
+        end
+        myChar = LP.Character
+        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+        local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+        local frontPos = targetHRP.CFrame * CFrame.new(0, 0, -3)
+        myHRP.CFrame = CFrame.lookAt(frontPos.Position, targetHRP.Position)
+    end)
+    notify("Mirror: " .. player.DisplayName, "success")
+end
+
+stackPlayer = function(player)
+    stopTroll()
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not myHRP or not myHum then return end
+    trollSaveCFrame()
+    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+    trollConnection = RunService.Heartbeat:Connect(function()
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            stopTroll()
+            return
+        end
+        myChar = LP.Character
+        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+        local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+        myHRP.CFrame = targetHRP.CFrame * CFrame.new(0, 5, 0)
+    end)
+    notify("Stack: " .. player.DisplayName, "success")
+end
+
+figure8Player = function(player)
+    stopTroll()
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not myHRP or not myHum then return end
+    trollSaveCFrame()
+    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+    local t = 0
+    trollConnection = RunService.Heartbeat:Connect(function()
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            stopTroll()
+            return
+        end
+        myChar = LP.Character
+        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+        local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+        t = t + 0.03 * trollSpeedMul
+        local scale = 5
+        local x = scale * math.sin(t)
+        local z = scale * math.sin(t) * math.cos(t)
+        local pos = targetHRP.CFrame * CFrame.new(x, 0, z)
+        myHRP.CFrame = CFrame.lookAt(pos.Position, targetHRP.Position)
+    end)
+    notify("Figure 8: " .. player.DisplayName, "success")
+end
+
+dogPlayer = function(player)
+    stopTroll()
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not myHRP or not myHum then return end
+    trollSaveCFrame()
+    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+    trollConnection = RunService.Heartbeat:Connect(function()
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            stopTroll()
+            return
+        end
+        myChar = LP.Character
+        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+        local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+        local behindPos = targetHRP.CFrame * CFrame.new(0, -2, -4)
+        myHRP.CFrame = CFrame.new(behindPos.Position, targetHRP.Position) * CFrame.Angles(math.rad(90), 0, 0)
+    end)
+    notify("Dog: " .. player.DisplayName, "success")
+end
+
+ferrisPlayer = function(player)
+    stopTroll()
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not myHRP or not myHum then return end
+    trollSaveCFrame()
+    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+    local angle = 0
+    trollConnection = RunService.Heartbeat:Connect(function()
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            stopTroll()
+            return
+        end
+        myChar = LP.Character
+        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+        local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+        angle = (angle + 3 * trollSpeedMul) % 360
+        local rad = math.rad(angle)
+        local radius = 5
+        local pos = targetHRP.CFrame * CFrame.new(0, math.sin(rad) * radius, math.cos(rad) * radius)
+        myHRP.CFrame = CFrame.lookAt(pos.Position, targetHRP.Position)
+    end)
+    notify("Ferris: " .. player.DisplayName, "success")
+end
+
+salsaPlayer = function(player)
+    stopTroll()
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not myHRP or not myHum then return end
+    trollSaveCFrame()
+    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+    local t = 0
+    trollConnection = RunService.Heartbeat:Connect(function()
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            stopTroll()
+            return
+        end
+        myChar = LP.Character
+        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+        local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+        t = t + 0.06 * trollSpeedMul
+        local xOffset = math.sin(t * 2) * 3
+        local zOffset = -3 + math.sin(t * 4) * 0.5
+        local pos = targetHRP.CFrame * CFrame.new(xOffset, 0, zOffset)
+        myHRP.CFrame = CFrame.lookAt(pos.Position, targetHRP.Position)
+    end)
+    notify("Salsa: " .. player.DisplayName, "success")
+end
+
+ufoPlayer = function(player)
+    stopTroll()
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not myHRP or not myHum then return end
+    trollSaveCFrame()
+    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+    local angle = 0
+    trollConnection = RunService.Heartbeat:Connect(function()
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            stopTroll()
+            return
+        end
+        myChar = LP.Character
+        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+        local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+        angle = (angle + 10 * trollSpeedMul) % 360
+        local pos = targetHRP.CFrame * CFrame.new(0, 20, 0)
+        myHRP.CFrame = CFrame.new(pos.Position) * CFrame.Angles(0, math.rad(angle), 0)
+    end)
+    notify("UFO: " .. player.DisplayName, "success")
+end
+
+boomerangPlayer = function(player)
+    stopTroll()
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not myHRP or not myHum then return end
+    trollSaveCFrame()
+    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+    local t = 0
+    trollConnection = RunService.Heartbeat:Connect(function()
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            stopTroll()
+            return
+        end
+        myChar = LP.Character
+        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+        local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+        t = t + 0.02 * trollSpeedMul
+        local dist = 30 * (1 - math.cos(t))
+        local yOff = math.sin(t * 2) * 5
+        local pos = targetHRP.CFrame * CFrame.new(0, yOff, -dist)
+        myHRP.CFrame = CFrame.lookAt(pos.Position, targetHRP.Position)
+    end)
+    notify("Boomerang: " .. player.DisplayName, "success")
+end
+
+rollerPlayer = function(player)
+    stopTroll()
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not myHRP or not myHum then return end
+    trollSaveCFrame()
+    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+    local angle = 0
+    trollConnection = RunService.Heartbeat:Connect(function()
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            stopTroll()
+            return
+        end
+        myChar = LP.Character
+        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+        local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+        angle = (angle + 4 * trollSpeedMul) % 360
+        local rad = math.rad(angle)
+        local radius = 6
+        local yOff = math.sin(rad * 3) * 8
+        local pos = targetHRP.CFrame * CFrame.new(math.sin(rad) * radius, yOff, math.cos(rad) * radius)
+        myHRP.CFrame = CFrame.lookAt(pos.Position, targetHRP.Position)
+    end)
+    notify("Roller: " .. player.DisplayName, "success")
+end
+
+spiralPlayer = function(player)
+    stopTroll()
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not myHRP or not myHum then return end
+    trollSaveCFrame()
+    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+    local angle = 0
+    local height = 0
+    trollConnection = RunService.Heartbeat:Connect(function()
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            stopTroll()
+            return
+        end
+        myChar = LP.Character
+        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+        local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+        angle = (angle + 8 * trollSpeedMul) % 360
+        height = height + 0.15 * trollSpeedMul
+        if height > 20 then height = 0 end
+        local rad = math.rad(angle)
+        local radius = 4
+        local pos = targetHRP.CFrame * CFrame.new(math.sin(rad) * radius, height, math.cos(rad) * radius)
+        myHRP.CFrame = CFrame.lookAt(pos.Position, targetHRP.Position)
+    end)
+    notify("Spiral: " .. player.DisplayName, "success")
+end
+
+surfPlayer = function(player)
+    stopTroll()
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not myHRP or not myHum then return end
+    trollSaveCFrame()
+    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+    local angle = 0
+    trollConnection = RunService.Heartbeat:Connect(function()
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            stopTroll()
+            return
+        end
+        myChar = LP.Character
+        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+        local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+        angle = (angle + 5 * trollSpeedMul) % 360
+        local rad = math.rad(angle)
+        local radius = 5
+        local pos = targetHRP.CFrame * CFrame.new(math.sin(rad) * radius, -1, math.cos(rad) * radius)
+        local lookDir = targetHRP.CFrame * CFrame.new(math.sin(rad + 0.1) * radius, -1, math.cos(rad + 0.1) * radius)
+        myHRP.CFrame = CFrame.lookAt(pos.Position, lookDir.Position) * CFrame.Angles(0, 0, math.rad(90))
+    end)
+    notify("Surf: " .. player.DisplayName, "success")
+end
+
+bouncerPlayer = function(player)
+    stopTroll()
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not myHRP or not myHum then return end
+    trollSaveCFrame()
+    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+    local t = 0
+    trollConnection = RunService.Heartbeat:Connect(function()
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            stopTroll()
+            return
+        end
+        myChar = LP.Character
+        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+        local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+        t = t + 0.08 * trollSpeedMul
+        local xOff = math.sin(t) * 6
+        local yOff = math.abs(math.sin(t * 2)) * 3
+        local pos = targetHRP.CFrame * CFrame.new(xOff, yOff, -2)
+        myHRP.CFrame = CFrame.lookAt(pos.Position, targetHRP.Position)
+    end)
+    notify("Bouncer: " .. player.DisplayName, "success")
+end
+
+lapSitPlayer = function(player)
+    stopTroll()
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not myHRP or not myHum then return end
+    trollSaveCFrame()
+    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+    myHum.Sit = true
+    trollConnection = RunService.Heartbeat:Connect(function()
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            stopTroll()
+            return
+        end
+        myChar = LP.Character
+        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+        if not myHRP then return end
+        if myHum then myHum.Sit = true end
+        local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+        myHRP.CFrame = targetHRP.CFrame * CFrame.new(0, -0.5, -1)
+    end)
+    notify("Lap Sit: " .. player.DisplayName, "success")
+end
+
+wavePlayer = function(player)
+    stopTroll()
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not myHRP or not myHum then return end
+    trollSaveCFrame()
+    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+    local t = 0
+    trollConnection = RunService.Heartbeat:Connect(function()
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            stopTroll()
+            return
+        end
+        myChar = LP.Character
+        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+        local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+        t = t + 0.04 * trollSpeedMul
+        local zOff = math.sin(t) * 8
+        local xOff = math.sin(t * 2) * 4
+        local yOff = math.sin(t * 3) * 2
+        local pos = targetHRP.CFrame * CFrame.new(xOff, yOff, zOff)
+        myHRP.CFrame = CFrame.lookAt(pos.Position, targetHRP.Position)
+    end)
+    notify("Wave: " .. player.DisplayName, "success")
+end
+
+--==================================================
+-- PLAYER INFO CARDS
+--==================================================
+
+createPlayerInfoCard = function(player)
+    if not player or not player.Character then return end
+    if player == LP then return end
+    local char = player.Character
+
+    -- Remove existing
+    local existing = char:FindFirstChild("VampPlayerInfo")
+    if existing then existing:Destroy() end
+
+    local bg = Instance.new("BillboardGui")
+    bg.Name = "VampPlayerInfo"
+    bg.Size = UDim2.new(0, 160, 0, 80)
+    bg.StudsOffset = Vector3.new(0, 6, 0)
+    bg.AlwaysOnTop = true
+    bg.Adornee = char
+    bg.Parent = char
+
+    -- Card frame
+    local card = Instance.new("Frame")
+    card.Size = UDim2.new(1, 0, 1, 0)
+    card.BackgroundColor3 = Color3.fromRGB(12, 12, 14)
+    card.BackgroundTransparency = 0.1
+    card.Parent = bg
+    Instance.new("UICorner", card).CornerRadius = UDim.new(0, 8)
+    local cardStroke = Instance.new("UIStroke", card)
+    cardStroke.Color = Color3.fromRGB(40, 180, 60)
+    cardStroke.Thickness = 1
+    cardStroke.Transparency = 0.3
+    addGradient(card, Color3.fromRGB(20, 20, 24), Color3.fromRGB(8, 8, 10), 90)
+
+    -- Photo (circular)
+    local photoFrame = Instance.new("Frame")
+    photoFrame.Size = UDim2.new(0, 36, 0, 36)
+    photoFrame.Position = UDim2.new(0, 6, 0, 6)
+    photoFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    photoFrame.Parent = card
+    Instance.new("UICorner", photoFrame).CornerRadius = UDim.new(1, 0)
+    local photoStroke = Instance.new("UIStroke", photoFrame)
+    photoStroke.Color = Colors.blood
+    photoStroke.Thickness = 1
+
+    local photo = Instance.new("ImageLabel")
+    photo.Size = UDim2.new(1, 0, 1, 0)
+    photo.BackgroundTransparency = 1
+    photo.Parent = photoFrame
+    Instance.new("UICorner", photo).CornerRadius = UDim.new(1, 0)
+
+    -- Load thumbnail async
+    task.spawn(function()
+        local ok, thumb = pcall(function()
+            return Players:GetUserThumbnailAsync(
+                player.UserId,
+                Enum.ThumbnailType.HeadShot,
+                Enum.ThumbnailSize.Size100x100
+            )
+        end)
+        if ok and thumb then photo.Image = thumb end
+    end)
+
+    -- Display name
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Size = UDim2.new(1, -48, 0, 14)
+    nameLabel.Position = UDim2.new(0, 46, 0, 4)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Text = player.DisplayName
+    nameLabel.TextColor3 = Colors.text
+    nameLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    nameLabel.TextStrokeTransparency = 0.5
+    nameLabel.TextSize = 11
+    nameLabel.Font = Enum.Font.GothamBold
+    nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+    nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+    nameLabel.Parent = card
+
+    -- @username
+    local userLabel = Instance.new("TextLabel")
+    userLabel.Size = UDim2.new(1, -48, 0, 12)
+    userLabel.Position = UDim2.new(0, 46, 0, 18)
+    userLabel.BackgroundTransparency = 1
+    userLabel.Text = "@" .. player.Name
+    userLabel.TextColor3 = Colors.textDim
+    userLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    userLabel.TextStrokeTransparency = 0.5
+    userLabel.TextSize = 9
+    userLabel.Font = Enum.Font.Gotham
+    userLabel.TextXAlignment = Enum.TextXAlignment.Left
+    userLabel.TextTruncate = Enum.TextTruncate.AtEnd
+    userLabel.Parent = card
+
+    -- ID
+    local idLabel = Instance.new("TextLabel")
+    idLabel.Size = UDim2.new(1, -48, 0, 12)
+    idLabel.Position = UDim2.new(0, 46, 0, 30)
+    idLabel.BackgroundTransparency = 1
+    idLabel.Text = "ID: " .. tostring(player.UserId)
+    idLabel.TextColor3 = Colors.textDim
+    idLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    idLabel.TextStrokeTransparency = 0.5
+    idLabel.TextSize = 8
+    idLabel.Font = Enum.Font.Code
+    idLabel.TextXAlignment = Enum.TextXAlignment.Left
+    idLabel.Parent = card
+
+    -- Account age
+    local ageText
+    local ageDays = player.AccountAge
+    if ageDays >= 365 then
+        ageText = string.format("%.1f years", ageDays / 365)
+    elseif ageDays >= 30 then
+        ageText = math.floor(ageDays / 30) .. " months"
+    else
+        ageText = ageDays .. " days"
     end
 
-    trollConnection = task.spawn(function()
-        while true do
-            for _, data in ipairs(scannedRemotes) do
-                pcall(function()
-                    local remote = data.instance
-                    if remote and remote.Parent and remote:IsA("RemoteEvent") then
-                        remote:FireServer()
-                    end
-                end)
+    local ageLabel = Instance.new("TextLabel")
+    ageLabel.Size = UDim2.new(1, -12, 0, 12)
+    ageLabel.Position = UDim2.new(0, 6, 0, 48)
+    ageLabel.BackgroundTransparency = 1
+    ageLabel.Text = "📅 " .. ageText
+    ageLabel.TextColor3 = Color3.fromRGB(80, 220, 100)
+    ageLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    ageLabel.TextStrokeTransparency = 0.5
+    ageLabel.TextSize = 9
+    ageLabel.Font = Enum.Font.GothamBold
+    ageLabel.TextXAlignment = Enum.TextXAlignment.Left
+    ageLabel.Parent = card
+
+    -- Distance (updated every frame)
+    local distLabel = Instance.new("TextLabel")
+    distLabel.Name = "DistLabel"
+    distLabel.Size = UDim2.new(1, -12, 0, 12)
+    distLabel.Position = UDim2.new(0, 6, 0, 62)
+    distLabel.BackgroundTransparency = 1
+    distLabel.Text = "? studs"
+    distLabel.TextColor3 = Colors.textDim
+    distLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    distLabel.TextStrokeTransparency = 0.5
+    distLabel.TextSize = 8
+    distLabel.Font = Enum.Font.Code
+    distLabel.TextXAlignment = Enum.TextXAlignment.Left
+    distLabel.Parent = card
+
+    table.insert(playerInfoBillboards, {
+        player = player,
+        billboard = bg,
+        distLabel = distLabel,
+    })
+end
+
+clearPlayerInfo = function()
+    if playerInfoConnection then
+        playerInfoConnection:Disconnect()
+        playerInfoConnection = nil
+    end
+    for _, info in ipairs(playerInfoBillboards) do
+        if info.billboard and info.billboard.Parent then
+            info.billboard:Destroy()
+        end
+    end
+    playerInfoBillboards = {}
+end
+
+updatePlayerInfo = function()
+    clearPlayerInfo()
+    if not playerInfoActive then return end
+
+    -- Create for all existing players
+    for _, player in ipairs(Players:GetPlayers()) do
+        createPlayerInfoCard(player)
+    end
+
+    -- Update loop: distance + auto-detect new/respawned players
+    local checkTimer = 0
+    playerInfoConnection = RunService.RenderStepped:Connect(function(dt)
+        local myChar = LP.Character
+        local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+        local myPos = myHRP.Position
+
+        -- Update distance for tracked players
+        for i = #playerInfoBillboards, 1, -1 do
+            local info = playerInfoBillboards[i]
+            if not info.player or not info.player.Parent or not info.player.Character or not info.billboard.Parent then
+                if info.billboard and info.billboard.Parent then
+                    info.billboard:Destroy()
+                end
+                table.remove(playerInfoBillboards, i)
+            else
+                local tHRP = info.player.Character:FindFirstChild("HumanoidRootPart")
+                if tHRP then
+                    local dist = math.floor((myPos - tHRP.Position).Magnitude)
+                    info.distLabel.Text = dist .. " studs"
+                end
             end
-            task.wait()
+        end
+
+        -- Check for new/respawned players every 2 seconds
+        checkTimer = checkTimer + dt
+        if checkTimer >= 2 then
+            checkTimer = 0
+            for _, player in ipairs(Players:GetPlayers()) do
+                if player ~= LP and player.Character then
+                    local found = false
+                    for _, info in ipairs(playerInfoBillboards) do
+                        if info.player == player then
+                            found = true
+                            break
+                        end
+                    end
+                    if not found then
+                        createPlayerInfoCard(player)
+                    end
+                end
+            end
         end
     end)
-    notify("REMOTE FLOOD ativo — spammando " .. #scannedRemotes .. " remotes", "success")
+
+    notify("Player Info Cards ON", "success")
+end
+
+--==================================================
+-- ANTI-AFK
+--==================================================
+
+startAntiAfk = function()
+    if antiAfkActive then return end
+    antiAfkActive = true
+    antiAfkConnection = task.spawn(function()
+        while antiAfkActive do
+            pcall(function()
+                local vu = game:GetService("VirtualUser")
+                vu:CaptureController()
+                vu:ClickButton2(Vector2.new())
+            end)
+            task.wait(60)
+        end
+    end)
+    AntiAfkBtn.Text = "⚡ ANTI-AFK: ON"
+    AntiAfkBtn.BackgroundColor3 = Colors.green
+    notify("Anti-AFK ON", "success")
+end
+
+stopAntiAfk = function()
+    antiAfkActive = false
+    if antiAfkConnection then
+        pcall(function() task.cancel(antiAfkConnection) end)
+        antiAfkConnection = nil
+    end
+    AntiAfkBtn.Text = "⚡ ANTI-AFK: OFF"
+    AntiAfkBtn.BackgroundColor3 = Color3.fromRGB(50, 25, 25)
+    notify("Anti-AFK OFF", "info")
+end
+
+--==================================================
+-- CHAT SPY
+--==================================================
+
+startChatSpy = function()
+    if chatSpyActive then return end
+    chatSpyActive = true
+    chatSpyConnections = {}
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LP then
+            local conn = player.Chatted:Connect(function(msg)
+                if not chatSpyActive then return end
+                table.insert(chatSpyLog, {
+                    time = os.time(),
+                    player = player.DisplayName,
+                    message = msg,
+                })
+                if #chatSpyLog > 200 then
+                    table.remove(chatSpyLog, 1)
+                end
+                refreshChatSpyLog()
+            end)
+            table.insert(chatSpyConnections, conn)
+        end
+    end
+
+    -- Listen for new players joining
+    local addedConn = Players.PlayerAdded:Connect(function(player)
+        local conn = player.Chatted:Connect(function(msg)
+            if not chatSpyActive then return end
+            table.insert(chatSpyLog, {
+                time = os.time(),
+                player = player.DisplayName,
+                message = msg,
+            })
+            if #chatSpyLog > 200 then
+                table.remove(chatSpyLog, 1)
+            end
+            refreshChatSpyLog()
+        end)
+        table.insert(chatSpyConnections, conn)
+    end)
+    table.insert(chatSpyConnections, addedConn)
+
+    ChatSpyToggleBtn.Text = "🛑 STOP SPY"
+    ChatSpyToggleBtn.BackgroundColor3 = Colors.blood
+    ChatSpyStatusLabel.Text = "Spy: ON"
+    ChatSpyStatusLabel.TextColor3 = Color3.fromRGB(80, 220, 100)
+    notify("Chat Spy ON", "success")
+end
+
+stopChatSpy = function()
+    chatSpyActive = false
+    if chatSpyConnections then
+        for _, conn in ipairs(chatSpyConnections) do
+            pcall(function() conn:Disconnect() end)
+        end
+        chatSpyConnections = {}
+    end
+    ChatSpyToggleBtn.Text = "🕵 START SPY"
+    ChatSpyToggleBtn.BackgroundColor3 = Color3.fromRGB(40, 140, 40)
+    ChatSpyStatusLabel.Text = "Spy: OFF"
+    ChatSpyStatusLabel.TextColor3 = Colors.textDim
+    notify("Chat Spy OFF", "info")
+end
+
+--==================================================
+-- EXECUTE SCRIPT
+--==================================================
+
+executeScript = function(code)
+    if not code or code == "" then
+        notify("No script to execute", "error")
+        return
+    end
+    local ok, err = pcall(function()
+        local fn = loadstring(code)
+        if fn then
+            fn()
+        else
+            error("Failed to parse script")
+        end
+    end)
+    if ok then
+        notify("Script executed!", "success")
+    else
+        notify("Error: " .. tostring(err):sub(1, 60), "error")
+    end
 end
 
 --==================================================

@@ -12,11 +12,31 @@ tabContents["player"] = PlayerContent
 
 createSectionHeader(PlayerContent, "Online Players", 0)
 
+-- Search bar
+PlayerSearchBox = Instance.new("TextBox")
+PlayerSearchBox.Size = UDim2.new(1, -8, 0, 22)
+PlayerSearchBox.Position = UDim2.new(0, 4, 0, 24)
+PlayerSearchBox.BackgroundColor3 = Colors.content
+PlayerSearchBox.Text = ""
+PlayerSearchBox.PlaceholderText = "Search players..."
+PlayerSearchBox.PlaceholderColor3 = Colors.textDim
+PlayerSearchBox.TextColor3 = Colors.text
+PlayerSearchBox.TextSize = 10
+PlayerSearchBox.Font = Enum.Font.Code
+PlayerSearchBox.TextXAlignment = Enum.TextXAlignment.Left
+PlayerSearchBox.ClearTextOnFocus = false
+PlayerSearchBox.Parent = PlayerContent
+Instance.new("UICorner", PlayerSearchBox).CornerRadius = UDim.new(0, 4)
+Instance.new("UIPadding", PlayerSearchBox).PaddingLeft = UDim.new(0, 6)
+local psStroke = Instance.new("UIStroke", PlayerSearchBox)
+psStroke.Color = Colors.separator
+psStroke.Thickness = 0.5
+
 -- Player list scroll
 local PlayerScroll = Instance.new("ScrollingFrame")
 PlayerScroll.Name = "PlayerScroll"
-PlayerScroll.Size = UDim2.new(1, 0, 1, -100)
-PlayerScroll.Position = UDim2.new(0, 0, 0, 26)
+PlayerScroll.Size = UDim2.new(1, 0, 1, -126)
+PlayerScroll.Position = UDim2.new(0, 0, 0, 50)
 PlayerScroll.BackgroundColor3 = Colors.content
 PlayerScroll.BorderSizePixel = 0
 PlayerScroll.ScrollBarThickness = 4
