@@ -89,30 +89,31 @@ local Colors = {
 -- VARIABLES
 --==================================================
 
-local currentPreviewData = nil
-local previewConnection = nil
-local allScannedRigs = {}
-local isExporting = false
+-- State variables (globals to stay under Lua's 200 local limit)
+currentPreviewData = nil
+previewConnection = nil
+allScannedRigs = {}
+isExporting = false
 
 -- Tab system
-local activeTab = "scanner"
-local tabButtons = {}
-local tabContents = {}
+activeTab = "scanner"
+tabButtons = {}
+tabContents = {}
 
 -- Auto-scan
-local autoScanConfig = { enabled = true, interval = 5 }
-local autoScanConnection = nil
-local scannedPlayerSet = {}
-local scannedNPCSet = {}
+autoScanConfig = { enabled = true, interval = 5 }
+autoScanConnection = nil
+scannedPlayerSet = {}
+scannedNPCSet = {}
 
 -- Spectate state
-local spectatingInfo = nil
-local spectateHighlight = nil
-local savedCameraSubject = nil
-local spectateConfig = { showHighlight = true }
+spectatingInfo = nil
+spectateHighlight = nil
+savedCameraSubject = nil
+spectateConfig = { showHighlight = true }
 
 -- ESP state
-local espState = {
+espState = {
     players = false,
     npcs = false,
     cameras = false,
@@ -120,11 +121,11 @@ local espState = {
     boxESP = false,
     chams = false,
 }
-local espConnection = nil
-local espObjects = {}
+espConnection = nil
+espObjects = {}
 
 -- Movement state
-local movementState = {
+movementState = {
     fly = false,
     noclip = false,
     infiniteJump = false,
@@ -132,35 +133,35 @@ local movementState = {
     speed = 16,
     jumpPower = 50,
 }
-local flyConnection = nil
-local flyBG = nil
-local flyBV = nil
-local noclipConnection = nil
-local jumpConnection = nil
-local freecamConnection = nil
-local savedCameraState = nil
-local speedConnection = nil
+flyConnection = nil
+flyBG = nil
+flyBV = nil
+noclipConnection = nil
+jumpConnection = nil
+freecamConnection = nil
+savedCameraState = nil
+speedConnection = nil
 
 -- Emote state
-local currentEmoteTrack = nil
+currentEmoteTrack = nil
 
 -- Shadow state
-local shadowState = {
+shadowState = {
     active = false,
     mode = "follow", -- "follow" | "head" | "mirror"
     target = nil,
     delay = 0,
     distance = 4,
 }
-local shadowConnection = nil
-local shadowHistory = {}
+shadowConnection = nil
+shadowHistory = {}
 
 -- Notification state
-local notifContainer = nil
-local notifCount = 0
+notifContainer = nil
+notifCount = 0
 
 -- Settings state
-local saveConfigState = {
+saveConfigState = {
     DecompileMode = false,
     SavePlayers = false,
     RemovePlayerCharacters = true,
@@ -170,26 +171,8 @@ local saveConfigState = {
     SaveCameraInstances = false,
 }
 
---==================================================
--- FORWARD DECLARATIONS
---==================================================
-
-local startSpectate
-local stopSpectate
-local switchTab
-local notify
-local startAutoScan, stopAutoScan
-local updateESP, clearESP, toggleESPFeature
-local startFly, stopFly
-local toggleNoclip, toggleInfiniteJump
-local startFreecam, stopFreecam
-local applySpeed
-local filterResults
-local runScan, clearResults, createResultCard
-local refreshPlayerList
-local updateServerInfo
-local playEmote, stopEmote
-local startShadow, stopShadow, refreshShadowPlayerList
+-- Forward-declared functions are assigned as globals by later modules
+-- (removed local forward declarations to stay under Lua's 200 local limit)
 
 --==================================================
 -- UI HELPERS
