@@ -56,10 +56,12 @@ local function displayPreviewInfo(info)
 end
 
 local function showPreview(info)
+    log("showPreview START:", info.name)
     clearPreview()
     currentPreviewData = info
     PreviewTitle.Text = "🔮 " .. info.name
     PreviewFrame.Visible = true
+    log("  PreviewFrame.Visible = true")
     ViewportStatus.Text = "Connecting..."
 
     -- Info bar
@@ -74,21 +76,25 @@ local function showPreview(info)
     end
 
     if not realChar or not realChar.Parent then
+        log("  Character not found")
         ViewportStatus.Text = "Character not found"
         InfoLabel.Text = ""
         return
     end
 
+    log("  Cloning character...")
     -- Clone character for viewport
     local cloneOk, cloneModel = pcall(function()
         return realChar:Clone()
     end)
 
     if not cloneOk or not cloneModel then
+        log("  Clone FAILED:", tostring(cloneModel))
         ViewportStatus.Text = "Failed to clone"
         InfoLabel.Text = ""
         return
     end
+    log("  Clone OK, setting up viewport")
 
     -- Build part mapping (Clone preserves descendant order)
     local partMap = {}

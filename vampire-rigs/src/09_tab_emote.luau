@@ -1,5 +1,5 @@
 --==================================================
--- TAB: EMOTE + SHADOW
+-- TAB: EMOTE (Pure — Catalog Search + Presets)
 --==================================================
 
 local EmoteContent = Instance.new("Frame")
@@ -15,15 +15,15 @@ EmoteScroll.Size = UDim2.new(1, 0, 1, 0)
 EmoteScroll.BackgroundTransparency = 1
 EmoteScroll.ScrollBarThickness = 3
 EmoteScroll.ScrollBarImageColor3 = Colors.blood
-EmoteScroll.CanvasSize = UDim2.new(0, 0, 0, 700)
+EmoteScroll.CanvasSize = UDim2.new(0, 0, 0, 600)
 EmoteScroll.BorderSizePixel = 0
 EmoteScroll.Parent = EmoteContent
 
 --==================================================
--- EMOTE LIST
+-- PRESET EMOTES
 --==================================================
 
-createSectionHeader(EmoteScroll, "Emotes", 0)
+createSectionHeader(EmoteScroll, "Quick Emotes", 0)
 
 local emoteList = {
     { name = "Wave",      id = 507770239 },
@@ -60,7 +60,10 @@ end
 
 local emoteGridHeight = math.ceil(#emoteList / 2) * 32
 
--- Custom animation ID input
+--==================================================
+-- CUSTOM ANIMATION ID
+--==================================================
+
 local customEmoteY = emoteY + emoteGridHeight + 8
 
 local CustomIDLabel = Instance.new("TextLabel")
@@ -126,110 +129,64 @@ Instance.new("UICorner", StopEmoteBtn).CornerRadius = UDim.new(0, 6)
 makeHoverable(StopEmoteBtn, Colors.bloodDark, Colors.blood)
 
 --==================================================
--- SHADOW MODE
+-- CATALOG SEARCH
 --==================================================
 
-local shadowSectionY = customEmoteY + 86
+local catalogSectionY = customEmoteY + 86
 
-createSectionHeader(EmoteScroll, "Shadow Mode", shadowSectionY)
+createSectionHeader(EmoteScroll, "Catalog Search", catalogSectionY)
 
--- Shadow target display
-local ShadowTargetLabel = Instance.new("TextLabel")
-ShadowTargetLabel.Size = UDim2.new(1, 0, 0, 18)
-ShadowTargetLabel.Position = UDim2.new(0, 0, 0, shadowSectionY + 26)
-ShadowTargetLabel.BackgroundTransparency = 1
-ShadowTargetLabel.Text = "Target: none"
-ShadowTargetLabel.TextColor3 = Colors.textDim
-ShadowTargetLabel.TextSize = 10
-ShadowTargetLabel.Font = Enum.Font.GothamBold
-ShadowTargetLabel.TextXAlignment = Enum.TextXAlignment.Left
-ShadowTargetLabel.Parent = EmoteScroll
+-- Search input (global for event wiring in 22_events)
+EmoteSearchBox = Instance.new("TextBox")
+EmoteSearchBox.Size = UDim2.new(1, 0, 0, 26)
+EmoteSearchBox.Position = UDim2.new(0, 0, 0, catalogSectionY + 26)
+EmoteSearchBox.BackgroundColor3 = Colors.inputBg
+EmoteSearchBox.Text = ""
+EmoteSearchBox.PlaceholderText = "🔍 Search emotes..."
+EmoteSearchBox.PlaceholderColor3 = Colors.textDim
+EmoteSearchBox.TextColor3 = Colors.text
+EmoteSearchBox.TextSize = 11
+EmoteSearchBox.Font = Enum.Font.Code
+EmoteSearchBox.ClearTextOnFocus = false
+EmoteSearchBox.Parent = EmoteScroll
+Instance.new("UICorner", EmoteSearchBox).CornerRadius = UDim.new(0, 6)
+local emoteSearchStroke = Instance.new("UIStroke", EmoteSearchBox)
+emoteSearchStroke.Color = Colors.inputBorder
+emoteSearchStroke.Thickness = 1
 
--- Shadow player list (select target)
-local ShadowPlayerScroll = Instance.new("ScrollingFrame")
-ShadowPlayerScroll.Size = UDim2.new(1, 0, 0, 80)
-ShadowPlayerScroll.Position = UDim2.new(0, 0, 0, shadowSectionY + 46)
-ShadowPlayerScroll.BackgroundColor3 = Colors.content
-ShadowPlayerScroll.BorderSizePixel = 0
-ShadowPlayerScroll.ScrollBarThickness = 3
-ShadowPlayerScroll.ScrollBarImageColor3 = Colors.blood
-ShadowPlayerScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-ShadowPlayerScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-ShadowPlayerScroll.Parent = EmoteScroll
-Instance.new("UICorner", ShadowPlayerScroll).CornerRadius = UDim.new(0, 6)
-local spStroke = Instance.new("UIStroke", ShadowPlayerScroll)
-spStroke.Color = Colors.separator
-spStroke.Thickness = 0.5
-
-local ShadowPlayerLayout = Instance.new("UIListLayout", ShadowPlayerScroll)
-ShadowPlayerLayout.Padding = UDim.new(0, 3)
-local spPad = Instance.new("UIPadding", ShadowPlayerScroll)
-spPad.PaddingTop = UDim.new(0, 3)
-spPad.PaddingLeft = UDim.new(0, 3)
-spPad.PaddingRight = UDim.new(0, 3)
-
--- Shadow mode buttons
-local shadowModeY = shadowSectionY + 132
-
-local shadowModeToggles = {}
-
-local shadowModeDefs = {
-    { name = "Follow Behind",     mode = "follow", color = Colors.green },
-    { name = "Sit on Head",       mode = "head",   color = Colors.warning },
-    { name = "Shadow Box (Mirror)", mode = "mirror", color = Colors.glowPurple },
-}
-
-for i, def in ipairs(shadowModeDefs) do
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, 0, 0, 26)
-    btn.Position = UDim2.new(0, 0, 0, shadowModeY + (i - 1) * 30)
-    btn.BackgroundColor3 = Color3.fromRGB(40, 20, 20)
-    btn.Text = def.name
-    btn.TextColor3 = Colors.textDim
-    btn.TextSize = 10
-    btn.Font = Enum.Font.GothamBold
-    btn.AutoButtonColor = false
-    btn.Parent = EmoteScroll
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
-
-    shadowModeToggles[def.mode] = { btn = btn, def = def }
-end
-
--- Function to refresh shadow mode button highlights
-local function refreshShadowModeButtons()
-    for mode, data in pairs(shadowModeToggles) do
-        local isActive = shadowState.active and shadowState.mode == mode
-        data.btn.BackgroundColor3 = isActive and data.def.color or Color3.fromRGB(40, 20, 20)
-        data.btn.TextColor3 = isActive and Colors.text or Colors.textDim
-    end
-end
-
--- Distance slider
-local shadowDistY = shadowModeY + #shadowModeDefs * 30 + 6
-local shadowDistSlider = createSliderRow(EmoteScroll, "Distance (studs)", 1, 15, 4, shadowDistY, function(val)
-    shadowState.distance = val
+EmoteSearchBox.Focused:Connect(function()
+    TweenService:Create(emoteSearchStroke, TweenInfo.new(0.2), { Color = Colors.purpleLight, Thickness = 1.5 }):Play()
+end)
+EmoteSearchBox.FocusLost:Connect(function()
+    TweenService:Create(emoteSearchStroke, TweenInfo.new(0.3), { Color = Colors.inputBorder, Thickness = 1 }):Play()
 end)
 
--- Delay slider
-local shadowDelayY = shadowDistY + 32
-local shadowDelaySlider = createSliderRow(EmoteScroll, "Delay (sec)", 0, 5, 0, shadowDelayY, function(val)
-    shadowState.delay = val
-end)
+-- Catalog grid container (global for cross-module access)
+EmoteCatalogGrid = Instance.new("Frame")
+EmoteCatalogGrid.Name = "CatalogGrid"
+EmoteCatalogGrid.Size = UDim2.new(1, 0, 0, 300)
+EmoteCatalogGrid.Position = UDim2.new(0, 0, 0, catalogSectionY + 58)
+EmoteCatalogGrid.BackgroundTransparency = 1
+EmoteCatalogGrid.ClipsDescendants = true
+EmoteCatalogGrid.Parent = EmoteScroll
 
--- Stop shadow button
-local StopShadowBtn = Instance.new("TextButton")
-StopShadowBtn.Size = UDim2.new(1, 0, 0, 28)
-StopShadowBtn.Position = UDim2.new(0, 0, 0, shadowDelayY + 38)
-StopShadowBtn.BackgroundColor3 = Colors.bloodDark
-StopShadowBtn.Text = "🔴 STOP SHADOW"
-StopShadowBtn.TextColor3 = Colors.text
-StopShadowBtn.TextSize = 11
-StopShadowBtn.Font = Enum.Font.GothamBold
-StopShadowBtn.AutoButtonColor = false
-StopShadowBtn.Parent = EmoteScroll
-Instance.new("UICorner", StopShadowBtn).CornerRadius = UDim.new(0, 6)
-addBtnGradient(StopShadowBtn)
-makeHoverable(StopShadowBtn, Colors.bloodDark, Colors.blood)
+EmoteCatalogGridLayout = Instance.new("UIGridLayout", EmoteCatalogGrid)
+EmoteCatalogGridLayout.CellSize = UDim2.new(0, 60, 0, 82)
+EmoteCatalogGridLayout.CellPadding = UDim2.new(0, 6, 0, 6)
+EmoteCatalogGridLayout.FillDirection = Enum.FillDirection.Horizontal
+EmoteCatalogGridLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+-- Empty/status label
+EmoteCatalogEmpty = Instance.new("TextLabel")
+EmoteCatalogEmpty.Size = UDim2.new(1, 0, 0, 30)
+EmoteCatalogEmpty.Position = UDim2.new(0, 0, 0, catalogSectionY + 58)
+EmoteCatalogEmpty.BackgroundTransparency = 1
+EmoteCatalogEmpty.Text = "Type to search emotes..."
+EmoteCatalogEmpty.TextColor3 = Colors.textDim
+EmoteCatalogEmpty.TextSize = 10
+EmoteCatalogEmpty.Font = Enum.Font.Gotham
+EmoteCatalogEmpty.Visible = true
+EmoteCatalogEmpty.Parent = EmoteScroll
 
 -- Update canvas size
-EmoteScroll.CanvasSize = UDim2.new(0, 0, 0, shadowDelayY + 76)
+EmoteScroll.CanvasSize = UDim2.new(0, 0, 0, catalogSectionY + 370)

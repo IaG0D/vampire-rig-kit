@@ -262,7 +262,12 @@ createResultCard = function(info)
     makeHoverable(ViewBtn, Colors.blood, Colors.glowRed)
 
     ViewBtn.MouseButton1Click:Connect(function()
-        showPreview(info)
+        log("VIEW clicked:", info.name)
+        local ok, err = pcall(showPreview, info)
+        if not ok then
+            log("showPreview ERROR:", tostring(err))
+            notify("Preview error: " .. tostring(err):sub(1, 60), "error")
+        end
     end)
 
     local TPBtn = Instance.new("TextButton")
@@ -322,6 +327,26 @@ createResultCard = function(info)
     SpecBtn.MouseButton1Click:Connect(function()
         startSpectate(info)
     end)
+
+    -- Shadow button (players only)
+    if info.type == "PLAYER" and info.player then
+        local ShadowResultBtn = Instance.new("TextButton")
+        ShadowResultBtn.Size = UDim2.new(0, 52, 0, 20)
+        ShadowResultBtn.Position = UDim2.new(0, 184, 1, -26)
+        ShadowResultBtn.BackgroundColor3 = Colors.glowPurple
+        ShadowResultBtn.Text = "SHADOW"
+        ShadowResultBtn.TextColor3 = Colors.text
+        ShadowResultBtn.TextSize = 9
+        ShadowResultBtn.Font = Enum.Font.GothamBold
+        ShadowResultBtn.AutoButtonColor = false
+        ShadowResultBtn.Parent = Card
+        Instance.new("UICorner", ShadowResultBtn).CornerRadius = UDim.new(0, 4)
+        makeHoverable(ShadowResultBtn, Colors.glowPurple, Colors.purpleLight)
+
+        ShadowResultBtn.MouseButton1Click:Connect(function()
+            openShadowPanel(info.player)
+        end)
+    end
 
     JSONBtn.MouseButton1Click:Connect(function()
         if not info.loaded then
@@ -519,7 +544,7 @@ refreshPlayerList = function()
 
     for _, player in pairs(Players:GetPlayers()) do
         local card = Instance.new("Frame")
-        card.Size = UDim2.new(1, -10, 0, 50)
+        card.Size = UDim2.new(1, -10, 0, 60)
         card.BackgroundColor3 = Colors.card
         card.BorderSizePixel = 0
         card.Parent = PlayerScroll
@@ -644,6 +669,24 @@ refreshPlayerList = function()
                     notify("TP to " .. player.Name, "success")
                 end
             end
+        end)
+
+        -- Shadow button
+        local shadowBtn = Instance.new("TextButton")
+        shadowBtn.Size = UDim2.new(0, 52, 0, 18)
+        shadowBtn.Position = UDim2.new(1, -80, 0, 30)
+        shadowBtn.BackgroundColor3 = Colors.glowPurple
+        shadowBtn.Text = "SHADOW"
+        shadowBtn.TextColor3 = Colors.text
+        shadowBtn.TextSize = 8
+        shadowBtn.Font = Enum.Font.GothamBold
+        shadowBtn.AutoButtonColor = false
+        shadowBtn.Parent = card
+        Instance.new("UICorner", shadowBtn).CornerRadius = UDim.new(0, 4)
+        makeHoverable(shadowBtn, Colors.glowPurple, Colors.purpleLight)
+
+        shadowBtn.MouseButton1Click:Connect(function()
+            openShadowPanel(player)
         end)
     end
 

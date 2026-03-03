@@ -181,6 +181,34 @@ StopEmoteBtn.MouseButton1Click:Connect(function()
     stopEmote()
 end)
 
+-- Emote catalog search (debounced 0.4s)
+do
+    local emoteSearchTimer = nil
+    EmoteSearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+        if emoteSearchTimer then
+            task.cancel(emoteSearchTimer)
+        end
+        emoteSearchTimer = task.delay(0.4, function()
+            emoteSearchTimer = nil
+            searchEmoteCatalog(EmoteSearchBox.Text)
+        end)
+    end)
+end
+
+-- Emote catalog scroll pagination (load more near bottom)
+EmoteScroll:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
+    local scrollPos = EmoteScroll.CanvasPosition.Y
+    local canvasH = EmoteScroll.CanvasSize.Y.Offset
+    local frameH = EmoteScroll.AbsoluteSize.Y
+    if canvasH > 0 and (scrollPos + frameH) >= (canvasH - 60) then
+        loadMoreEmotes()
+    end
+end)
+
+--==================================================
+-- SHADOW PANEL EVENTS
+--==================================================
+
 -- Shadow mode buttons
 for mode, data in pairs(shadowModeToggles) do
     data.btn.MouseButton1Click:Connect(function()
@@ -194,6 +222,11 @@ end
 
 StopShadowBtn.MouseButton1Click:Connect(function()
     stopShadow()
+end)
+
+ShadowPanelClose.MouseButton1Click:Connect(function()
+    stopShadow()
+    ShadowPanel.Visible = false
 end)
 
 --==================================================
@@ -328,6 +361,7 @@ CloseBtn.MouseButton1Click:Connect(function()
     stopSpectate()
     stopEmote()
     stopShadow()
+    ShadowPanel.Visible = false
     clearESP()
     clearPreview()
     clearResults()
@@ -389,10 +423,7 @@ switchTab = function(tabId)
         updateServerInfo()
     end
 
-    -- Refresh shadow player list when switching to emote tab
-    if tabId == "emote" then
-        refreshShadowPlayerList()
-    end
+    -- Nothing extra for emote tab (catalog search is on-demand)
 end
 
 --==================================================
@@ -410,16 +441,16 @@ local function createVampireNametag(char)
 
     local bb = Instance.new("BillboardGui")
     bb.Name = "VampNametag"
-    bb.Size = UDim2.new(0, 180, 0, 40)
-    bb.StudsOffset = Vector3.new(0, 2.2, 0)
+    bb.Size = UDim2.new(0, 300, 0, 60)
+    bb.StudsOffset = Vector3.new(0, 2.5, 0)
     bb.AlwaysOnTop = false
     bb.Adornee = head
     bb.Parent = head
 
     -- Background card
     local bg = Instance.new("Frame")
-    bg.Size = UDim2.new(1, 0, 0, 24)
-    bg.Position = UDim2.new(0, 0, 0.5, -12)
+    bg.Size = UDim2.new(1, 0, 0, 40)
+    bg.Position = UDim2.new(0, 0, 0.5, -20)
     bg.BackgroundColor3 = Color3.fromRGB(15, 8, 12)
     bg.BackgroundTransparency = 0.2
     bg.BorderSizePixel = 0
@@ -428,7 +459,7 @@ local function createVampireNametag(char)
 
     local bgStroke = Instance.new("UIStroke", bg)
     bgStroke.Color = Colors.blood
-    bgStroke.Thickness = 1.2
+    bgStroke.Thickness = 1.8
     bgStroke.Transparency = 0.3
 
     local grad = Instance.new("UIGradient")
@@ -452,7 +483,7 @@ local function createVampireNametag(char)
     label.TextColor3 = Colors.bloodLight
     label.TextStrokeColor3 = Color3.fromRGB(40, 0, 0)
     label.TextStrokeTransparency = 0.4
-    label.TextSize = 13
+    label.TextSize = 22
     label.Font = Enum.Font.GothamBold
     label.Parent = bg
 end

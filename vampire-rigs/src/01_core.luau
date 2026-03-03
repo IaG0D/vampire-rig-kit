@@ -3,6 +3,7 @@ local UIS = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
 local TweenService = game:GetService("TweenService")
+local AvatarEditorService = game:GetService("AvatarEditorService")
 local LP = Players.LocalPlayer
 
 --==================================================
@@ -159,6 +160,12 @@ saveConfigState = {
     IsolateLocalPlayer = false,
     SaveCameraInstances = false,
 }
+
+-- Emote catalog state
+emoteCatalogPages = nil
+emoteCatalogHasMore = false
+emoteSearchVersion = 0
+isLoadingMoreEmotes = false
 
 -- Forward-declared functions are assigned as globals by later modules
 -- (removed local forward declarations to stay under Lua's 200 local limit)

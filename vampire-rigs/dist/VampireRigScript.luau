@@ -14,6 +14,7 @@ local UIS = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
 local TweenService = game:GetService("TweenService")
+local AvatarEditorService = game:GetService("AvatarEditorService")
 local LP = Players.LocalPlayer
 
 --==================================================
@@ -170,6 +171,12 @@ saveConfigState = {
     IsolateLocalPlayer = false,
     SaveCameraInstances = false,
 }
+
+-- Emote catalog state
+emoteCatalogPages = nil
+emoteCatalogHasMore = false
+emoteSearchVersion = 0
+isLoadingMoreEmotes = false
 
 -- Forward-declared functions are assigned as globals by later modules
 -- (removed local forward declarations to stay under Lua's 200 local limit)
@@ -1222,7 +1229,7 @@ makeHoverable(ResetMoveBtn, Colors.bloodDark, Colors.blood)
 --[[ ═══════ MODULE: 09_tab_emote.luau ═══════ ]]
 
 --==================================================
--- TAB: EMOTE + SHADOW
+-- TAB: EMOTE (Pure — Catalog Search + Presets)
 --==================================================
 
 local EmoteContent = Instance.new("Frame")
@@ -1238,15 +1245,15 @@ EmoteScroll.Size = UDim2.new(1, 0, 1, 0)
 EmoteScroll.BackgroundTransparency = 1
 EmoteScroll.ScrollBarThickness = 3
 EmoteScroll.ScrollBarImageColor3 = Colors.blood
-EmoteScroll.CanvasSize = UDim2.new(0, 0, 0, 700)
+EmoteScroll.CanvasSize = UDim2.new(0, 0, 0, 600)
 EmoteScroll.BorderSizePixel = 0
 EmoteScroll.Parent = EmoteContent
 
 --==================================================
--- EMOTE LIST
+-- PRESET EMOTES
 --==================================================
 
-createSectionHeader(EmoteScroll, "Emotes", 0)
+createSectionHeader(EmoteScroll, "Quick Emotes", 0)
 
 local emoteList = {
     { name = "Wave",      id = 507770239 },
@@ -1283,7 +1290,10 @@ end
 
 local emoteGridHeight = math.ceil(#emoteList / 2) * 32
 
--- Custom animation ID input
+--==================================================
+-- CUSTOM ANIMATION ID
+--==================================================
+
 local customEmoteY = emoteY + emoteGridHeight + 8
 
 local CustomIDLabel = Instance.new("TextLabel")
@@ -1349,77 +1359,211 @@ Instance.new("UICorner", StopEmoteBtn).CornerRadius = UDim.new(0, 6)
 makeHoverable(StopEmoteBtn, Colors.bloodDark, Colors.blood)
 
 --==================================================
--- SHADOW MODE
+-- CATALOG SEARCH
 --==================================================
 
-local shadowSectionY = customEmoteY + 86
+local catalogSectionY = customEmoteY + 86
 
-createSectionHeader(EmoteScroll, "Shadow Mode", shadowSectionY)
+createSectionHeader(EmoteScroll, "Catalog Search", catalogSectionY)
 
--- Shadow target display
-local ShadowTargetLabel = Instance.new("TextLabel")
-ShadowTargetLabel.Size = UDim2.new(1, 0, 0, 18)
-ShadowTargetLabel.Position = UDim2.new(0, 0, 0, shadowSectionY + 26)
+-- Search input (global for event wiring in 22_events)
+EmoteSearchBox = Instance.new("TextBox")
+EmoteSearchBox.Size = UDim2.new(1, 0, 0, 26)
+EmoteSearchBox.Position = UDim2.new(0, 0, 0, catalogSectionY + 26)
+EmoteSearchBox.BackgroundColor3 = Colors.inputBg
+EmoteSearchBox.Text = ""
+EmoteSearchBox.PlaceholderText = "🔍 Search emotes..."
+EmoteSearchBox.PlaceholderColor3 = Colors.textDim
+EmoteSearchBox.TextColor3 = Colors.text
+EmoteSearchBox.TextSize = 11
+EmoteSearchBox.Font = Enum.Font.Code
+EmoteSearchBox.ClearTextOnFocus = false
+EmoteSearchBox.Parent = EmoteScroll
+Instance.new("UICorner", EmoteSearchBox).CornerRadius = UDim.new(0, 6)
+local emoteSearchStroke = Instance.new("UIStroke", EmoteSearchBox)
+emoteSearchStroke.Color = Colors.inputBorder
+emoteSearchStroke.Thickness = 1
+
+EmoteSearchBox.Focused:Connect(function()
+    TweenService:Create(emoteSearchStroke, TweenInfo.new(0.2), { Color = Colors.purpleLight, Thickness = 1.5 }):Play()
+end)
+EmoteSearchBox.FocusLost:Connect(function()
+    TweenService:Create(emoteSearchStroke, TweenInfo.new(0.3), { Color = Colors.inputBorder, Thickness = 1 }):Play()
+end)
+
+-- Catalog grid container (global for cross-module access)
+EmoteCatalogGrid = Instance.new("Frame")
+EmoteCatalogGrid.Name = "CatalogGrid"
+EmoteCatalogGrid.Size = UDim2.new(1, 0, 0, 300)
+EmoteCatalogGrid.Position = UDim2.new(0, 0, 0, catalogSectionY + 58)
+EmoteCatalogGrid.BackgroundTransparency = 1
+EmoteCatalogGrid.ClipsDescendants = true
+EmoteCatalogGrid.Parent = EmoteScroll
+
+EmoteCatalogGridLayout = Instance.new("UIGridLayout", EmoteCatalogGrid)
+EmoteCatalogGridLayout.CellSize = UDim2.new(0, 60, 0, 82)
+EmoteCatalogGridLayout.CellPadding = UDim2.new(0, 6, 0, 6)
+EmoteCatalogGridLayout.FillDirection = Enum.FillDirection.Horizontal
+EmoteCatalogGridLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+-- Empty/status label
+EmoteCatalogEmpty = Instance.new("TextLabel")
+EmoteCatalogEmpty.Size = UDim2.new(1, 0, 0, 30)
+EmoteCatalogEmpty.Position = UDim2.new(0, 0, 0, catalogSectionY + 58)
+EmoteCatalogEmpty.BackgroundTransparency = 1
+EmoteCatalogEmpty.Text = "Type to search emotes..."
+EmoteCatalogEmpty.TextColor3 = Colors.textDim
+EmoteCatalogEmpty.TextSize = 10
+EmoteCatalogEmpty.Font = Enum.Font.Gotham
+EmoteCatalogEmpty.Visible = true
+EmoteCatalogEmpty.Parent = EmoteScroll
+
+-- Update canvas size
+EmoteScroll.CanvasSize = UDim2.new(0, 0, 0, catalogSectionY + 370)
+
+
+--[[ ═══════ MODULE: 09b_shadow_panel.luau ═══════ ]]
+
+--==================================================
+-- SHADOW PANEL — FLOATING (aberto via botao SHADOW em player cards)
+-- Todas as variaveis sao GLOBALS para nao gastar locals
+--==================================================
+
+ShadowPanel = Instance.new("Frame")
+ShadowPanel.Name = "ShadowPanel"
+ShadowPanel.Size = UDim2.new(0, 240, 0, 380)
+ShadowPanel.Position = UDim2.new(0.5, -120, 0.5, -190)
+ShadowPanel.BackgroundColor3 = Colors.bg
+ShadowPanel.BorderSizePixel = 0
+ShadowPanel.Visible = false
+ShadowPanel.Parent = ScreenGui
+
+Instance.new("UICorner", ShadowPanel).CornerRadius = UDim.new(0, 10)
+ShadowPanelStroke = Instance.new("UIStroke", ShadowPanel)
+ShadowPanelStroke.Color = Colors.glowPurple
+ShadowPanelStroke.Thickness = 1.5
+addGradient(ShadowPanel, Colors.surfaceLight, Color3.fromRGB(8, 8, 10), 90)
+
+--==================================================
+-- TOP BAR
+--==================================================
+
+ShadowPanelTopBar = Instance.new("Frame")
+ShadowPanelTopBar.Size = UDim2.new(1, 0, 0, 32)
+ShadowPanelTopBar.BackgroundColor3 = Colors.topbar
+ShadowPanelTopBar.BorderSizePixel = 0
+ShadowPanelTopBar.Parent = ShadowPanel
+Instance.new("UICorner", ShadowPanelTopBar).CornerRadius = UDim.new(0, 10)
+addGradient(ShadowPanelTopBar, Color3.fromRGB(30, 10, 40), Colors.topbar, 0)
+
+-- Fix bottom corners
+ShadowPanelTopBarFix = Instance.new("Frame")
+ShadowPanelTopBarFix.Size = UDim2.new(1, 0, 0, 10)
+ShadowPanelTopBarFix.Position = UDim2.new(0, 0, 1, -10)
+ShadowPanelTopBarFix.BackgroundColor3 = Colors.topbar
+ShadowPanelTopBarFix.BorderSizePixel = 0
+ShadowPanelTopBarFix.Parent = ShadowPanelTopBar
+
+addAccentLine(ShadowPanelTopBar, UDim2.new(0, 0, 1, -1), Colors.glowPurple)
+
+ShadowPanelTitle = Instance.new("TextLabel")
+ShadowPanelTitle.Size = UDim2.new(1, -40, 1, 0)
+ShadowPanelTitle.Position = UDim2.new(0, 10, 0, 0)
+ShadowPanelTitle.BackgroundTransparency = 1
+ShadowPanelTitle.Text = "👤 Shadow Mode"
+ShadowPanelTitle.TextColor3 = Colors.purpleLight
+ShadowPanelTitle.TextSize = 12
+ShadowPanelTitle.Font = Enum.Font.GothamBold
+ShadowPanelTitle.TextXAlignment = Enum.TextXAlignment.Left
+ShadowPanelTitle.Parent = ShadowPanelTopBar
+
+ShadowPanelClose = Instance.new("TextButton")
+ShadowPanelClose.Size = UDim2.new(0, 20, 0, 20)
+ShadowPanelClose.Position = UDim2.new(1, -26, 0, 6)
+ShadowPanelClose.BackgroundColor3 = Colors.blood
+ShadowPanelClose.Text = "X"
+ShadowPanelClose.TextColor3 = Colors.text
+ShadowPanelClose.TextSize = 11
+ShadowPanelClose.Font = Enum.Font.GothamBold
+ShadowPanelClose.AutoButtonColor = false
+ShadowPanelClose.Parent = ShadowPanelTopBar
+Instance.new("UICorner", ShadowPanelClose).CornerRadius = UDim.new(0, 6)
+makeHoverable(ShadowPanelClose, Colors.blood, Colors.glowRed)
+
+--==================================================
+-- PLAYER INFO
+--==================================================
+
+-- Player photo (large, circular)
+ShadowPanelThumbFrame = Instance.new("Frame")
+ShadowPanelThumbFrame.Size = UDim2.new(0, 64, 0, 64)
+ShadowPanelThumbFrame.Position = UDim2.new(0.5, -32, 0, 40)
+ShadowPanelThumbFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+ShadowPanelThumbFrame.Parent = ShadowPanel
+Instance.new("UICorner", ShadowPanelThumbFrame).CornerRadius = UDim.new(1, 0)
+ShadowPanelThumbStroke = Instance.new("UIStroke", ShadowPanelThumbFrame)
+ShadowPanelThumbStroke.Color = Colors.glowPurple
+ShadowPanelThumbStroke.Thickness = 2
+
+ShadowPanelThumb = Instance.new("ImageLabel")
+ShadowPanelThumb.Size = UDim2.new(1, 0, 1, 0)
+ShadowPanelThumb.BackgroundTransparency = 1
+ShadowPanelThumb.Parent = ShadowPanelThumbFrame
+Instance.new("UICorner", ShadowPanelThumb).CornerRadius = UDim.new(1, 0)
+
+-- Player name
+ShadowPanelPlayerName = Instance.new("TextLabel")
+ShadowPanelPlayerName.Size = UDim2.new(1, 0, 0, 18)
+ShadowPanelPlayerName.Position = UDim2.new(0, 0, 0, 110)
+ShadowPanelPlayerName.BackgroundTransparency = 1
+ShadowPanelPlayerName.Text = "Select a player"
+ShadowPanelPlayerName.TextColor3 = Colors.purpleLight
+ShadowPanelPlayerName.TextSize = 13
+ShadowPanelPlayerName.Font = Enum.Font.GothamBold
+ShadowPanelPlayerName.Parent = ShadowPanel
+
+-- Target status label (same name as before — used by 21_emote_shadow)
+ShadowTargetLabel = Instance.new("TextLabel")
+ShadowTargetLabel.Size = UDim2.new(1, -20, 0, 14)
+ShadowTargetLabel.Position = UDim2.new(0, 10, 0, 130)
 ShadowTargetLabel.BackgroundTransparency = 1
 ShadowTargetLabel.Text = "Target: none"
 ShadowTargetLabel.TextColor3 = Colors.textDim
 ShadowTargetLabel.TextSize = 10
 ShadowTargetLabel.Font = Enum.Font.GothamBold
 ShadowTargetLabel.TextXAlignment = Enum.TextXAlignment.Left
-ShadowTargetLabel.Parent = EmoteScroll
+ShadowTargetLabel.Parent = ShadowPanel
 
--- Shadow player list (select target)
-local ShadowPlayerScroll = Instance.new("ScrollingFrame")
-ShadowPlayerScroll.Size = UDim2.new(1, 0, 0, 80)
-ShadowPlayerScroll.Position = UDim2.new(0, 0, 0, shadowSectionY + 46)
-ShadowPlayerScroll.BackgroundColor3 = Colors.content
-ShadowPlayerScroll.BorderSizePixel = 0
-ShadowPlayerScroll.ScrollBarThickness = 3
-ShadowPlayerScroll.ScrollBarImageColor3 = Colors.blood
-ShadowPlayerScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-ShadowPlayerScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-ShadowPlayerScroll.Parent = EmoteScroll
-Instance.new("UICorner", ShadowPlayerScroll).CornerRadius = UDim.new(0, 6)
-local spStroke = Instance.new("UIStroke", ShadowPlayerScroll)
-spStroke.Color = Colors.separator
-spStroke.Thickness = 0.5
+--==================================================
+-- SHADOW MODE BUTTONS
+--==================================================
 
-local ShadowPlayerLayout = Instance.new("UIListLayout", ShadowPlayerScroll)
-ShadowPlayerLayout.Padding = UDim.new(0, 3)
-local spPad = Instance.new("UIPadding", ShadowPlayerScroll)
-spPad.PaddingTop = UDim.new(0, 3)
-spPad.PaddingLeft = UDim.new(0, 3)
-spPad.PaddingRight = UDim.new(0, 3)
-
--- Shadow mode buttons
-local shadowModeY = shadowSectionY + 132
-
-local shadowModeToggles = {}
-
-local shadowModeDefs = {
-    { name = "Follow Behind",     mode = "follow", color = Colors.green },
-    { name = "Sit on Head",       mode = "head",   color = Colors.warning },
+shadowModeToggles = {}
+shadowModeDefs = {
+    { name = "Follow Behind",       mode = "follow", color = Colors.green },
+    { name = "Sit on Head",         mode = "head",   color = Colors.warning },
     { name = "Shadow Box (Mirror)", mode = "mirror", color = Colors.glowPurple },
 }
 
-for i, def in ipairs(shadowModeDefs) do
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, 0, 0, 26)
-    btn.Position = UDim2.new(0, 0, 0, shadowModeY + (i - 1) * 30)
-    btn.BackgroundColor3 = Color3.fromRGB(40, 20, 20)
-    btn.Text = def.name
-    btn.TextColor3 = Colors.textDim
-    btn.TextSize = 10
-    btn.Font = Enum.Font.GothamBold
-    btn.AutoButtonColor = false
-    btn.Parent = EmoteScroll
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
-
-    shadowModeToggles[def.mode] = { btn = btn, def = def }
+do
+    local modeY = 150
+    for i, def in ipairs(shadowModeDefs) do
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(1, -20, 0, 26)
+        btn.Position = UDim2.new(0, 10, 0, modeY + (i - 1) * 30)
+        btn.BackgroundColor3 = Color3.fromRGB(40, 20, 20)
+        btn.Text = def.name
+        btn.TextColor3 = Colors.textDim
+        btn.TextSize = 10
+        btn.Font = Enum.Font.GothamBold
+        btn.AutoButtonColor = false
+        btn.Parent = ShadowPanel
+        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+        shadowModeToggles[def.mode] = { btn = btn, def = def }
+    end
 end
 
--- Function to refresh shadow mode button highlights
-local function refreshShadowModeButtons()
+refreshShadowModeButtons = function()
     for mode, data in pairs(shadowModeToggles) do
         local isActive = shadowState.active and shadowState.mode == mode
         data.btn.BackgroundColor3 = isActive and data.def.color or Color3.fromRGB(40, 20, 20)
@@ -1427,35 +1571,65 @@ local function refreshShadowModeButtons()
     end
 end
 
+--==================================================
+-- SLIDERS
+--==================================================
+
 -- Distance slider
-local shadowDistY = shadowModeY + #shadowModeDefs * 30 + 6
-local shadowDistSlider = createSliderRow(EmoteScroll, "Distance (studs)", 1, 15, 4, shadowDistY, function(val)
+ShadowPanelDistSlider = createSliderRow(ShadowPanel, "Distance (studs)", 1, 15, 4, 244, function(val)
     shadowState.distance = val
 end)
 
 -- Delay slider
-local shadowDelayY = shadowDistY + 32
-local shadowDelaySlider = createSliderRow(EmoteScroll, "Delay (sec)", 0, 5, 0, shadowDelayY, function(val)
+ShadowPanelDelaySlider = createSliderRow(ShadowPanel, "Delay (sec)", 0, 5, 0, 276, function(val)
     shadowState.delay = val
 end)
 
--- Stop shadow button
-local StopShadowBtn = Instance.new("TextButton")
-StopShadowBtn.Size = UDim2.new(1, 0, 0, 28)
-StopShadowBtn.Position = UDim2.new(0, 0, 0, shadowDelayY + 38)
+--==================================================
+-- STOP BUTTON
+--==================================================
+
+StopShadowBtn = Instance.new("TextButton")
+StopShadowBtn.Size = UDim2.new(1, -20, 0, 28)
+StopShadowBtn.Position = UDim2.new(0, 10, 0, 314)
 StopShadowBtn.BackgroundColor3 = Colors.bloodDark
 StopShadowBtn.Text = "🔴 STOP SHADOW"
 StopShadowBtn.TextColor3 = Colors.text
 StopShadowBtn.TextSize = 11
 StopShadowBtn.Font = Enum.Font.GothamBold
 StopShadowBtn.AutoButtonColor = false
-StopShadowBtn.Parent = EmoteScroll
+StopShadowBtn.Parent = ShadowPanel
 Instance.new("UICorner", StopShadowBtn).CornerRadius = UDim.new(0, 6)
 addBtnGradient(StopShadowBtn)
 makeHoverable(StopShadowBtn, Colors.bloodDark, Colors.blood)
 
--- Update canvas size
-EmoteScroll.CanvasSize = UDim2.new(0, 0, 0, shadowDelayY + 76)
+--==================================================
+-- OPEN SHADOW PANEL
+--==================================================
+
+openShadowPanel = function(player)
+    shadowState.target = player
+    ShadowTargetLabel.Text = "Target: " .. player.DisplayName
+    ShadowTargetLabel.TextColor3 = Colors.purpleLight
+    ShadowPanelPlayerName.Text = player.DisplayName
+    ShadowPanelTitle.Text = "👤 " .. player.DisplayName
+
+    -- Load thumbnail
+    task.spawn(function()
+        local ok, thumb = pcall(function()
+            return Players:GetUserThumbnailAsync(
+                player.UserId,
+                Enum.ThumbnailType.HeadShot,
+                Enum.ThumbnailSize.Size150x150
+            )
+        end)
+        if ok and thumb then ShadowPanelThumb.Image = thumb end
+    end)
+
+    refreshShadowModeButtons()
+    ShadowPanel.Visible = true
+    notify("Shadow target: " .. player.DisplayName, "info")
+end
 
 
 --[[ ═══════ MODULE: 10_tab_settings.luau ═══════ ]]
@@ -2318,6 +2492,7 @@ end
 makeDraggable(MiniBar, MiniBar)
 makeDraggable(MainFrame, TopBar)
 makeDraggable(PreviewFrame, PreviewTopBar)
+makeDraggable(ShadowPanel, ShadowPanelTopBar)
 
 
 --[[ ═══════ MODULE: 15_animations.luau ═══════ ]]
@@ -2554,10 +2729,12 @@ local function displayPreviewInfo(info)
 end
 
 local function showPreview(info)
+    log("showPreview START:", info.name)
     clearPreview()
     currentPreviewData = info
     PreviewTitle.Text = "🔮 " .. info.name
     PreviewFrame.Visible = true
+    log("  PreviewFrame.Visible = true")
     ViewportStatus.Text = "Connecting..."
 
     -- Info bar
@@ -2572,21 +2749,25 @@ local function showPreview(info)
     end
 
     if not realChar or not realChar.Parent then
+        log("  Character not found")
         ViewportStatus.Text = "Character not found"
         InfoLabel.Text = ""
         return
     end
 
+    log("  Cloning character...")
     -- Clone character for viewport
     local cloneOk, cloneModel = pcall(function()
         return realChar:Clone()
     end)
 
     if not cloneOk or not cloneModel then
+        log("  Clone FAILED:", tostring(cloneModel))
         ViewportStatus.Text = "Failed to clone"
         InfoLabel.Text = ""
         return
     end
+    log("  Clone OK, setting up viewport")
 
     -- Build part mapping (Clone preserves descendant order)
     local partMap = {}
@@ -2979,7 +3160,12 @@ createResultCard = function(info)
     makeHoverable(ViewBtn, Colors.blood, Colors.glowRed)
 
     ViewBtn.MouseButton1Click:Connect(function()
-        showPreview(info)
+        log("VIEW clicked:", info.name)
+        local ok, err = pcall(showPreview, info)
+        if not ok then
+            log("showPreview ERROR:", tostring(err))
+            notify("Preview error: " .. tostring(err):sub(1, 60), "error")
+        end
     end)
 
     local TPBtn = Instance.new("TextButton")
@@ -3039,6 +3225,26 @@ createResultCard = function(info)
     SpecBtn.MouseButton1Click:Connect(function()
         startSpectate(info)
     end)
+
+    -- Shadow button (players only)
+    if info.type == "PLAYER" and info.player then
+        local ShadowResultBtn = Instance.new("TextButton")
+        ShadowResultBtn.Size = UDim2.new(0, 52, 0, 20)
+        ShadowResultBtn.Position = UDim2.new(0, 184, 1, -26)
+        ShadowResultBtn.BackgroundColor3 = Colors.glowPurple
+        ShadowResultBtn.Text = "SHADOW"
+        ShadowResultBtn.TextColor3 = Colors.text
+        ShadowResultBtn.TextSize = 9
+        ShadowResultBtn.Font = Enum.Font.GothamBold
+        ShadowResultBtn.AutoButtonColor = false
+        ShadowResultBtn.Parent = Card
+        Instance.new("UICorner", ShadowResultBtn).CornerRadius = UDim.new(0, 4)
+        makeHoverable(ShadowResultBtn, Colors.glowPurple, Colors.purpleLight)
+
+        ShadowResultBtn.MouseButton1Click:Connect(function()
+            openShadowPanel(info.player)
+        end)
+    end
 
     JSONBtn.MouseButton1Click:Connect(function()
         if not info.loaded then
@@ -3236,7 +3442,7 @@ refreshPlayerList = function()
 
     for _, player in pairs(Players:GetPlayers()) do
         local card = Instance.new("Frame")
-        card.Size = UDim2.new(1, -10, 0, 50)
+        card.Size = UDim2.new(1, -10, 0, 60)
         card.BackgroundColor3 = Colors.card
         card.BorderSizePixel = 0
         card.Parent = PlayerScroll
@@ -3361,6 +3567,24 @@ refreshPlayerList = function()
                     notify("TP to " .. player.Name, "success")
                 end
             end
+        end)
+
+        -- Shadow button
+        local shadowBtn = Instance.new("TextButton")
+        shadowBtn.Size = UDim2.new(0, 52, 0, 18)
+        shadowBtn.Position = UDim2.new(1, -80, 0, 30)
+        shadowBtn.BackgroundColor3 = Colors.glowPurple
+        shadowBtn.Text = "SHADOW"
+        shadowBtn.TextColor3 = Colors.text
+        shadowBtn.TextSize = 8
+        shadowBtn.Font = Enum.Font.GothamBold
+        shadowBtn.AutoButtonColor = false
+        shadowBtn.Parent = card
+        Instance.new("UICorner", shadowBtn).CornerRadius = UDim.new(0, 4)
+        makeHoverable(shadowBtn, Colors.glowPurple, Colors.purpleLight)
+
+        shadowBtn.MouseButton1Click:Connect(function()
+            openShadowPanel(player)
         end)
     end
 
@@ -4107,8 +4331,8 @@ startShadow = function(mode)
         myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
     end
 
-    -- Animation mirroring state
-    local mirroredTracks = {}
+    -- Animation mirroring state (global so stopShadow can clean up)
+    shadowMirroredTracks = {}
     local lastAnimSync = 0
 
     shadowConnection = RunService.Heartbeat:Connect(function()
@@ -4203,16 +4427,16 @@ startShadow = function(mode)
                             end
                         end
                         -- Stop tracks target isn't playing
-                        for id, track in pairs(mirroredTracks) do
+                        for id, track in pairs(shadowMirroredTracks) do
                             if not targetIds[id] then
                                 pcall(function() track:Stop() end)
                                 pcall(function() track:Destroy() end)
-                                mirroredTracks[id] = nil
+                                shadowMirroredTracks[id] = nil
                             end
                         end
                         -- Play tracks target IS playing
                         for id, priority in pairs(targetIds) do
-                            if not mirroredTracks[id] then
+                            if not shadowMirroredTracks[id] then
                                 local anim = Instance.new("Animation")
                                 anim.AnimationId = id
                                 local ok2, myTrack = pcall(function()
@@ -4221,7 +4445,7 @@ startShadow = function(mode)
                                 if ok2 and myTrack then
                                     myTrack.Priority = priority
                                     myTrack:Play()
-                                    mirroredTracks[id] = myTrack
+                                    shadowMirroredTracks[id] = myTrack
                                 end
                                 anim:Destroy()
                             end
@@ -4243,6 +4467,16 @@ stopShadow = function()
         shadowConnection = nil
     end
     shadowHistory = {}
+
+    -- Stop and destroy all mirrored animation tracks
+    if shadowMirroredTracks then
+        for id, track in pairs(shadowMirroredTracks) do
+            pcall(function() track:Stop() end)
+            pcall(function() track:Destroy() end)
+        end
+        shadowMirroredTracks = {}
+    end
+
     refreshShadowModeButtons()
 
     -- Re-enable falling states
@@ -4258,81 +4492,158 @@ stopShadow = function()
     log("Shadow stopped")
 end
 
-refreshShadowPlayerList = function()
-    -- Clear existing
-    for _, child in pairs(ShadowPlayerScroll:GetChildren()) do
-        if child:IsA("Frame") then child:Destroy() end
+--==================================================
+-- EMOTE CATALOG SEARCH
+--==================================================
+
+searchEmoteCatalog = function(keyword)
+    emoteSearchVersion = emoteSearchVersion + 1
+    local thisVersion = emoteSearchVersion
+
+    -- Clear grid
+    for _, child in pairs(EmoteCatalogGrid:GetChildren()) do
+        if child:IsA("Frame") or child:IsA("TextButton") then child:Destroy() end
     end
 
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LP then
-            local row = Instance.new("Frame")
-            row.Size = UDim2.new(1, 0, 0, 30)
-            row.BackgroundColor3 = Colors.card
-            row.BorderSizePixel = 0
-            row.Parent = ShadowPlayerScroll
-            Instance.new("UICorner", row).CornerRadius = UDim.new(0, 4)
+    EmoteCatalogEmpty.Visible = false
 
-            local isSelected = shadowState.target == player
+    if keyword == nil or keyword == "" then
+        EmoteCatalogEmpty.Text = "Type to search emotes..."
+        EmoteCatalogEmpty.Visible = true
+        return
+    end
 
-            -- Thumbnail
-            local thumbFrame = Instance.new("Frame")
-            thumbFrame.Size = UDim2.new(0, 22, 0, 22)
-            thumbFrame.Position = UDim2.new(0, 4, 0, 4)
-            thumbFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-            thumbFrame.Parent = row
-            Instance.new("UICorner", thumbFrame).CornerRadius = UDim.new(1, 0)
-            local tStroke = Instance.new("UIStroke", thumbFrame)
-            tStroke.Color = isSelected and Colors.glowPurple or Colors.textDim
-            tStroke.Thickness = 1
+    EmoteCatalogEmpty.Text = "Searching..."
+    EmoteCatalogEmpty.Visible = true
 
-            local thumbImg = Instance.new("ImageLabel")
-            thumbImg.Size = UDim2.new(1, 0, 1, 0)
-            thumbImg.BackgroundTransparency = 1
-            thumbImg.Parent = thumbFrame
-            Instance.new("UICorner", thumbImg).CornerRadius = UDim.new(1, 0)
+    task.spawn(function()
+        local params = CatalogSearchParams.new()
+        params.AssetTypes = { Enum.AvatarAssetType.EmoteAnimation }
+        params.SortType = Enum.CatalogSortType.Relevance
+        params.SearchKeyword = keyword
 
-            task.spawn(function()
-                local ok, thumb = pcall(function()
-                    return Players:GetUserThumbnailAsync(player.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size48x48)
-                end)
-                if ok and thumb then thumbImg.Image = thumb end
-            end)
+        local ok, pages = pcall(function()
+            return AvatarEditorService:SearchCatalog(params)
+        end)
 
-            local pName = Instance.new("TextLabel")
-            pName.Size = UDim2.new(1, -82, 1, 0)
-            pName.Position = UDim2.new(0, 30, 0, 0)
-            pName.BackgroundTransparency = 1
-            pName.Text = player.DisplayName
-            pName.TextColor3 = isSelected and Colors.purpleLight or Colors.bloodLight
-            pName.TextSize = 10
-            pName.Font = Enum.Font.GothamBold
-            pName.TextXAlignment = Enum.TextXAlignment.Left
-            pName.TextTruncate = Enum.TextTruncate.AtEnd
-            pName.Parent = row
+        if emoteSearchVersion ~= thisVersion then return end
 
-            local selectBtn = Instance.new("TextButton")
-            selectBtn.Size = UDim2.new(0, 48, 0, 22)
-            selectBtn.Position = UDim2.new(1, -52, 0, 4)
-            selectBtn.BackgroundColor3 = isSelected and Colors.glowPurple or Colors.surfaceLight
-            selectBtn.Text = isSelected and "ACTIVE" or "SELECT"
-            selectBtn.TextColor3 = Colors.text
-            selectBtn.TextSize = 8
-            selectBtn.Font = Enum.Font.GothamBold
-            selectBtn.AutoButtonColor = false
-            selectBtn.Parent = row
-            Instance.new("UICorner", selectBtn).CornerRadius = UDim.new(0, 4)
-            makeHoverable(selectBtn, isSelected and Colors.glowPurple or Colors.surfaceLight, Colors.purpleLight)
+        if not ok or not pages then
+            EmoteCatalogEmpty.Text = "Search failed (AvatarEditorService)"
+            EmoteCatalogEmpty.Visible = true
+            log("Emote search failed:", tostring(pages))
+            return
+        end
 
-            selectBtn.MouseButton1Click:Connect(function()
-                shadowState.target = player
-                ShadowTargetLabel.Text = "Target: " .. player.DisplayName
-                ShadowTargetLabel.TextColor3 = Colors.purpleLight
-                refreshShadowPlayerList()
-                notify("Shadow target: " .. player.Name, "info")
-            end)
+        local pageOk, items = pcall(function()
+            return pages:GetCurrentPage()
+        end)
+
+        if not pageOk or not items or #items == 0 then
+            EmoteCatalogEmpty.Text = "No emotes found"
+            EmoteCatalogEmpty.Visible = true
+            return
+        end
+
+        EmoteCatalogEmpty.Visible = false
+        emoteCatalogPages = pages
+        emoteCatalogHasMore = not pages.IsFinished
+
+        populateEmoteCatalogGrid(items, false)
+    end)
+end
+
+populateEmoteCatalogGrid = function(items, append)
+    if not append then
+        for _, child in pairs(EmoteCatalogGrid:GetChildren()) do
+            if child:IsA("Frame") or child:IsA("TextButton") then child:Destroy() end
         end
     end
+
+    for _, item in ipairs(items) do
+        local card = Instance.new("TextButton")
+        card.Size = UDim2.new(0, 60, 0, 82)
+        card.BackgroundColor3 = Colors.card
+        card.AutoButtonColor = false
+        card.BorderSizePixel = 0
+        card.Text = ""
+        card.Parent = EmoteCatalogGrid
+        Instance.new("UICorner", card).CornerRadius = UDim.new(0, 6)
+
+        -- Thumbnail
+        local isBundle = item.BundleType ~= nil
+        local thumbType = isBundle and "BundleThumbnail" or "Asset"
+        local thumb = Instance.new("ImageLabel")
+        thumb.Size = UDim2.new(1, -4, 0, 52)
+        thumb.Position = UDim2.new(0, 2, 0, 2)
+        thumb.BackgroundTransparency = 1
+        thumb.Image = "rbxthumb://type=" .. thumbType .. "&id=" .. tostring(item.Id) .. "&w=150&h=150"
+        thumb.ScaleType = Enum.ScaleType.Fit
+        thumb.Parent = card
+
+        -- Name label
+        local nameL = Instance.new("TextLabel")
+        nameL.Size = UDim2.new(1, -4, 0, 24)
+        nameL.Position = UDim2.new(0, 2, 0, 56)
+        nameL.BackgroundTransparency = 1
+        nameL.Text = item.Name or "Emote"
+        nameL.TextColor3 = Colors.textDim
+        nameL.TextSize = 8
+        nameL.Font = Enum.Font.GothamBold
+        nameL.TextXAlignment = Enum.TextXAlignment.Center
+        nameL.TextTruncate = Enum.TextTruncate.AtEnd
+        nameL.TextWrapped = true
+        nameL.Parent = card
+
+        -- Click to play
+        card.MouseButton1Click:Connect(function()
+            playEmote(item.Id)
+        end)
+
+        makeHoverable(card, Colors.card, Colors.surfaceLight)
+    end
+
+    -- Update grid height based on content
+    local childCount = 0
+    for _, child in pairs(EmoteCatalogGrid:GetChildren()) do
+        if child:IsA("TextButton") then childCount = childCount + 1 end
+    end
+    local cols = math.max(1, math.floor(EmoteCatalogGrid.AbsoluteSize.X / 66))
+    if cols < 1 then cols = 5 end
+    local rows = math.ceil(childCount / cols)
+    EmoteCatalogGrid.Size = UDim2.new(1, 0, 0, math.max(rows * 88, 88))
+
+    -- Refresh scroll canvas
+    EmoteScroll.CanvasSize = UDim2.new(0, 0, 0, EmoteCatalogGrid.Position.Y.Offset + EmoteCatalogGrid.Size.Y.Offset + 20)
+end
+
+loadMoreEmotes = function()
+    if not emoteCatalogHasMore or not emoteCatalogPages or isLoadingMoreEmotes then return end
+    isLoadingMoreEmotes = true
+
+    task.spawn(function()
+        local ok = pcall(function()
+            emoteCatalogPages:AdvanceToNextPageAsync()
+        end)
+        if not ok then
+            isLoadingMoreEmotes = false
+            return
+        end
+
+        local pageOk, items = pcall(function()
+            return emoteCatalogPages:GetCurrentPage()
+        end)
+
+        isLoadingMoreEmotes = false
+
+        if not pageOk or not items or #items == 0 then
+            emoteCatalogHasMore = false
+            return
+        end
+
+        emoteCatalogHasMore = not emoteCatalogPages.IsFinished
+        populateEmoteCatalogGrid(items, true)
+    end)
 end
 
 
@@ -4521,6 +4832,34 @@ StopEmoteBtn.MouseButton1Click:Connect(function()
     stopEmote()
 end)
 
+-- Emote catalog search (debounced 0.4s)
+do
+    local emoteSearchTimer = nil
+    EmoteSearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+        if emoteSearchTimer then
+            task.cancel(emoteSearchTimer)
+        end
+        emoteSearchTimer = task.delay(0.4, function()
+            emoteSearchTimer = nil
+            searchEmoteCatalog(EmoteSearchBox.Text)
+        end)
+    end)
+end
+
+-- Emote catalog scroll pagination (load more near bottom)
+EmoteScroll:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
+    local scrollPos = EmoteScroll.CanvasPosition.Y
+    local canvasH = EmoteScroll.CanvasSize.Y.Offset
+    local frameH = EmoteScroll.AbsoluteSize.Y
+    if canvasH > 0 and (scrollPos + frameH) >= (canvasH - 60) then
+        loadMoreEmotes()
+    end
+end)
+
+--==================================================
+-- SHADOW PANEL EVENTS
+--==================================================
+
 -- Shadow mode buttons
 for mode, data in pairs(shadowModeToggles) do
     data.btn.MouseButton1Click:Connect(function()
@@ -4534,6 +4873,11 @@ end
 
 StopShadowBtn.MouseButton1Click:Connect(function()
     stopShadow()
+end)
+
+ShadowPanelClose.MouseButton1Click:Connect(function()
+    stopShadow()
+    ShadowPanel.Visible = false
 end)
 
 --==================================================
@@ -4668,6 +5012,7 @@ CloseBtn.MouseButton1Click:Connect(function()
     stopSpectate()
     stopEmote()
     stopShadow()
+    ShadowPanel.Visible = false
     clearESP()
     clearPreview()
     clearResults()
@@ -4729,10 +5074,7 @@ switchTab = function(tabId)
         updateServerInfo()
     end
 
-    -- Refresh shadow player list when switching to emote tab
-    if tabId == "emote" then
-        refreshShadowPlayerList()
-    end
+    -- Nothing extra for emote tab (catalog search is on-demand)
 end
 
 --==================================================
@@ -4750,16 +5092,16 @@ local function createVampireNametag(char)
 
     local bb = Instance.new("BillboardGui")
     bb.Name = "VampNametag"
-    bb.Size = UDim2.new(0, 180, 0, 40)
-    bb.StudsOffset = Vector3.new(0, 2.2, 0)
+    bb.Size = UDim2.new(0, 300, 0, 60)
+    bb.StudsOffset = Vector3.new(0, 2.5, 0)
     bb.AlwaysOnTop = false
     bb.Adornee = head
     bb.Parent = head
 
     -- Background card
     local bg = Instance.new("Frame")
-    bg.Size = UDim2.new(1, 0, 0, 24)
-    bg.Position = UDim2.new(0, 0, 0.5, -12)
+    bg.Size = UDim2.new(1, 0, 0, 40)
+    bg.Position = UDim2.new(0, 0, 0.5, -20)
     bg.BackgroundColor3 = Color3.fromRGB(15, 8, 12)
     bg.BackgroundTransparency = 0.2
     bg.BorderSizePixel = 0
@@ -4768,7 +5110,7 @@ local function createVampireNametag(char)
 
     local bgStroke = Instance.new("UIStroke", bg)
     bgStroke.Color = Colors.blood
-    bgStroke.Thickness = 1.2
+    bgStroke.Thickness = 1.8
     bgStroke.Transparency = 0.3
 
     local grad = Instance.new("UIGradient")
@@ -4792,7 +5134,7 @@ local function createVampireNametag(char)
     label.TextColor3 = Colors.bloodLight
     label.TextStrokeColor3 = Color3.fromRGB(40, 0, 0)
     label.TextStrokeTransparency = 0.4
-    label.TextSize = 13
+    label.TextSize = 22
     label.Font = Enum.Font.GothamBold
     label.Parent = bg
 end

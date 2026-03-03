@@ -102,8 +102,8 @@ startShadow = function(mode)
         myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
     end
 
-    -- Animation mirroring state
-    local mirroredTracks = {}
+    -- Animation mirroring state (global so stopShadow can clean up)
+    shadowMirroredTracks = {}
     local lastAnimSync = 0
 
     shadowConnection = RunService.Heartbeat:Connect(function()
@@ -198,16 +198,16 @@ startShadow = function(mode)
                             end
                         end
                         -- Stop tracks target isn't playing
-                        for id, track in pairs(mirroredTracks) do
+                        for id, track in pairs(shadowMirroredTracks) do
                             if not targetIds[id] then
                                 pcall(function() track:Stop() end)
                                 pcall(function() track:Destroy() end)
-                                mirroredTracks[id] = nil
+                                shadowMirroredTracks[id] = nil
                             end
                         end
                         -- Play tracks target IS playing
                         for id, priority in pairs(targetIds) do
-                            if not mirroredTracks[id] then
+                            if not shadowMirroredTracks[id] then
                                 local anim = Instance.new("Animation")
                                 anim.AnimationId = id
                                 local ok2, myTrack = pcall(function()
@@ -216,7 +216,7 @@ startShadow = function(mode)
                                 if ok2 and myTrack then
                                     myTrack.Priority = priority
                                     myTrack:Play()
-                                    mirroredTracks[id] = myTrack
+                                    shadowMirroredTracks[id] = myTrack
                                 end
                                 anim:Destroy()
                             end
@@ -238,6 +238,16 @@ stopShadow = function()
         shadowConnection = nil
     end
     shadowHistory = {}
+
+    -- Stop and destroy all mirrored animation tracks
+    if shadowMirroredTracks then
+        for id, track in pairs(shadowMirroredTracks) do
+            pcall(function() track:Stop() end)
+            pcall(function() track:Destroy() end)
+        end
+        shadowMirroredTracks = {}
+    end
+
     refreshShadowModeButtons()
 
     -- Re-enable falling states
@@ -253,79 +263,156 @@ stopShadow = function()
     log("Shadow stopped")
 end
 
-refreshShadowPlayerList = function()
-    -- Clear existing
-    for _, child in pairs(ShadowPlayerScroll:GetChildren()) do
-        if child:IsA("Frame") then child:Destroy() end
+--==================================================
+-- EMOTE CATALOG SEARCH
+--==================================================
+
+searchEmoteCatalog = function(keyword)
+    emoteSearchVersion = emoteSearchVersion + 1
+    local thisVersion = emoteSearchVersion
+
+    -- Clear grid
+    for _, child in pairs(EmoteCatalogGrid:GetChildren()) do
+        if child:IsA("Frame") or child:IsA("TextButton") then child:Destroy() end
     end
 
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LP then
-            local row = Instance.new("Frame")
-            row.Size = UDim2.new(1, 0, 0, 30)
-            row.BackgroundColor3 = Colors.card
-            row.BorderSizePixel = 0
-            row.Parent = ShadowPlayerScroll
-            Instance.new("UICorner", row).CornerRadius = UDim.new(0, 4)
+    EmoteCatalogEmpty.Visible = false
 
-            local isSelected = shadowState.target == player
+    if keyword == nil or keyword == "" then
+        EmoteCatalogEmpty.Text = "Type to search emotes..."
+        EmoteCatalogEmpty.Visible = true
+        return
+    end
 
-            -- Thumbnail
-            local thumbFrame = Instance.new("Frame")
-            thumbFrame.Size = UDim2.new(0, 22, 0, 22)
-            thumbFrame.Position = UDim2.new(0, 4, 0, 4)
-            thumbFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-            thumbFrame.Parent = row
-            Instance.new("UICorner", thumbFrame).CornerRadius = UDim.new(1, 0)
-            local tStroke = Instance.new("UIStroke", thumbFrame)
-            tStroke.Color = isSelected and Colors.glowPurple or Colors.textDim
-            tStroke.Thickness = 1
+    EmoteCatalogEmpty.Text = "Searching..."
+    EmoteCatalogEmpty.Visible = true
 
-            local thumbImg = Instance.new("ImageLabel")
-            thumbImg.Size = UDim2.new(1, 0, 1, 0)
-            thumbImg.BackgroundTransparency = 1
-            thumbImg.Parent = thumbFrame
-            Instance.new("UICorner", thumbImg).CornerRadius = UDim.new(1, 0)
+    task.spawn(function()
+        local params = CatalogSearchParams.new()
+        params.AssetTypes = { Enum.AvatarAssetType.EmoteAnimation }
+        params.SortType = Enum.CatalogSortType.Relevance
+        params.SearchKeyword = keyword
 
-            task.spawn(function()
-                local ok, thumb = pcall(function()
-                    return Players:GetUserThumbnailAsync(player.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size48x48)
-                end)
-                if ok and thumb then thumbImg.Image = thumb end
-            end)
+        local ok, pages = pcall(function()
+            return AvatarEditorService:SearchCatalog(params)
+        end)
 
-            local pName = Instance.new("TextLabel")
-            pName.Size = UDim2.new(1, -82, 1, 0)
-            pName.Position = UDim2.new(0, 30, 0, 0)
-            pName.BackgroundTransparency = 1
-            pName.Text = player.DisplayName
-            pName.TextColor3 = isSelected and Colors.purpleLight or Colors.bloodLight
-            pName.TextSize = 10
-            pName.Font = Enum.Font.GothamBold
-            pName.TextXAlignment = Enum.TextXAlignment.Left
-            pName.TextTruncate = Enum.TextTruncate.AtEnd
-            pName.Parent = row
+        if emoteSearchVersion ~= thisVersion then return end
 
-            local selectBtn = Instance.new("TextButton")
-            selectBtn.Size = UDim2.new(0, 48, 0, 22)
-            selectBtn.Position = UDim2.new(1, -52, 0, 4)
-            selectBtn.BackgroundColor3 = isSelected and Colors.glowPurple or Colors.surfaceLight
-            selectBtn.Text = isSelected and "ACTIVE" or "SELECT"
-            selectBtn.TextColor3 = Colors.text
-            selectBtn.TextSize = 8
-            selectBtn.Font = Enum.Font.GothamBold
-            selectBtn.AutoButtonColor = false
-            selectBtn.Parent = row
-            Instance.new("UICorner", selectBtn).CornerRadius = UDim.new(0, 4)
-            makeHoverable(selectBtn, isSelected and Colors.glowPurple or Colors.surfaceLight, Colors.purpleLight)
+        if not ok or not pages then
+            EmoteCatalogEmpty.Text = "Search failed (AvatarEditorService)"
+            EmoteCatalogEmpty.Visible = true
+            log("Emote search failed:", tostring(pages))
+            return
+        end
 
-            selectBtn.MouseButton1Click:Connect(function()
-                shadowState.target = player
-                ShadowTargetLabel.Text = "Target: " .. player.DisplayName
-                ShadowTargetLabel.TextColor3 = Colors.purpleLight
-                refreshShadowPlayerList()
-                notify("Shadow target: " .. player.Name, "info")
-            end)
+        local pageOk, items = pcall(function()
+            return pages:GetCurrentPage()
+        end)
+
+        if not pageOk or not items or #items == 0 then
+            EmoteCatalogEmpty.Text = "No emotes found"
+            EmoteCatalogEmpty.Visible = true
+            return
+        end
+
+        EmoteCatalogEmpty.Visible = false
+        emoteCatalogPages = pages
+        emoteCatalogHasMore = not pages.IsFinished
+
+        populateEmoteCatalogGrid(items, false)
+    end)
+end
+
+populateEmoteCatalogGrid = function(items, append)
+    if not append then
+        for _, child in pairs(EmoteCatalogGrid:GetChildren()) do
+            if child:IsA("Frame") or child:IsA("TextButton") then child:Destroy() end
         end
     end
+
+    for _, item in ipairs(items) do
+        local card = Instance.new("TextButton")
+        card.Size = UDim2.new(0, 60, 0, 82)
+        card.BackgroundColor3 = Colors.card
+        card.AutoButtonColor = false
+        card.BorderSizePixel = 0
+        card.Text = ""
+        card.Parent = EmoteCatalogGrid
+        Instance.new("UICorner", card).CornerRadius = UDim.new(0, 6)
+
+        -- Thumbnail
+        local isBundle = item.BundleType ~= nil
+        local thumbType = isBundle and "BundleThumbnail" or "Asset"
+        local thumb = Instance.new("ImageLabel")
+        thumb.Size = UDim2.new(1, -4, 0, 52)
+        thumb.Position = UDim2.new(0, 2, 0, 2)
+        thumb.BackgroundTransparency = 1
+        thumb.Image = "rbxthumb://type=" .. thumbType .. "&id=" .. tostring(item.Id) .. "&w=150&h=150"
+        thumb.ScaleType = Enum.ScaleType.Fit
+        thumb.Parent = card
+
+        -- Name label
+        local nameL = Instance.new("TextLabel")
+        nameL.Size = UDim2.new(1, -4, 0, 24)
+        nameL.Position = UDim2.new(0, 2, 0, 56)
+        nameL.BackgroundTransparency = 1
+        nameL.Text = item.Name or "Emote"
+        nameL.TextColor3 = Colors.textDim
+        nameL.TextSize = 8
+        nameL.Font = Enum.Font.GothamBold
+        nameL.TextXAlignment = Enum.TextXAlignment.Center
+        nameL.TextTruncate = Enum.TextTruncate.AtEnd
+        nameL.TextWrapped = true
+        nameL.Parent = card
+
+        -- Click to play
+        card.MouseButton1Click:Connect(function()
+            playEmote(item.Id)
+        end)
+
+        makeHoverable(card, Colors.card, Colors.surfaceLight)
+    end
+
+    -- Update grid height based on content
+    local childCount = 0
+    for _, child in pairs(EmoteCatalogGrid:GetChildren()) do
+        if child:IsA("TextButton") then childCount = childCount + 1 end
+    end
+    local cols = math.max(1, math.floor(EmoteCatalogGrid.AbsoluteSize.X / 66))
+    if cols < 1 then cols = 5 end
+    local rows = math.ceil(childCount / cols)
+    EmoteCatalogGrid.Size = UDim2.new(1, 0, 0, math.max(rows * 88, 88))
+
+    -- Refresh scroll canvas
+    EmoteScroll.CanvasSize = UDim2.new(0, 0, 0, EmoteCatalogGrid.Position.Y.Offset + EmoteCatalogGrid.Size.Y.Offset + 20)
+end
+
+loadMoreEmotes = function()
+    if not emoteCatalogHasMore or not emoteCatalogPages or isLoadingMoreEmotes then return end
+    isLoadingMoreEmotes = true
+
+    task.spawn(function()
+        local ok = pcall(function()
+            emoteCatalogPages:AdvanceToNextPageAsync()
+        end)
+        if not ok then
+            isLoadingMoreEmotes = false
+            return
+        end
+
+        local pageOk, items = pcall(function()
+            return emoteCatalogPages:GetCurrentPage()
+        end)
+
+        isLoadingMoreEmotes = false
+
+        if not pageOk or not items or #items == 0 then
+            emoteCatalogHasMore = false
+            return
+        end
+
+        emoteCatalogHasMore = not emoteCatalogPages.IsFinished
+        populateEmoteCatalogGrid(items, true)
+    end)
 end

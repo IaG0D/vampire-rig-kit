@@ -35,3 +35,4 @@ end
 makeDraggable(MiniBar, MiniBar)
 makeDraggable(MainFrame, TopBar)
 makeDraggable(PreviewFrame, PreviewTopBar)
+makeDraggable(ShadowPanel, ShadowPanelTopBar)
