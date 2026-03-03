@@ -466,7 +466,7 @@ startShadowReplay = function()
         -- Find closest frame
         local bestCF = shadowRecordedPath[1].cf
         for i = #shadowRecordedPath, 1, -1 do
-            if shadowRecordedPath[i].time <= targetTime + startTime then
+            if shadowRecordedPath[i].time <= targetTime then
                 bestCF = shadowRecordedPath[i].cf
                 break
             end
@@ -711,6 +711,150 @@ flingAllPlayers = function()
         end
         notify("Flung " .. count .. " players!", "success")
     end)
+end
+
+--==================================================
+-- HELICOPTER TROLL — deita duro e gira na cabeça
+--==================================================
+
+helicopterPlayer = function(player)
+    stopTroll()
+    local targetChar = player.Character
+    if not targetChar then notify("No character", "error") return end
+    local head = targetChar:FindFirstChild("Head")
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not head or not myHRP or not myHum then return end
+
+    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+
+    local angle = 0
+    trollConnection = RunService.Heartbeat:Connect(function()
+        if not player.Character or not player.Character:FindFirstChild("Head") then
+            stopTroll()
+            return
+        end
+        myChar = LP.Character
+        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+
+        head = player.Character:FindFirstChild("Head")
+        angle = (angle + 8) % 360
+        -- Deitado (Z=90°) + girando (Y) em cima da cabeça
+        myHRP.CFrame = head.CFrame
+            * CFrame.new(0, 2.5, 0)
+            * CFrame.Angles(0, math.rad(angle), math.rad(90))
+    end)
+    notify("Helicopter: " .. player.DisplayName, "success")
+end
+
+--==================================================
+-- SPIN TOP — gira em pé na cabeça do alvo
+--==================================================
+
+spinTopPlayer = function(player)
+    stopTroll()
+    local targetChar = player.Character
+    if not targetChar then notify("No character", "error") return end
+    local head = targetChar:FindFirstChild("Head")
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not head or not myHRP or not myHum then return end
+
+    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+
+    local angle = 0
+    trollConnection = RunService.Heartbeat:Connect(function()
+        if not player.Character or not player.Character:FindFirstChild("Head") then
+            stopTroll()
+            return
+        end
+        myChar = LP.Character
+        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+
+        head = player.Character:FindFirstChild("Head")
+        angle = (angle + 20) % 360
+        -- Em pé girando rápido tipo pião
+        myHRP.CFrame = head.CFrame
+            * CFrame.new(0, 2, 0)
+            * CFrame.Angles(0, math.rad(angle), 0)
+    end)
+    notify("Spin top: " .. player.DisplayName, "success")
+end
+
+--==================================================
+-- TRAMPOLINE — pula em cima do alvo
+--==================================================
+
+trampolinePlayer = function(player)
+    stopTroll()
+    local targetChar = player.Character
+    if not targetChar then notify("No character", "error") return end
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not myHRP or not myHum then return end
+
+    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+
+    local t = 0
+    trollConnection = RunService.Heartbeat:Connect(function()
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            stopTroll()
+            return
+        end
+        myChar = LP.Character
+        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+
+        local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+        t = t + 1
+        -- Pula alto e desce, loop infinito
+        local bounce = math.abs(math.sin(t * 0.08)) * 12
+        myHRP.CFrame = targetHRP.CFrame * CFrame.new(0, 3 + bounce, 0)
+    end)
+    notify("Trampoline: " .. player.DisplayName, "success")
+end
+
+--==================================================
+-- CREEP — se aproxima lentamente por trás
+--==================================================
+
+creepPlayer = function(player)
+    stopTroll()
+    local targetChar = player.Character
+    if not targetChar then notify("No character", "error") return end
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not myHRP or not myHum then return end
+
+    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+
+    local dist = 20
+    trollConnection = RunService.Heartbeat:Connect(function()
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            stopTroll()
+            return
+        end
+        myChar = LP.Character
+        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+
+        local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+        -- Vai se aproximando devagar por trás
+        dist = math.max(dist - 0.03, 1.5)
+        local behindCF = targetHRP.CFrame * CFrame.new(0, 0, dist)
+        myHRP.CFrame = CFrame.lookAt(behindCF.Position, targetHRP.Position)
+    end)
+    notify("Creeping on " .. player.DisplayName .. "...", "success")
 end
 
 --==================================================

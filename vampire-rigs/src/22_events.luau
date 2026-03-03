@@ -367,16 +367,62 @@ ShadowPanelClose.MouseButton1Click:Connect(function()
 end)
 
 --==================================================
--- PLAYER TAB TROLL EVENTS
+-- TROLL PANEL EVENTS
 --==================================================
 
-StopTrollBtn.MouseButton1Click:Connect(function()
+TrollFlingBtn.MouseButton1Click:Connect(function()
+    if trollTarget then flingPlayer(trollTarget) end
+end)
+
+TrollHeadsitBtn.MouseButton1Click:Connect(function()
+    if trollTarget then headsitPlayer(trollTarget) end
+end)
+
+TrollBangBtn.MouseButton1Click:Connect(function()
+    if trollTarget then bangPlayer(trollTarget) end
+end)
+
+TrollBackpackBtn.MouseButton1Click:Connect(function()
+    if trollTarget then backpackPlayer(trollTarget) end
+end)
+
+TrollOrbitBtn.MouseButton1Click:Connect(function()
+    if trollTarget then orbitTrollPlayer(trollTarget) end
+end)
+
+TrollFlingAllBtn.MouseButton1Click:Connect(function()
+    flingAllPlayers()
+end)
+
+TrollHelicopterBtn.MouseButton1Click:Connect(function()
+    if trollTarget then helicopterPlayer(trollTarget) end
+end)
+
+TrollSpinTopBtn.MouseButton1Click:Connect(function()
+    if trollTarget then spinTopPlayer(trollTarget) end
+end)
+
+TrollTrampolineBtn.MouseButton1Click:Connect(function()
+    if trollTarget then trampolinePlayer(trollTarget) end
+end)
+
+TrollCreepBtn.MouseButton1Click:Connect(function()
+    if trollTarget then creepPlayer(trollTarget) end
+end)
+
+TrollStopBtn.MouseButton1Click:Connect(function()
     stopTroll()
     notify("Troll stopped", "info")
 end)
 
-FlingAllBtn.MouseButton1Click:Connect(function()
-    flingAllPlayers()
+TrollPanelClose.MouseButton1Click:Connect(function()
+    stopTroll()
+    TrollPanel.Visible = false
+end)
+
+TrollCloseBottomBtn.MouseButton1Click:Connect(function()
+    stopTroll()
+    TrollPanel.Visible = false
 end)
 
 --==================================================
@@ -564,6 +610,7 @@ CloseBtn.MouseButton1Click:Connect(function()
     if shadowReplaying then stopShadowReplay() end
     stopShadow()
     ShadowPanel.Visible = false
+    TrollPanel.Visible = false
     clearESP()
     clearPreview()
     clearResults()

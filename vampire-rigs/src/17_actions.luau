@@ -548,7 +548,7 @@ refreshPlayerList = function()
 
     for _, player in pairs(Players:GetPlayers()) do
         local card = Instance.new("Frame")
-        card.Size = UDim2.new(1, -10, 0, 94)
+        card.Size = UDim2.new(1, -10, 0, 54)
         card.BackgroundColor3 = Colors.card
         card.BorderSizePixel = 0
         card.Parent = PlayerScroll
@@ -693,76 +693,22 @@ refreshPlayerList = function()
             openShadowPanel(player)
         end)
 
-        -- Fling button
-        local flingBtn = Instance.new("TextButton")
-        flingBtn.Size = UDim2.new(0, 36, 0, 18)
-        flingBtn.Position = UDim2.new(1, -80, 0, 50)
-        flingBtn.BackgroundColor3 = Colors.glowRed
-        flingBtn.Text = "FLING"
-        flingBtn.TextColor3 = Colors.text
-        flingBtn.TextSize = 8
-        flingBtn.Font = Enum.Font.GothamBold
-        flingBtn.AutoButtonColor = false
-        flingBtn.Parent = card
-        Instance.new("UICorner", flingBtn).CornerRadius = UDim.new(0, 4)
-        makeHoverable(flingBtn, Colors.glowRed, Color3.fromRGB(255, 80, 80))
+        -- Troll button (opens troll panel)
+        local trollBtn = Instance.new("TextButton")
+        trollBtn.Size = UDim2.new(0, 40, 0, 18)
+        trollBtn.Position = UDim2.new(1, -24, 0, 30)
+        trollBtn.BackgroundColor3 = Colors.glowRed
+        trollBtn.Text = "TROLL"
+        trollBtn.TextColor3 = Colors.text
+        trollBtn.TextSize = 8
+        trollBtn.Font = Enum.Font.GothamBold
+        trollBtn.AutoButtonColor = false
+        trollBtn.Parent = card
+        Instance.new("UICorner", trollBtn).CornerRadius = UDim.new(0, 4)
+        makeHoverable(trollBtn, Colors.glowRed, Color3.fromRGB(255, 80, 80))
 
-        flingBtn.MouseButton1Click:Connect(function()
-            flingPlayer(player)
-        end)
-
-        -- Headsit button
-        local headsitBtn = Instance.new("TextButton")
-        headsitBtn.Size = UDim2.new(0, 36, 0, 18)
-        headsitBtn.Position = UDim2.new(1, -40, 0, 50)
-        headsitBtn.BackgroundColor3 = Colors.warning
-        headsitBtn.Text = "HEAD"
-        headsitBtn.TextColor3 = Colors.bg
-        headsitBtn.TextSize = 8
-        headsitBtn.Font = Enum.Font.GothamBold
-        headsitBtn.AutoButtonColor = false
-        headsitBtn.Parent = card
-        Instance.new("UICorner", headsitBtn).CornerRadius = UDim.new(0, 4)
-        makeHoverable(headsitBtn, Colors.warning, Color3.fromRGB(230, 180, 60))
-
-        headsitBtn.MouseButton1Click:Connect(function()
-            headsitPlayer(player)
-        end)
-
-        -- Bang button
-        local bangBtn = Instance.new("TextButton")
-        bangBtn.Size = UDim2.new(0, 36, 0, 18)
-        bangBtn.Position = UDim2.new(1, -80, 0, 70)
-        bangBtn.BackgroundColor3 = Colors.purple
-        bangBtn.Text = "BANG"
-        bangBtn.TextColor3 = Colors.text
-        bangBtn.TextSize = 8
-        bangBtn.Font = Enum.Font.GothamBold
-        bangBtn.AutoButtonColor = false
-        bangBtn.Parent = card
-        Instance.new("UICorner", bangBtn).CornerRadius = UDim.new(0, 4)
-        makeHoverable(bangBtn, Colors.purple, Colors.purpleLight)
-
-        bangBtn.MouseButton1Click:Connect(function()
-            bangPlayer(player)
-        end)
-
-        -- Backpack button
-        local backBtn = Instance.new("TextButton")
-        backBtn.Size = UDim2.new(0, 36, 0, 18)
-        backBtn.Position = UDim2.new(1, -40, 0, 70)
-        backBtn.BackgroundColor3 = Color3.fromRGB(40, 100, 120)
-        backBtn.Text = "BACK"
-        backBtn.TextColor3 = Colors.text
-        backBtn.TextSize = 8
-        backBtn.Font = Enum.Font.GothamBold
-        backBtn.AutoButtonColor = false
-        backBtn.Parent = card
-        Instance.new("UICorner", backBtn).CornerRadius = UDim.new(0, 4)
-        makeHoverable(backBtn, Color3.fromRGB(40, 100, 120), Color3.fromRGB(60, 130, 150))
-
-        backBtn.MouseButton1Click:Connect(function()
-            backpackPlayer(player)
+        trollBtn.MouseButton1Click:Connect(function()
+            openTrollPanel(player)
         end)
     end
 
