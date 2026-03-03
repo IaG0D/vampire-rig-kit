@@ -426,6 +426,23 @@ TrollDizzyBtn.MouseButton1Click:Connect(function()
     if trollTarget then dizzyPlayer(trollTarget) end
 end)
 
+-- CRASH TROLLS
+TrollCrashFxBtn.MouseButton1Click:Connect(function()
+    crashFxPlayer()
+end)
+
+TrollMegaFlingBtn.MouseButton1Click:Connect(function()
+    if trollTarget then megaFlingPlayer(trollTarget) end
+end)
+
+TrollSeizureBtn.MouseButton1Click:Connect(function()
+    if trollTarget then seizurePlayer(trollTarget) end
+end)
+
+TrollRemoteFloodBtn.MouseButton1Click:Connect(function()
+    remoteFloodStart()
+end)
+
 TrollStopBtn.MouseButton1Click:Connect(function()
     stopTroll()
     notify("Troll stopped", "info")

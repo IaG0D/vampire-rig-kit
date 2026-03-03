@@ -1864,8 +1864,8 @@ end
 
 TrollPanel = Instance.new("Frame")
 TrollPanel.Name = "TrollPanel"
-TrollPanel.Size = UDim2.new(0, 240, 0, 620)
-TrollPanel.Position = UDim2.new(0.5, 130, 0.5, -310)
+TrollPanel.Size = UDim2.new(0, 240, 0, 770)
+TrollPanel.Position = UDim2.new(0.5, 130, 0.5, -385)
 TrollPanel.BackgroundColor3 = Colors.bg
 TrollPanel.BorderSizePixel = 0
 TrollPanel.Visible = false
@@ -2033,12 +2033,37 @@ TrollCarpetBtn = createTrollBtn(TrollPanel, "🧎 CARPET", 422, 0, Color3.fromRG
 TrollDizzyBtn = createTrollBtn(TrollPanel, "😵 DIZZY", 422, 1, Color3.fromRGB(220, 60, 180))
 
 --==================================================
+-- CRASH SECTION
+--==================================================
+
+addAccentLine(TrollPanel, UDim2.new(0, 10, 0, 468), Color3.fromRGB(255, 40, 40), UDim2.new(1, -20, 0, 1))
+
+TrollCrashLabel = Instance.new("TextLabel")
+TrollCrashLabel.Size = UDim2.new(1, -20, 0, 16)
+TrollCrashLabel.Position = UDim2.new(0, 10, 0, 472)
+TrollCrashLabel.BackgroundTransparency = 1
+TrollCrashLabel.Text = "💀 CRASH / STRESS"
+TrollCrashLabel.TextColor3 = Color3.fromRGB(255, 60, 60)
+TrollCrashLabel.TextSize = 9
+TrollCrashLabel.Font = Enum.Font.GothamBold
+TrollCrashLabel.TextXAlignment = Enum.TextXAlignment.Center
+TrollCrashLabel.Parent = TrollPanel
+
+-- Row 8 (y=492)
+TrollCrashFxBtn = createTrollBtn(TrollPanel, "💀 CRASH FX", 492, 0, Color3.fromRGB(120, 20, 20))
+TrollMegaFlingBtn = createTrollBtn(TrollPanel, "💀 MEGA FLING", 492, 1, Color3.fromRGB(140, 10, 10))
+
+-- Row 9 (y=536)
+TrollSeizureBtn = createTrollBtn(TrollPanel, "⚡ SEIZURE", 536, 0, Color3.fromRGB(160, 30, 80))
+TrollRemoteFloodBtn = createTrollBtn(TrollPanel, "🌊 RMT FLOOD", 536, 1, Color3.fromRGB(80, 20, 120))
+
+--==================================================
 -- TROLL SPEED SLIDER
 --==================================================
 
-addAccentLine(TrollPanel, UDim2.new(0, 10, 0, 468), Colors.blood, UDim2.new(1, -20, 0, 1))
+addAccentLine(TrollPanel, UDim2.new(0, 10, 0, 584), Colors.blood, UDim2.new(1, -20, 0, 1))
 
-TrollSpeedSlider = createSliderRow(TrollPanel, "Troll Speed", 0.5, 5, 1, 474, function(val)
+TrollSpeedSlider = createSliderRow(TrollPanel, "Troll Speed", 0.5, 5, 1, 590, function(val)
     trollSpeedMul = val
 end)
 
@@ -2048,7 +2073,7 @@ end)
 
 TrollStopBtn = Instance.new("TextButton")
 TrollStopBtn.Size = UDim2.new(1, -20, 0, 30)
-TrollStopBtn.Position = UDim2.new(0, 10, 0, 516)
+TrollStopBtn.Position = UDim2.new(0, 10, 0, 636)
 TrollStopBtn.BackgroundColor3 = Colors.warning
 TrollStopBtn.Text = "⛔ STOP TROLL"
 TrollStopBtn.TextColor3 = Colors.bg
@@ -2065,7 +2090,7 @@ makeHoverable(TrollStopBtn, Colors.warning, Color3.fromRGB(230, 180, 60))
 
 TrollCloseBottomBtn = Instance.new("TextButton")
 TrollCloseBottomBtn.Size = UDim2.new(1, -20, 0, 26)
-TrollCloseBottomBtn.Position = UDim2.new(0, 10, 0, 552)
+TrollCloseBottomBtn.Position = UDim2.new(0, 10, 0, 672)
 TrollCloseBottomBtn.BackgroundColor3 = Colors.bloodDark
 TrollCloseBottomBtn.Text = "🔴 CLOSE"
 TrollCloseBottomBtn.TextColor3 = Colors.text
@@ -5841,6 +5866,15 @@ stopTroll = function()
                 end)
             end)
         end
+
+        -- Cleanup crash FX (Fire, Smoke, ParticleEmitter, Sparkles)
+        pcall(function()
+            for _, desc in pairs(char:GetDescendants()) do
+                if desc:IsA("Fire") or desc:IsA("Smoke") or desc:IsA("ParticleEmitter") or desc:IsA("Sparkles") then
+                    pcall(function() desc:Destroy() end)
+                end
+            end
+        end)
     end
 end
 
@@ -6442,6 +6476,161 @@ massFireRemotes = function()
         end
     end
     notify("Mass fire: " .. fired .. " remotes fired", "success")
+end
+
+--==================================================
+-- CRASH TROLLS
+--==================================================
+
+-- CRASH FX — spam ParticleEmitter/Fire/Smoke/Sparkles no seu char
+-- Todos os clients renderizam os efeitos = lag geral
+crashFxPlayer = function()
+    stopTroll()
+    local myChar = LP.Character
+    if not myChar then return end
+
+    local parts = {}
+    for _, p in pairs(myChar:GetDescendants()) do
+        if p:IsA("BasePart") then
+            table.insert(parts, p)
+        end
+    end
+    if #parts == 0 then return end
+
+    trollConnection = task.spawn(function()
+        while true do
+            for _, part in ipairs(parts) do
+                pcall(function()
+                    local pe = Instance.new("ParticleEmitter")
+                    pe.Rate = 500
+                    pe.Lifetime = NumberRange.new(3, 8)
+                    pe.Speed = NumberRange.new(30, 80)
+                    pe.SpreadAngle = Vector2.new(180, 180)
+                    pe.Parent = part
+
+                    local fire = Instance.new("Fire")
+                    fire.Size = 25
+                    fire.Heat = 25
+                    fire.Parent = part
+
+                    local smoke = Instance.new("Smoke")
+                    smoke.Size = 20
+                    smoke.Opacity = 1
+                    smoke.RiseVelocity = 25
+                    smoke.Parent = part
+
+                    local sparkles = Instance.new("Sparkles")
+                    sparkles.SparkleColor = Color3.new(math.random(), math.random(), math.random())
+                    sparkles.Parent = part
+                end)
+            end
+            task.wait(0.05)
+        end
+    end)
+    notify("CRASH FX ativo — laggando geral", "success")
+end
+
+-- MEGA FLING — velocidade insana, manda o target pro espaço
+megaFlingPlayer = function(player)
+    local targetChar = player.Character
+    if not targetChar then notify("No character", "error") return end
+    local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    if not targetHRP or not myHRP then return end
+
+    local savedCF = myHRP.CFrame
+    myHRP.CFrame = targetHRP.CFrame * CFrame.new(0, 0, -1)
+
+    -- Múltiplos BodyVelocity em sequência rápida para crashar physics
+    task.delay(0.1, function()
+        for i = 1, 5 do
+            task.delay(i * 0.05, function()
+                pcall(function()
+                    local bv = Instance.new("BodyVelocity")
+                    bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+                    bv.Velocity = Vector3.new(
+                        math.random(-9999, 9999),
+                        99999,
+                        math.random(-9999, 9999)
+                    )
+                    bv.Parent = targetHRP
+                    task.delay(0.3, function()
+                        pcall(function() bv:Destroy() end)
+                    end)
+                end)
+            end)
+        end
+
+        task.delay(0.6, function()
+            if myHRP and myHRP.Parent then
+                myHRP.CFrame = savedCF
+            end
+        end)
+    end)
+    notify("MEGA FLING: " .. player.DisplayName, "success")
+end
+
+-- SEIZURE — TP rápido aleatório perto do alvo (visual glitch + physics stress)
+seizurePlayer = function(player)
+    stopTroll()
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not myHRP or not myHum then return end
+
+    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+
+    trollConnection = RunService.Heartbeat:Connect(function()
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            stopTroll()
+            return
+        end
+        myChar = LP.Character
+        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+
+        local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+        -- TP aleatório em volta = impossível de ver, physics enlouquece
+        myHRP.CFrame = targetHRP.CFrame * CFrame.new(
+            math.random(-40, 40),
+            math.random(-5, 25),
+            math.random(-40, 40)
+        ) * CFrame.Angles(
+            math.rad(math.random(0, 360)),
+            math.rad(math.random(0, 360)),
+            math.rad(math.random(0, 360))
+        )
+    end)
+    notify("SEIZURE: " .. player.DisplayName, "success")
+end
+
+-- REMOTE FLOOD — spam contínuo de todos os remotes (server stress)
+remoteFloodStart = function()
+    stopTroll()
+    if #scannedRemotes == 0 then
+        scanRemotes()
+    end
+    if #scannedRemotes == 0 then
+        notify("No remotes found — scan first", "error")
+        return
+    end
+
+    trollConnection = task.spawn(function()
+        while true do
+            for _, data in ipairs(scannedRemotes) do
+                pcall(function()
+                    local remote = data.instance
+                    if remote and remote.Parent and remote:IsA("RemoteEvent") then
+                        remote:FireServer()
+                    end
+                end)
+            end
+            task.wait()
+        end
+    end)
+    notify("REMOTE FLOOD ativo — spammando " .. #scannedRemotes .. " remotes", "success")
 end
 
 --==================================================
@@ -7349,6 +7538,23 @@ end)
 
 TrollDizzyBtn.MouseButton1Click:Connect(function()
     if trollTarget then dizzyPlayer(trollTarget) end
+end)
+
+-- CRASH TROLLS
+TrollCrashFxBtn.MouseButton1Click:Connect(function()
+    crashFxPlayer()
+end)
+
+TrollMegaFlingBtn.MouseButton1Click:Connect(function()
+    if trollTarget then megaFlingPlayer(trollTarget) end
+end)
+
+TrollSeizureBtn.MouseButton1Click:Connect(function()
+    if trollTarget then seizurePlayer(trollTarget) end
+end)
+
+TrollRemoteFloodBtn.MouseButton1Click:Connect(function()
+    remoteFloodStart()
 end)
 
 TrollStopBtn.MouseButton1Click:Connect(function()

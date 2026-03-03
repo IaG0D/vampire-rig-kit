@@ -5,8 +5,8 @@
 
 TrollPanel = Instance.new("Frame")
 TrollPanel.Name = "TrollPanel"
-TrollPanel.Size = UDim2.new(0, 240, 0, 620)
-TrollPanel.Position = UDim2.new(0.5, 130, 0.5, -310)
+TrollPanel.Size = UDim2.new(0, 240, 0, 770)
+TrollPanel.Position = UDim2.new(0.5, 130, 0.5, -385)
 TrollPanel.BackgroundColor3 = Colors.bg
 TrollPanel.BorderSizePixel = 0
 TrollPanel.Visible = false
@@ -174,12 +174,37 @@ TrollCarpetBtn = createTrollBtn(TrollPanel, "🧎 CARPET", 422, 0, Color3.fromRG
 TrollDizzyBtn = createTrollBtn(TrollPanel, "😵 DIZZY", 422, 1, Color3.fromRGB(220, 60, 180))
 
 --==================================================
+-- CRASH SECTION
+--==================================================
+
+addAccentLine(TrollPanel, UDim2.new(0, 10, 0, 468), Color3.fromRGB(255, 40, 40), UDim2.new(1, -20, 0, 1))
+
+TrollCrashLabel = Instance.new("TextLabel")
+TrollCrashLabel.Size = UDim2.new(1, -20, 0, 16)
+TrollCrashLabel.Position = UDim2.new(0, 10, 0, 472)
+TrollCrashLabel.BackgroundTransparency = 1
+TrollCrashLabel.Text = "💀 CRASH / STRESS"
+TrollCrashLabel.TextColor3 = Color3.fromRGB(255, 60, 60)
+TrollCrashLabel.TextSize = 9
+TrollCrashLabel.Font = Enum.Font.GothamBold
+TrollCrashLabel.TextXAlignment = Enum.TextXAlignment.Center
+TrollCrashLabel.Parent = TrollPanel
+
+-- Row 8 (y=492)
+TrollCrashFxBtn = createTrollBtn(TrollPanel, "💀 CRASH FX", 492, 0, Color3.fromRGB(120, 20, 20))
+TrollMegaFlingBtn = createTrollBtn(TrollPanel, "💀 MEGA FLING", 492, 1, Color3.fromRGB(140, 10, 10))
+
+-- Row 9 (y=536)
+TrollSeizureBtn = createTrollBtn(TrollPanel, "⚡ SEIZURE", 536, 0, Color3.fromRGB(160, 30, 80))
+TrollRemoteFloodBtn = createTrollBtn(TrollPanel, "🌊 RMT FLOOD", 536, 1, Color3.fromRGB(80, 20, 120))
+
+--==================================================
 -- TROLL SPEED SLIDER
 --==================================================
 
-addAccentLine(TrollPanel, UDim2.new(0, 10, 0, 468), Colors.blood, UDim2.new(1, -20, 0, 1))
+addAccentLine(TrollPanel, UDim2.new(0, 10, 0, 584), Colors.blood, UDim2.new(1, -20, 0, 1))
 
-TrollSpeedSlider = createSliderRow(TrollPanel, "Troll Speed", 0.5, 5, 1, 474, function(val)
+TrollSpeedSlider = createSliderRow(TrollPanel, "Troll Speed", 0.5, 5, 1, 590, function(val)
     trollSpeedMul = val
 end)
 
@@ -189,7 +214,7 @@ end)
 
 TrollStopBtn = Instance.new("TextButton")
 TrollStopBtn.Size = UDim2.new(1, -20, 0, 30)
-TrollStopBtn.Position = UDim2.new(0, 10, 0, 516)
+TrollStopBtn.Position = UDim2.new(0, 10, 0, 636)
 TrollStopBtn.BackgroundColor3 = Colors.warning
 TrollStopBtn.Text = "⛔ STOP TROLL"
 TrollStopBtn.TextColor3 = Colors.bg
@@ -206,7 +231,7 @@ makeHoverable(TrollStopBtn, Colors.warning, Color3.fromRGB(230, 180, 60))
 
 TrollCloseBottomBtn = Instance.new("TextButton")
 TrollCloseBottomBtn.Size = UDim2.new(1, -20, 0, 26)
-TrollCloseBottomBtn.Position = UDim2.new(0, 10, 0, 552)
+TrollCloseBottomBtn.Position = UDim2.new(0, 10, 0, 672)
 TrollCloseBottomBtn.BackgroundColor3 = Colors.bloodDark
 TrollCloseBottomBtn.Text = "🔴 CLOSE"
 TrollCloseBottomBtn.TextColor3 = Colors.text
