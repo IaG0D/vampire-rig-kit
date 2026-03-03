@@ -32,6 +32,7 @@ local function makeDraggable(frame, handle)
     end)
 end
 
+makeDraggable(MiniBar, MiniBar)
 makeDraggable(MainFrame, TopBar)
 makeDraggable(PreviewFrame, PreviewTopBar)
 makeDraggable(SavePanel, SaveTopBar)

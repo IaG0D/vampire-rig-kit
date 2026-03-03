@@ -278,7 +278,7 @@ BtnFrame.Parent = MainFrame
 local ScanBtn = Instance.new("TextButton")
 ScanBtn.Size = UDim2.new(1, 0, 0, 30)
 ScanBtn.BackgroundColor3 = Colors.blood
-ScanBtn.Text = "🩸 ESCANEAR (Ctrl+G)"
+ScanBtn.Text = "🩸 SCAN"
 ScanBtn.TextColor3 = Colors.text
 ScanBtn.TextSize = 14
 ScanBtn.Font = Enum.Font.GothamBold
@@ -1081,6 +1081,7 @@ local function makeDraggable(frame, handle)
     end)
 end
 
+makeDraggable(MiniBar, MiniBar)
 makeDraggable(MainFrame, TopBar)
 makeDraggable(PreviewFrame, PreviewTopBar)
 makeDraggable(SavePanel, SaveTopBar)
@@ -1095,8 +1096,8 @@ makeDraggable(SavePanel, SaveTopBar)
 local scannerOpen = false
 local tweenInfo = TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 local tweenInfoIn = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
-local miniBarTarget = UDim2.new(1, -220, 1, -70) -- posicao final (visivel)
-local miniBarHidden = UDim2.new(1, 0, 1, -70) -- fora da tela
+local miniBarTarget = UDim2.new(1, -220, 1, -70) -- posicao inicial (visivel)
+local lastMiniBarPos = miniBarTarget -- salva posicao do usuario
 
 -- Anima entrada da MiniBar (slide da direita)
 task.delay(0.3, function()
@@ -1143,10 +1144,11 @@ local function openScanner()
     if scannerOpen then return end
     scannerOpen = true
 
-    -- Esconde MiniBar com slide pra direita
-    TweenService:Create(MiniBar, tweenInfoIn, {
-        Position = miniBarHidden
-    }):Play()
+    -- Salva posicao atual (pode ter sido arrastada)
+    lastMiniBarPos = MiniBar.Position
+
+    -- Esconde MiniBar
+    MiniBar.Visible = false
 
     -- Mostra MainFrame com scale + fade
     MainFrame.Visible = true
@@ -1184,10 +1186,9 @@ local function closeScanner()
         end
     end)
 
-    -- Traz MiniBar de volta
-    TweenService:Create(MiniBar, tweenInfo, {
-        Position = miniBarTarget
-    }):Play()
+    -- Traz MiniBar de volta na posicao que o usuario deixou
+    MiniBar.Position = lastMiniBarPos
+    MiniBar.Visible = true
 
     MiniHint.Text = "Ctrl+G to open"
 end
@@ -1708,20 +1709,11 @@ ConfirmSaveBtn.MouseButton1Click:Connect(function()
                 fname = game.PlaceId .. "_" .. os.date("%Y%m%d_%H%M%S")
             end
 
-            -- Monta options a partir dos toggles
-            local options = {
-                FileName = fname,
-                DecompileMode = saveConfigState.DecompileMode and "decompile" or "none",
-                SavePlayers = saveConfigState.SavePlayers,
-                RemovePlayerCharacters = saveConfigState.RemovePlayerCharacters,
-                NilInstances = saveConfigState.NilInstances,
-                SaveNonCreatable = saveConfigState.SaveNonCreatable,
-                IsolateLocalPlayer = saveConfigState.IsolateLocalPlayer,
-                SaveCameraInstances = saveConfigState.SaveCameraInstances,
-            }
+            local options = { FileName = fname }
 
-            -- Se OnlyRigs, coleta todos os modelos com Humanoid
             if saveConfigState.OnlyRigs then
+                -- OnlyRigs: saves ONLY rigs (models with Humanoid)
+                -- Overrides all other options to avoid conflicts
                 local rigs = {}
                 for _, obj in pairs(workspace:GetDescendants()) do
                     if obj:IsA("Model") and obj:FindFirstChildOfClass("Humanoid") then
@@ -1730,7 +1722,18 @@ ConfirmSaveBtn.MouseButton1Click:Connect(function()
                 end
                 options.Mode = "custom"
                 options.ExtraInstances = rigs
-                log("OnlyRigs: encontrados " .. #rigs .. " rigs")
+                options.SavePlayers = true
+                options.RemovePlayerCharacters = false
+                log("OnlyRigs: found " .. #rigs .. " rigs")
+            else
+                -- Normal mode: uses panel toggles
+                options.DecompileMode = saveConfigState.DecompileMode and "decompile" or "none"
+                options.SavePlayers = saveConfigState.SavePlayers
+                options.RemovePlayerCharacters = saveConfigState.RemovePlayerCharacters
+                options.NilInstances = saveConfigState.NilInstances
+                options.SaveNonCreatable = saveConfigState.SaveNonCreatable
+                options.IsolateLocalPlayer = saveConfigState.IsolateLocalPlayer
+                options.SaveCameraInstances = saveConfigState.SaveCameraInstances
             end
 
             log("SaveInstance options:", HttpService:JSONEncode(options))

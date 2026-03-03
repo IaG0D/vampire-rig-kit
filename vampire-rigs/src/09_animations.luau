@@ -5,8 +5,8 @@
 local scannerOpen = false
 local tweenInfo = TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 local tweenInfoIn = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
-local miniBarTarget = UDim2.new(1, -220, 1, -70) -- posicao final (visivel)
-local miniBarHidden = UDim2.new(1, 0, 1, -70) -- fora da tela
+local miniBarTarget = UDim2.new(1, -220, 1, -70) -- posicao inicial (visivel)
+local lastMiniBarPos = miniBarTarget -- salva posicao do usuario
 
 -- Anima entrada da MiniBar (slide da direita)
 task.delay(0.3, function()
@@ -53,10 +53,11 @@ local function openScanner()
     if scannerOpen then return end
     scannerOpen = true
 
-    -- Esconde MiniBar com slide pra direita
-    TweenService:Create(MiniBar, tweenInfoIn, {
-        Position = miniBarHidden
-    }):Play()
+    -- Salva posicao atual (pode ter sido arrastada)
+    lastMiniBarPos = MiniBar.Position
+
+    -- Esconde MiniBar
+    MiniBar.Visible = false
 
     -- Mostra MainFrame com scale + fade
     MainFrame.Visible = true
@@ -94,10 +95,9 @@ local function closeScanner()
         end
     end)
 
-    -- Traz MiniBar de volta
-    TweenService:Create(MiniBar, tweenInfo, {
-        Position = miniBarTarget
-    }):Play()
+    -- Traz MiniBar de volta na posicao que o usuario deixou
+    MiniBar.Position = lastMiniBarPos
+    MiniBar.Visible = true
 
     MiniHint.Text = "Ctrl+G to open"
 end

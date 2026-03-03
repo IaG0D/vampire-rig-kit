@@ -29,20 +29,11 @@ ConfirmSaveBtn.MouseButton1Click:Connect(function()
                 fname = game.PlaceId .. "_" .. os.date("%Y%m%d_%H%M%S")
             end
 
-            -- Monta options a partir dos toggles
-            local options = {
-                FileName = fname,
-                DecompileMode = saveConfigState.DecompileMode and "decompile" or "none",
-                SavePlayers = saveConfigState.SavePlayers,
-                RemovePlayerCharacters = saveConfigState.RemovePlayerCharacters,
-                NilInstances = saveConfigState.NilInstances,
-                SaveNonCreatable = saveConfigState.SaveNonCreatable,
-                IsolateLocalPlayer = saveConfigState.IsolateLocalPlayer,
-                SaveCameraInstances = saveConfigState.SaveCameraInstances,
-            }
+            local options = { FileName = fname }
 
-            -- Se OnlyRigs, coleta todos os modelos com Humanoid
             if saveConfigState.OnlyRigs then
+                -- OnlyRigs: saves ONLY rigs (models with Humanoid)
+                -- Overrides all other options to avoid conflicts
                 local rigs = {}
                 for _, obj in pairs(workspace:GetDescendants()) do
                     if obj:IsA("Model") and obj:FindFirstChildOfClass("Humanoid") then
@@ -51,7 +42,18 @@ ConfirmSaveBtn.MouseButton1Click:Connect(function()
                 end
                 options.Mode = "custom"
                 options.ExtraInstances = rigs
-                log("OnlyRigs: encontrados " .. #rigs .. " rigs")
+                options.SavePlayers = true
+                options.RemovePlayerCharacters = false
+                log("OnlyRigs: found " .. #rigs .. " rigs")
+            else
+                -- Normal mode: uses panel toggles
+                options.DecompileMode = saveConfigState.DecompileMode and "decompile" or "none"
+                options.SavePlayers = saveConfigState.SavePlayers
+                options.RemovePlayerCharacters = saveConfigState.RemovePlayerCharacters
+                options.NilInstances = saveConfigState.NilInstances
+                options.SaveNonCreatable = saveConfigState.SaveNonCreatable
+                options.IsolateLocalPlayer = saveConfigState.IsolateLocalPlayer
+                options.SaveCameraInstances = saveConfigState.SaveCameraInstances
             end
 
             log("SaveInstance options:", HttpService:JSONEncode(options))
