@@ -544,23 +544,34 @@ flingPlayer = function(player)
 end
 
 headsitPlayer = function(player)
+    stopTroll()
     local targetChar = player.Character
-    if not targetChar then
-        notify("No character found", "error")
-        return
-    end
+    if not targetChar then notify("No character", "error") return end
     local head = targetChar:FindFirstChild("Head")
     local myChar = LP.Character
     local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
     local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
-    if not head or not myHRP or not myHum then
-        notify("Missing parts", "error")
-        return
-    end
+    if not head or not myHRP or not myHum then return end
 
-    -- Quick TP to head and sit
-    myHRP.CFrame = head.CFrame * CFrame.new(0, 2, 0)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
     myHum.Sit = true
+
+    trollConnection = RunService.Heartbeat:Connect(function()
+        if not player.Character or not player.Character:FindFirstChild("Head") then
+            stopTroll()
+            return
+        end
+        myChar = LP.Character
+        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+        if not myHRP then return end
+
+        head = player.Character:FindFirstChild("Head")
+        myHRP.CFrame = head.CFrame * CFrame.new(0, 2, 0)
+        -- Manter sentado
+        if myHum and not myHum.Sit then myHum.Sit = true end
+    end)
     notify("Headsit: " .. player.DisplayName, "success")
 end
 
@@ -612,12 +623,49 @@ bangPlayer = function(player)
 
         targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
         t = t + 1
-        -- Pump motion: oscillate forward/backward in front of target
-        local offset = math.sin(t * 0.3) * 1.5
-        local frontCF = targetHRP.CFrame * CFrame.new(0, 0, -2 - offset)
-        myHRP.CFrame = CFrame.lookAt(frontCF.Position, targetHRP.Position)
+        -- Pump motion por TRÁS do alvo
+        local offset = math.sin(t * 0.3 * trollSpeedMul) * 1.5
+        local behindCF = targetHRP.CFrame * CFrame.new(0, 0, 2 + offset)
+        myHRP.CFrame = CFrame.lookAt(behindCF.Position, targetHRP.Position)
     end)
     notify("Bang: " .. player.DisplayName, "success")
+end
+
+--==================================================
+-- BANG 2 — pela frente, cintura na cabeça
+--==================================================
+
+bangFrontPlayer = function(player)
+    stopTroll()
+    local targetChar = player.Character
+    if not targetChar then notify("No character", "error") return end
+    local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not targetHRP or not myHRP or not myHum then return end
+
+    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+
+    local t = 0
+    trollConnection = RunService.Heartbeat:Connect(function()
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            stopTroll()
+            return
+        end
+        myChar = LP.Character
+        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+
+        targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+        t = t + 1
+        -- Pump na frente, levantado (cintura na altura da cabeça)
+        local offset = math.sin(t * 0.3 * trollSpeedMul) * 1.5
+        local frontCF = targetHRP.CFrame * CFrame.new(0, 1.8, -2 - offset)
+        myHRP.CFrame = CFrame.lookAt(frontCF.Position, targetHRP.Position)
+    end)
+    notify("Bang 2: " .. player.DisplayName, "success")
 end
 
 orbitTrollPlayer = function(player)
@@ -643,7 +691,7 @@ orbitTrollPlayer = function(player)
         if not myHRP then return end
 
         local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
-        angle = (angle + 15) % 360
+        angle = (angle + 15 * trollSpeedMul) % 360
         local rad = math.rad(angle)
         local pos = targetHRP.CFrame * CFrame.new(math.sin(rad) * 3, 0, math.cos(rad) * 3)
         myHRP.CFrame = CFrame.lookAt(pos.Position, targetHRP.Position)
@@ -741,11 +789,11 @@ helicopterPlayer = function(player)
         if not myHRP then return end
 
         head = player.Character:FindFirstChild("Head")
-        angle = (angle + 8) % 360
-        -- Deitado (Z=90°) + girando (Y) em cima da cabeça
+        angle = (angle + 16 * trollSpeedMul) % 360
+        -- Deitado duro (Z=90°) + girando rápido (Y) na cabeça
         myHRP.CFrame = head.CFrame
             * CFrame.new(0, 2.5, 0)
-            * CFrame.Angles(0, math.rad(angle), math.rad(90))
+            * CFrame.Angles(math.rad(90), math.rad(angle), 0)
     end)
     notify("Helicopter: " .. player.DisplayName, "success")
 end
@@ -778,7 +826,7 @@ spinTopPlayer = function(player)
         if not myHRP then return end
 
         head = player.Character:FindFirstChild("Head")
-        angle = (angle + 20) % 360
+        angle = (angle + 20 * trollSpeedMul) % 360
         -- Em pé girando rápido tipo pião
         myHRP.CFrame = head.CFrame
             * CFrame.new(0, 2, 0)
@@ -815,8 +863,8 @@ trampolinePlayer = function(player)
 
         local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
         t = t + 1
-        -- Pula alto e desce, loop infinito
-        local bounce = math.abs(math.sin(t * 0.08)) * 12
+        -- Pula e desce, loop infinito
+        local bounce = math.abs(math.sin(t * 0.08 * trollSpeedMul)) * 5
         myHRP.CFrame = targetHRP.CFrame * CFrame.new(0, 3 + bounce, 0)
     end)
     notify("Trampoline: " .. player.DisplayName, "success")
@@ -850,11 +898,127 @@ creepPlayer = function(player)
 
         local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
         -- Vai se aproximando devagar por trás
-        dist = math.max(dist - 0.03, 1.5)
+        dist = math.max(dist - 0.03 * trollSpeedMul, 1.5)
         local behindCF = targetHRP.CFrame * CFrame.new(0, 0, dist)
         myHRP.CFrame = CFrame.lookAt(behindCF.Position, targetHRP.Position)
     end)
     notify("Creeping on " .. player.DisplayName .. "...", "success")
+end
+
+--==================================================
+-- LAUNCH — manda o alvo pro céu repetidamente
+--==================================================
+
+launchPlayer = function(player)
+    stopTroll()
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    if not myHRP then return end
+
+    local savedCF = myHRP.CFrame
+
+    trollConnection = task.spawn(function()
+        while true do
+            if not player.Character then break end
+            local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+            if not targetHRP then break end
+
+            myChar = LP.Character
+            myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+            if not myHRP then break end
+
+            -- TP pra perto e aplica velocity pra cima
+            myHRP.CFrame = targetHRP.CFrame * CFrame.new(0, 0, -2)
+            task.wait(0.15)
+            local bv = Instance.new("BodyVelocity")
+            bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+            bv.Velocity = Vector3.new(0, 500, 0)
+            bv.Parent = targetHRP
+            task.delay(0.2, function()
+                pcall(function() bv:Destroy() end)
+            end)
+            -- Volta pra posição original
+            task.wait(0.3)
+            if myHRP and myHRP.Parent then
+                myHRP.CFrame = savedCF
+            end
+            task.wait(2 / trollSpeedMul)
+        end
+    end)
+    notify("Launching: " .. player.DisplayName, "success")
+end
+
+--==================================================
+-- CARPET — deita no chão embaixo do alvo
+--==================================================
+
+carpetPlayer = function(player)
+    stopTroll()
+    local targetChar = player.Character
+    if not targetChar then notify("No character", "error") return end
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not myHRP or not myHum then return end
+
+    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+
+    trollConnection = RunService.Heartbeat:Connect(function()
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            stopTroll()
+            return
+        end
+        myChar = LP.Character
+        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+
+        local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+        -- Deitado embaixo dos pés do alvo (tapete humano)
+        myHRP.CFrame = targetHRP.CFrame
+            * CFrame.new(0, -2.5, 0)
+            * CFrame.Angles(math.rad(90), 0, 0)
+    end)
+    notify("Carpet: " .. player.DisplayName, "success")
+end
+
+--==================================================
+-- DIZZY — orbita super rápido e perto
+--==================================================
+
+dizzyPlayer = function(player)
+    stopTroll()
+    local targetChar = player.Character
+    if not targetChar then notify("No character", "error") return end
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not myHRP or not myHum then return end
+
+    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+
+    local angle = 0
+    local yBob = 0
+    trollConnection = RunService.Heartbeat:Connect(function()
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            stopTroll()
+            return
+        end
+        myChar = LP.Character
+        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+
+        local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+        -- Orbita SUPER rápido e colado (raio 1.5)
+        angle = (angle + 30 * trollSpeedMul) % 360
+        yBob = yBob + 0.15 * trollSpeedMul
+        local rad = math.rad(angle)
+        local yOffset = math.sin(yBob) * 1.5
+        local pos = targetHRP.CFrame * CFrame.new(math.sin(rad) * 1.5, yOffset, math.cos(rad) * 1.5)
+        myHRP.CFrame = CFrame.lookAt(pos.Position, targetHRP.Position)
+    end)
+    notify("Dizzy: " .. player.DisplayName, "success")
 end
 
 --==================================================

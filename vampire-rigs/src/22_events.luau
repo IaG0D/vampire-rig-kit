@@ -386,6 +386,10 @@ TrollBackpackBtn.MouseButton1Click:Connect(function()
     if trollTarget then backpackPlayer(trollTarget) end
 end)
 
+TrollBang2Btn.MouseButton1Click:Connect(function()
+    if trollTarget then bangFrontPlayer(trollTarget) end
+end)
+
 TrollOrbitBtn.MouseButton1Click:Connect(function()
     if trollTarget then orbitTrollPlayer(trollTarget) end
 end)
@@ -408,6 +412,18 @@ end)
 
 TrollCreepBtn.MouseButton1Click:Connect(function()
     if trollTarget then creepPlayer(trollTarget) end
+end)
+
+TrollLaunchBtn.MouseButton1Click:Connect(function()
+    if trollTarget then launchPlayer(trollTarget) end
+end)
+
+TrollCarpetBtn.MouseButton1Click:Connect(function()
+    if trollTarget then carpetPlayer(trollTarget) end
+end)
+
+TrollDizzyBtn.MouseButton1Click:Connect(function()
+    if trollTarget then dizzyPlayer(trollTarget) end
 end)
 
 TrollStopBtn.MouseButton1Click:Connect(function()

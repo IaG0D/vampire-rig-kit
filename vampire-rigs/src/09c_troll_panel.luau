@@ -5,8 +5,8 @@
 
 TrollPanel = Instance.new("Frame")
 TrollPanel.Name = "TrollPanel"
-TrollPanel.Size = UDim2.new(0, 240, 0, 532)
-TrollPanel.Position = UDim2.new(0.5, 130, 0.5, -266)
+TrollPanel.Size = UDim2.new(0, 240, 0, 620)
+TrollPanel.Position = UDim2.new(0.5, 130, 0.5, -310)
 TrollPanel.BackgroundColor3 = Colors.bg
 TrollPanel.BorderSizePixel = 0
 TrollPanel.Visible = false
@@ -115,20 +115,20 @@ TrollTargetLabel.Parent = TrollPanel
 addAccentLine(TrollPanel, UDim2.new(0, 10, 0, 150), Colors.blood, UDim2.new(1, -20, 0, 1))
 
 --==================================================
--- TROLL BUTTON GRID (2 columns × 3 rows)
+-- TROLL BUTTON GRID (2 columns × 7 rows, 40px buttons)
 --==================================================
 
--- Helper to create a troll action button
+-- Helper to create a troll action button (40px height, compact)
 createTrollBtn = function(parent, text, yPos, xCol, color)
     local btnW = 105
     local xPos = xCol == 0 and 10 or 125
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0, btnW, 0, 50)
+    btn.Size = UDim2.new(0, btnW, 0, 40)
     btn.Position = UDim2.new(0, xPos, 0, yPos)
     btn.BackgroundColor3 = color
     btn.Text = text
     btn.TextColor3 = Colors.text
-    btn.TextSize = 11
+    btn.TextSize = 10
     btn.Font = Enum.Font.GothamBold
     btn.AutoButtonColor = false
     btn.Parent = parent
@@ -145,37 +145,55 @@ createTrollBtn = function(parent, text, yPos, xCol, color)
     return btn
 end
 
--- Row 1 (y=160)
-TrollFlingBtn = createTrollBtn(TrollPanel, "💥 FLING", 160, 0, Colors.glowRed)
-TrollHeadsitBtn = createTrollBtn(TrollPanel, "🪑 HEADSIT", 160, 1, Colors.warning)
+-- Row 1 (y=158)
+TrollFlingBtn = createTrollBtn(TrollPanel, "💥 FLING", 158, 0, Colors.glowRed)
+TrollHeadsitBtn = createTrollBtn(TrollPanel, "🪑 HEADSIT", 158, 1, Colors.warning)
 
--- Row 2 (y=216)
-TrollBangBtn = createTrollBtn(TrollPanel, "😏 BANG", 216, 0, Colors.purple)
-TrollBackpackBtn = createTrollBtn(TrollPanel, "🎒 BACKPACK", 216, 1, Color3.fromRGB(40, 100, 120))
+-- Row 2 (y=202)
+TrollBangBtn = createTrollBtn(TrollPanel, "😏 BANG", 202, 0, Colors.purple)
+TrollBang2Btn = createTrollBtn(TrollPanel, "🍑 BANG 2", 202, 1, Color3.fromRGB(180, 50, 100))
 
--- Row 3 (y=272)
-TrollOrbitBtn = createTrollBtn(TrollPanel, "🌀 ORBIT", 272, 0, Colors.green)
-TrollFlingAllBtn = createTrollBtn(TrollPanel, "💣 FLING ALL", 272, 1, Colors.bloodDark)
+-- Row 3 (y=246)
+TrollBackpackBtn = createTrollBtn(TrollPanel, "🎒 BACKPACK", 246, 0, Color3.fromRGB(40, 100, 120))
+TrollOrbitBtn = createTrollBtn(TrollPanel, "🌀 ORBIT", 246, 1, Colors.green)
 
--- Row 4 (y=328)
-TrollHelicopterBtn = createTrollBtn(TrollPanel, "🚁 HELICOPTER", 328, 0, Color3.fromRGB(200, 80, 40))
-TrollSpinTopBtn = createTrollBtn(TrollPanel, "🌪 SPIN TOP", 328, 1, Color3.fromRGB(180, 50, 180))
+-- Row 4 (y=290)
+TrollHelicopterBtn = createTrollBtn(TrollPanel, "🚁 HELICOPTER", 290, 0, Color3.fromRGB(200, 80, 40))
+TrollSpinTopBtn = createTrollBtn(TrollPanel, "🌪 SPIN TOP", 290, 1, Color3.fromRGB(180, 50, 180))
 
--- Row 5 (y=384)
-TrollTrampolineBtn = createTrollBtn(TrollPanel, "🦘 TRAMPOLINE", 384, 0, Color3.fromRGB(50, 160, 80))
-TrollCreepBtn = createTrollBtn(TrollPanel, "👀 CREEP", 384, 1, Color3.fromRGB(60, 60, 60))
+-- Row 5 (y=334)
+TrollTrampolineBtn = createTrollBtn(TrollPanel, "🦘 TRAMPOLINE", 334, 0, Color3.fromRGB(50, 160, 80))
+TrollCreepBtn = createTrollBtn(TrollPanel, "👀 CREEP", 334, 1, Color3.fromRGB(60, 60, 60))
+
+-- Row 6 (y=378)
+TrollFlingAllBtn = createTrollBtn(TrollPanel, "💣 FLING ALL", 378, 0, Colors.bloodDark)
+TrollLaunchBtn = createTrollBtn(TrollPanel, "🚀 LAUNCH", 378, 1, Color3.fromRGB(80, 40, 160))
+
+-- Row 7 (y=422)
+TrollCarpetBtn = createTrollBtn(TrollPanel, "🧎 CARPET", 422, 0, Color3.fromRGB(140, 100, 40))
+TrollDizzyBtn = createTrollBtn(TrollPanel, "😵 DIZZY", 422, 1, Color3.fromRGB(220, 60, 180))
+
+--==================================================
+-- TROLL SPEED SLIDER
+--==================================================
+
+addAccentLine(TrollPanel, UDim2.new(0, 10, 0, 468), Colors.blood, UDim2.new(1, -20, 0, 1))
+
+TrollSpeedSlider = createSliderRow(TrollPanel, "Troll Speed", 0.5, 5, 1, 474, function(val)
+    trollSpeedMul = val
+end)
 
 --==================================================
 -- STOP TROLL BUTTON
 --==================================================
 
 TrollStopBtn = Instance.new("TextButton")
-TrollStopBtn.Size = UDim2.new(1, -20, 0, 32)
-TrollStopBtn.Position = UDim2.new(0, 10, 0, 450)
+TrollStopBtn.Size = UDim2.new(1, -20, 0, 30)
+TrollStopBtn.Position = UDim2.new(0, 10, 0, 516)
 TrollStopBtn.BackgroundColor3 = Colors.warning
 TrollStopBtn.Text = "⛔ STOP TROLL"
 TrollStopBtn.TextColor3 = Colors.bg
-TrollStopBtn.TextSize = 12
+TrollStopBtn.TextSize = 11
 TrollStopBtn.Font = Enum.Font.GothamBold
 TrollStopBtn.AutoButtonColor = false
 TrollStopBtn.Parent = TrollPanel
@@ -187,8 +205,8 @@ makeHoverable(TrollStopBtn, Colors.warning, Color3.fromRGB(230, 180, 60))
 --==================================================
 
 TrollCloseBottomBtn = Instance.new("TextButton")
-TrollCloseBottomBtn.Size = UDim2.new(1, -20, 0, 28)
-TrollCloseBottomBtn.Position = UDim2.new(0, 10, 0, 490)
+TrollCloseBottomBtn.Size = UDim2.new(1, -20, 0, 26)
+TrollCloseBottomBtn.Position = UDim2.new(0, 10, 0, 552)
 TrollCloseBottomBtn.BackgroundColor3 = Colors.bloodDark
 TrollCloseBottomBtn.Text = "🔴 CLOSE"
 TrollCloseBottomBtn.TextColor3 = Colors.text
@@ -209,6 +227,9 @@ openTrollPanel = function(player)
     TrollTargetLabel.TextColor3 = Colors.bloodLight
     TrollPanelPlayerName.Text = player.DisplayName
     TrollPanelTitle.Text = "💥 " .. player.DisplayName
+
+    -- Reset speed slider
+    TrollSpeedSlider.setValue(trollSpeedMul)
 
     -- Load thumbnail
     task.spawn(function()

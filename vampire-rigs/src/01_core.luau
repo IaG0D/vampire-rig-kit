@@ -194,6 +194,7 @@ cosmeticState = {
 -- Active troll connection
 trollConnection = nil
 trollTarget = nil
+trollSpeedMul = 1
 
 -- Forward-declared functions are assigned as globals by later modules
 -- (removed local forward declarations to stay under Lua's 200 local limit)
