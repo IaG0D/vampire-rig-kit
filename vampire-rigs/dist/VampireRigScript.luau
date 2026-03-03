@@ -149,10 +149,13 @@ currentEmoteTrack = nil
 -- Shadow state
 shadowState = {
     active = false,
-    mode = "follow", -- "follow" | "head" | "mirror"
+    mode = "orbit",   -- "orbit" | "head"
     target = nil,
     delay = 0,
     distance = 4,
+    angle = 0,        -- 0-360° (0=behind, 90=right, 180=front, 270=left)
+    height = 0,       -- -5 to 10 studs vertical offset
+    faceTarget = false, -- look at target or match their rotation
 }
 shadowConnection = nil
 shadowHistory = {}
@@ -177,6 +180,10 @@ emoteCatalogPages = nil
 emoteCatalogHasMore = false
 emoteSearchVersion = 0
 isLoadingMoreEmotes = false
+
+-- Favorite emotes state
+favoriteEmotes = {}         -- Array of { id, name, isBundle }
+emoteTabPreloaded = false   -- Whether trending emotes have been loaded
 
 -- Forward-declared functions are assigned as globals by later modules
 -- (removed local forward declarations to stay under Lua's 200 local limit)
@@ -1229,7 +1236,7 @@ makeHoverable(ResetMoveBtn, Colors.bloodDark, Colors.blood)
 --[[ ═══════ MODULE: 09_tab_emote.luau ═══════ ]]
 
 --==================================================
--- TAB: EMOTE (Pure — Catalog Search + Presets)
+-- TAB: EMOTE (Favorites + Catalog Search + Custom ID)
 --==================================================
 
 local EmoteContent = Instance.new("Frame")
@@ -1250,55 +1257,47 @@ EmoteScroll.BorderSizePixel = 0
 EmoteScroll.Parent = EmoteContent
 
 --==================================================
--- PRESET EMOTES
+-- FAVORITES SECTION
 --==================================================
 
-createSectionHeader(EmoteScroll, "Quick Emotes", 0)
+createSectionHeader(EmoteScroll, "Favorites", 0)
 
-local emoteList = {
-    { name = "Wave",      id = 507770239 },
-    { name = "Point",     id = 507770453 },
-    { name = "Laugh",     id = 507770818 },
-    { name = "Cheer",     id = 507770677 },
-    { name = "Dance 1",   id = 507771019 },
-    { name = "Dance 2",   id = 507776043 },
-    { name = "Dance 3",   id = 507777268 },
-}
+local favSectionY = 24
 
--- Grid: 2 columns
-local emoteY = 26
-local emoteButtons = {}
-for i, emote in ipairs(emoteList) do
-    local col = (i - 1) % 2
-    local row = math.floor((i - 1) / 2)
+-- Favorites grid container (global for cross-module access)
+EmoteFavGrid = Instance.new("Frame")
+EmoteFavGrid.Name = "FavGrid"
+EmoteFavGrid.Size = UDim2.new(1, 0, 0, 0)
+EmoteFavGrid.Position = UDim2.new(0, 0, 0, favSectionY)
+EmoteFavGrid.BackgroundTransparency = 1
+EmoteFavGrid.ClipsDescendants = true
+EmoteFavGrid.Parent = EmoteScroll
 
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0.5, -3, 0, 28)
-    btn.Position = UDim2.new(col * 0.5, col == 0 and 0 or 3, 0, emoteY + row * 32)
-    btn.BackgroundColor3 = Colors.purple
-    btn.Text = "💃 " .. emote.name
-    btn.TextColor3 = Colors.text
-    btn.TextSize = 10
-    btn.Font = Enum.Font.GothamBold
-    btn.AutoButtonColor = false
-    btn.Parent = EmoteScroll
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
-    makeHoverable(btn, Colors.purple, Colors.purpleLight)
+EmoteFavGridLayout = Instance.new("UIGridLayout", EmoteFavGrid)
+EmoteFavGridLayout.CellSize = UDim2.new(0, 60, 0, 82)
+EmoteFavGridLayout.CellPadding = UDim2.new(0, 6, 0, 6)
+EmoteFavGridLayout.FillDirection = Enum.FillDirection.Horizontal
+EmoteFavGridLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
-    emoteButtons[i] = { btn = btn, emote = emote }
-end
-
-local emoteGridHeight = math.ceil(#emoteList / 2) * 32
+-- Empty favorites label
+EmoteFavEmpty = Instance.new("TextLabel")
+EmoteFavEmpty.Size = UDim2.new(1, 0, 0, 24)
+EmoteFavEmpty.Position = UDim2.new(0, 0, 0, favSectionY)
+EmoteFavEmpty.BackgroundTransparency = 1
+EmoteFavEmpty.Text = "No favorites yet — star emotes from catalog"
+EmoteFavEmpty.TextColor3 = Colors.textDim
+EmoteFavEmpty.TextSize = 9
+EmoteFavEmpty.Font = Enum.Font.Gotham
+EmoteFavEmpty.Visible = true
+EmoteFavEmpty.Parent = EmoteScroll
 
 --==================================================
 -- CUSTOM ANIMATION ID
+-- (Y positions set by recalcEmoteLayout)
 --==================================================
-
-local customEmoteY = emoteY + emoteGridHeight + 8
 
 local CustomIDLabel = Instance.new("TextLabel")
 CustomIDLabel.Size = UDim2.new(1, 0, 0, 14)
-CustomIDLabel.Position = UDim2.new(0, 0, 0, customEmoteY)
 CustomIDLabel.BackgroundTransparency = 1
 CustomIDLabel.Text = "Custom Animation ID:"
 CustomIDLabel.TextColor3 = Colors.textDim
@@ -1309,7 +1308,6 @@ CustomIDLabel.Parent = EmoteScroll
 
 local CustomIDInput = Instance.new("TextBox")
 CustomIDInput.Size = UDim2.new(1, -70, 0, 26)
-CustomIDInput.Position = UDim2.new(0, 0, 0, customEmoteY + 16)
 CustomIDInput.BackgroundColor3 = Colors.inputBg
 CustomIDInput.Text = ""
 CustomIDInput.PlaceholderText = "Animation ID..."
@@ -1333,7 +1331,6 @@ end)
 
 local PlayCustomBtn = Instance.new("TextButton")
 PlayCustomBtn.Size = UDim2.new(0, 62, 0, 26)
-PlayCustomBtn.Position = UDim2.new(1, -62, 0, customEmoteY + 16)
 PlayCustomBtn.BackgroundColor3 = Colors.green
 PlayCustomBtn.Text = "▶ PLAY"
 PlayCustomBtn.TextColor3 = Colors.text
@@ -1347,7 +1344,6 @@ makeHoverable(PlayCustomBtn, Colors.green, Colors.greenLight)
 -- Stop emote button
 local StopEmoteBtn = Instance.new("TextButton")
 StopEmoteBtn.Size = UDim2.new(1, 0, 0, 26)
-StopEmoteBtn.Position = UDim2.new(0, 0, 0, customEmoteY + 48)
 StopEmoteBtn.BackgroundColor3 = Colors.bloodDark
 StopEmoteBtn.Text = "⏹ STOP EMOTE"
 StopEmoteBtn.TextColor3 = Colors.text
@@ -1362,14 +1358,11 @@ makeHoverable(StopEmoteBtn, Colors.bloodDark, Colors.blood)
 -- CATALOG SEARCH
 --==================================================
 
-local catalogSectionY = customEmoteY + 86
-
-createSectionHeader(EmoteScroll, "Catalog Search", catalogSectionY)
+EmoteCatalogHeader = createSectionHeader(EmoteScroll, "Catalog Search", 0)
 
 -- Search input (global for event wiring in 22_events)
 EmoteSearchBox = Instance.new("TextBox")
 EmoteSearchBox.Size = UDim2.new(1, 0, 0, 26)
-EmoteSearchBox.Position = UDim2.new(0, 0, 0, catalogSectionY + 26)
 EmoteSearchBox.BackgroundColor3 = Colors.inputBg
 EmoteSearchBox.Text = ""
 EmoteSearchBox.PlaceholderText = "🔍 Search emotes..."
@@ -1395,7 +1388,6 @@ end)
 EmoteCatalogGrid = Instance.new("Frame")
 EmoteCatalogGrid.Name = "CatalogGrid"
 EmoteCatalogGrid.Size = UDim2.new(1, 0, 0, 300)
-EmoteCatalogGrid.Position = UDim2.new(0, 0, 0, catalogSectionY + 58)
 EmoteCatalogGrid.BackgroundTransparency = 1
 EmoteCatalogGrid.ClipsDescendants = true
 EmoteCatalogGrid.Parent = EmoteScroll
@@ -1409,17 +1401,43 @@ EmoteCatalogGridLayout.SortOrder = Enum.SortOrder.LayoutOrder
 -- Empty/status label
 EmoteCatalogEmpty = Instance.new("TextLabel")
 EmoteCatalogEmpty.Size = UDim2.new(1, 0, 0, 30)
-EmoteCatalogEmpty.Position = UDim2.new(0, 0, 0, catalogSectionY + 58)
 EmoteCatalogEmpty.BackgroundTransparency = 1
-EmoteCatalogEmpty.Text = "Type to search emotes..."
+EmoteCatalogEmpty.Text = "Loading popular emotes..."
 EmoteCatalogEmpty.TextColor3 = Colors.textDim
 EmoteCatalogEmpty.TextSize = 10
 EmoteCatalogEmpty.Font = Enum.Font.Gotham
 EmoteCatalogEmpty.Visible = true
 EmoteCatalogEmpty.Parent = EmoteScroll
 
--- Update canvas size
-EmoteScroll.CanvasSize = UDim2.new(0, 0, 0, catalogSectionY + 370)
+--==================================================
+-- LAYOUT FUNCTION (global — repositions everything based on favorites grid height)
+--==================================================
+
+recalcEmoteLayout = function()
+    local favHeight = EmoteFavGrid.Size.Y.Offset
+    if favHeight < 10 then favHeight = 24 end
+
+    local baseY = favSectionY + favHeight + 8
+
+    -- Custom ID section
+    CustomIDLabel.Position = UDim2.new(0, 0, 0, baseY)
+    CustomIDInput.Position = UDim2.new(0, 0, 0, baseY + 16)
+    PlayCustomBtn.Position = UDim2.new(1, -62, 0, baseY + 16)
+    StopEmoteBtn.Position = UDim2.new(0, 0, 0, baseY + 48)
+
+    -- Catalog section
+    local catalogY = baseY + 86
+    EmoteCatalogHeader.Position = UDim2.new(0, 0, 0, catalogY)
+    EmoteSearchBox.Position = UDim2.new(0, 0, 0, catalogY + 26)
+    EmoteCatalogGrid.Position = UDim2.new(0, 0, 0, catalogY + 58)
+    EmoteCatalogEmpty.Position = UDim2.new(0, 0, 0, catalogY + 58)
+
+    -- Update canvas
+    EmoteScroll.CanvasSize = UDim2.new(0, 0, 0, catalogY + 58 + EmoteCatalogGrid.Size.Y.Offset + 20)
+end
+
+-- Initial layout (no favorites yet)
+recalcEmoteLayout()
 
 
 --[[ ═══════ MODULE: 09b_shadow_panel.luau ═══════ ]]
@@ -1535,38 +1553,51 @@ ShadowTargetLabel.TextXAlignment = Enum.TextXAlignment.Left
 ShadowTargetLabel.Parent = ShadowPanel
 
 --==================================================
--- SHADOW MODE BUTTONS
+-- QUICK PRESETS (row of 5 buttons)
 --==================================================
 
-shadowModeToggles = {}
-shadowModeDefs = {
-    { name = "Follow Behind",       mode = "follow", color = Colors.green },
-    { name = "Sit on Head",         mode = "head",   color = Colors.warning },
-    { name = "Shadow Box (Mirror)", mode = "mirror", color = Colors.glowPurple },
+shadowPresetButtons = {}
+shadowPresetDefs = {
+    { name = "Behind", angle = 0,   height = 0, faceTarget = false, mode = "orbit" },
+    { name = "Front",  angle = 180, height = 0, faceTarget = true,  mode = "orbit" },
+    { name = "Left",   angle = 270, height = 0, faceTarget = false, mode = "orbit" },
+    { name = "Right",  angle = 90,  height = 0, faceTarget = false, mode = "orbit" },
+    { name = "Head",   angle = 0,   height = 0, faceTarget = false, mode = "head" },
 }
 
 do
-    local modeY = 150
-    for i, def in ipairs(shadowModeDefs) do
+    local btnWidth = 42
+    local gap = 2
+    local startX = 10
+    for i, def in ipairs(shadowPresetDefs) do
         local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(1, -20, 0, 26)
-        btn.Position = UDim2.new(0, 10, 0, modeY + (i - 1) * 30)
-        btn.BackgroundColor3 = Color3.fromRGB(40, 20, 20)
+        btn.Size = UDim2.new(0, btnWidth, 0, 24)
+        btn.Position = UDim2.new(0, startX + (i - 1) * (btnWidth + gap), 0, 152)
+        btn.BackgroundColor3 = Color3.fromRGB(40, 20, 40)
         btn.Text = def.name
         btn.TextColor3 = Colors.textDim
-        btn.TextSize = 10
+        btn.TextSize = 9
         btn.Font = Enum.Font.GothamBold
         btn.AutoButtonColor = false
         btn.Parent = ShadowPanel
-        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
-        shadowModeToggles[def.mode] = { btn = btn, def = def }
+        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 5)
+        makeHoverable(btn, Color3.fromRGB(40, 20, 40), Colors.glowPurple)
+        shadowPresetButtons[i] = { btn = btn, def = def }
     end
 end
 
+--==================================================
+-- REFRESH PRESET HIGHLIGHT
+--==================================================
+
 refreshShadowModeButtons = function()
-    for mode, data in pairs(shadowModeToggles) do
-        local isActive = shadowState.active and shadowState.mode == mode
-        data.btn.BackgroundColor3 = isActive and data.def.color or Color3.fromRGB(40, 20, 20)
+    for _, data in ipairs(shadowPresetButtons) do
+        local def = data.def
+        local isActive = shadowState.active and shadowState.mode == def.mode
+        if def.mode == "orbit" and isActive then
+            isActive = (shadowState.angle == def.angle and shadowState.faceTarget == def.faceTarget)
+        end
+        data.btn.BackgroundColor3 = isActive and Colors.glowPurple or Color3.fromRGB(40, 20, 40)
         data.btn.TextColor3 = isActive and Colors.text or Colors.textDim
     end
 end
@@ -1575,23 +1606,41 @@ end
 -- SLIDERS
 --==================================================
 
--- Distance slider
-ShadowPanelDistSlider = createSliderRow(ShadowPanel, "Distance (studs)", 1, 15, 4, 244, function(val)
+-- Angle slider (0-360)
+ShadowPanelAngleSlider = createSliderRow(ShadowPanel, "Angle (0-360)", 0, 360, 0, 184, function(val)
+    shadowState.angle = val
+end)
+
+-- Height slider (-5 to 10)
+ShadowPanelHeightSlider = createSliderRow(ShadowPanel, "Height (studs)", -5, 10, 0, 216, function(val)
+    shadowState.height = val
+end)
+
+-- Distance slider (1-15)
+ShadowPanelDistSlider = createSliderRow(ShadowPanel, "Distance (studs)", 1, 15, 4, 248, function(val)
     shadowState.distance = val
 end)
 
--- Delay slider
-ShadowPanelDelaySlider = createSliderRow(ShadowPanel, "Delay (sec)", 0, 5, 0, 276, function(val)
+-- Delay slider (0-5)
+ShadowPanelDelaySlider = createSliderRow(ShadowPanel, "Delay (sec)", 0, 5, 0, 280, function(val)
     shadowState.delay = val
 end)
+
+--==================================================
+-- FACE TARGET TOGGLE
+--==================================================
+
+ShadowFaceTargetToggle = createVampToggle(
+    ShadowPanel, "Face Target", "faceTarget", shadowState, 312, Colors.glowPurple
+)
 
 --==================================================
 -- STOP BUTTON
 --==================================================
 
 StopShadowBtn = Instance.new("TextButton")
-StopShadowBtn.Size = UDim2.new(1, -20, 0, 28)
-StopShadowBtn.Position = UDim2.new(0, 10, 0, 314)
+StopShadowBtn.Size = UDim2.new(1, -20, 0, 26)
+StopShadowBtn.Position = UDim2.new(0, 10, 0, 348)
 StopShadowBtn.BackgroundColor3 = Colors.bloodDark
 StopShadowBtn.Text = "🔴 STOP SHADOW"
 StopShadowBtn.TextColor3 = Colors.text
@@ -1626,6 +1675,12 @@ openShadowPanel = function(player)
         if ok and thumb then ShadowPanelThumb.Image = thumb end
     end)
 
+    -- Sync sliders to current state
+    ShadowPanelAngleSlider.setValue(shadowState.angle)
+    ShadowPanelHeightSlider.setValue(shadowState.height)
+    ShadowPanelDistSlider.setValue(shadowState.distance)
+    ShadowPanelDelaySlider.setValue(shadowState.delay)
+    ShadowFaceTargetToggle.refresh()
     refreshShadowModeButtons()
     ShadowPanel.Visible = true
     notify("Shadow target: " .. player.DisplayName, "info")
@@ -4363,9 +4418,10 @@ startShadow = function(mode)
                 myHRP.CFrame = head.CFrame * CFrame.new(0, 1.8, 0)
             end
 
-        elseif shadowState.mode == "follow" then
-            -- Follow behind
+        elseif shadowState.mode == "orbit" then
+            -- Angle-based orbit positioning
             local targetCF = targetHRP.CFrame
+            local useCF = targetCF
 
             if shadowState.delay > 0 then
                 -- Store history
@@ -4392,21 +4448,19 @@ startShadow = function(mode)
                     table.remove(shadowHistory, 1)
                 end
 
-                -- Use delayed position, or follow instantly while history builds up
-                local useCF = delayCF or targetCF
-                local behindCF = useCF * CFrame.new(0, 0, dist)
-                myHRP.CFrame = behindCF
-            else
-                -- Instant follow
-                local behindCF = targetCF * CFrame.new(0, 0, dist)
-                myHRP.CFrame = behindCF
+                useCF = delayCF or targetCF
             end
 
-        elseif shadowState.mode == "mirror" then
-            -- Shadow box: face them, mirrored position
-            local targetCF = targetHRP.CFrame
-            local frontPos = (targetCF * CFrame.new(0, 0, -dist)).Position
-            myHRP.CFrame = CFrame.lookAt(frontPos, targetHRP.Position)
+            local angleRad = math.rad(shadowState.angle)
+            local offsetX = math.sin(angleRad) * dist
+            local offsetZ = math.cos(angleRad) * dist
+            local orbitCF = useCF * CFrame.new(offsetX, shadowState.height, offsetZ)
+
+            if shadowState.faceTarget then
+                myHRP.CFrame = CFrame.lookAt(orbitCF.Position, targetHRP.Position)
+            else
+                myHRP.CFrame = orbitCF
+            end
         end
 
         -- Mirror target animations (~every 0.3s)
@@ -4456,8 +4510,9 @@ startShadow = function(mode)
         end
     end)
 
-    notify("Shadow: " .. mode .. " on " .. target.Name, "success")
-    log("Shadow started:", mode, target.Name)
+    local modeLabel = mode == "head" and "head" or ("orbit " .. shadowState.angle .. "°")
+    notify("Shadow: " .. modeLabel .. " on " .. target.Name, "success")
+    log("Shadow started:", modeLabel, target.Name)
 end
 
 stopShadow = function()
@@ -4508,8 +4563,9 @@ searchEmoteCatalog = function(keyword)
     EmoteCatalogEmpty.Visible = false
 
     if keyword == nil or keyword == "" then
-        EmoteCatalogEmpty.Text = "Type to search emotes..."
-        EmoteCatalogEmpty.Visible = true
+        -- Re-show trending if user clears search
+        emoteTabPreloaded = false
+        preloadTrendingEmotes()
         return
     end
 
@@ -4595,6 +4651,23 @@ populateEmoteCatalogGrid = function(items, append)
         nameL.TextWrapped = true
         nameL.Parent = card
 
+        -- Favorite star button
+        local isFav = isFavoriteEmote(item.Id)
+        local starBtn = Instance.new("TextButton")
+        starBtn.Size = UDim2.new(0, 16, 0, 16)
+        starBtn.Position = UDim2.new(1, -18, 0, 64)
+        starBtn.BackgroundTransparency = 1
+        starBtn.Text = isFav and "★" or "☆"
+        starBtn.TextSize = 12
+        starBtn.TextColor3 = isFav and Color3.fromRGB(255, 200, 50) or Colors.textDim
+        starBtn.Parent = card
+
+        starBtn.MouseButton1Click:Connect(function()
+            local added = toggleFavoriteEmote(item.Id, item.Name or "Emote", isBundle)
+            starBtn.Text = added and "★" or "☆"
+            starBtn.TextColor3 = added and Color3.fromRGB(255, 200, 50) or Colors.textDim
+        end)
+
         -- Click to play
         card.MouseButton1Click:Connect(function()
             playEmote(item.Id)
@@ -4614,7 +4687,7 @@ populateEmoteCatalogGrid = function(items, append)
     EmoteCatalogGrid.Size = UDim2.new(1, 0, 0, math.max(rows * 88, 88))
 
     -- Refresh scroll canvas
-    EmoteScroll.CanvasSize = UDim2.new(0, 0, 0, EmoteCatalogGrid.Position.Y.Offset + EmoteCatalogGrid.Size.Y.Offset + 20)
+    recalcEmoteLayout()
 end
 
 loadMoreEmotes = function()
@@ -4644,6 +4717,193 @@ loadMoreEmotes = function()
         emoteCatalogHasMore = not emoteCatalogPages.IsFinished
         populateEmoteCatalogGrid(items, true)
     end)
+end
+
+--==================================================
+-- PRE-LOAD POPULAR EMOTES
+--==================================================
+
+preloadTrendingEmotes = function()
+    if emoteTabPreloaded then return end
+    emoteTabPreloaded = true
+
+    EmoteCatalogEmpty.Text = "Loading popular emotes..."
+    EmoteCatalogEmpty.Visible = true
+
+    -- Clear grid
+    for _, child in pairs(EmoteCatalogGrid:GetChildren()) do
+        if child:IsA("Frame") or child:IsA("TextButton") then child:Destroy() end
+    end
+
+    emoteSearchVersion = emoteSearchVersion + 1
+    local thisVersion = emoteSearchVersion
+
+    task.spawn(function()
+        local params = CatalogSearchParams.new()
+        params.AssetTypes = { Enum.AvatarAssetType.EmoteAnimation }
+        params.SortType = Enum.CatalogSortType.MostFavorited
+
+        local ok, pages = pcall(function()
+            return AvatarEditorService:SearchCatalog(params)
+        end)
+
+        if emoteSearchVersion ~= thisVersion then return end
+
+        if not ok or not pages then
+            EmoteCatalogEmpty.Text = "Failed to load popular emotes"
+            EmoteCatalogEmpty.Visible = true
+            emoteTabPreloaded = false
+            return
+        end
+
+        local pageOk, items = pcall(function()
+            return pages:GetCurrentPage()
+        end)
+
+        if not pageOk or not items or #items == 0 then
+            EmoteCatalogEmpty.Text = "No popular emotes found"
+            EmoteCatalogEmpty.Visible = true
+            return
+        end
+
+        EmoteCatalogEmpty.Visible = false
+        emoteCatalogPages = pages
+        emoteCatalogHasMore = not pages.IsFinished
+
+        populateEmoteCatalogGrid(items, false)
+    end)
+end
+
+--==================================================
+-- FAVORITE EMOTES
+--==================================================
+
+loadFavoriteEmotes = function()
+    favoriteEmotes = {}
+    pcall(function()
+        if isfile and isfile("VampireFavoriteEmotes.json") then
+            local raw = readfile("VampireFavoriteEmotes.json")
+            local parsed = HttpService:JSONDecode(raw)
+            if type(parsed) == "table" then
+                favoriteEmotes = parsed
+            end
+        end
+    end)
+    refreshFavoriteGrid()
+end
+
+saveFavoriteEmotes = function()
+    pcall(function()
+        if writefile then
+            writefile("VampireFavoriteEmotes.json", HttpService:JSONEncode(favoriteEmotes))
+        end
+    end)
+end
+
+toggleFavoriteEmote = function(id, name, isBundle)
+    -- Check if already favorited
+    for i, fav in ipairs(favoriteEmotes) do
+        if fav.id == id then
+            table.remove(favoriteEmotes, i)
+            saveFavoriteEmotes()
+            refreshFavoriteGrid()
+            notify("Removed from favorites", "info")
+            return false
+        end
+    end
+    -- Add new favorite
+    table.insert(favoriteEmotes, { id = id, name = name, isBundle = isBundle or false })
+    saveFavoriteEmotes()
+    refreshFavoriteGrid()
+    notify("Added to favorites!", "success")
+    return true
+end
+
+isFavoriteEmote = function(id)
+    for _, fav in ipairs(favoriteEmotes) do
+        if fav.id == id then return true end
+    end
+    return false
+end
+
+refreshFavoriteGrid = function()
+    -- Clear existing children
+    for _, child in pairs(EmoteFavGrid:GetChildren()) do
+        if child:IsA("Frame") or child:IsA("TextButton") then child:Destroy() end
+    end
+
+    if #favoriteEmotes == 0 then
+        EmoteFavEmpty.Visible = true
+        EmoteFavGrid.Size = UDim2.new(1, 0, 0, 24)
+    else
+        EmoteFavEmpty.Visible = false
+
+        for idx, fav in ipairs(favoriteEmotes) do
+            local card = Instance.new("TextButton")
+            card.Size = UDim2.new(0, 60, 0, 82)
+            card.BackgroundColor3 = Colors.card
+            card.AutoButtonColor = false
+            card.BorderSizePixel = 0
+            card.Text = ""
+            card.LayoutOrder = idx
+            card.Parent = EmoteFavGrid
+            Instance.new("UICorner", card).CornerRadius = UDim.new(0, 6)
+
+            -- Thumbnail
+            local thumbType = fav.isBundle and "BundleThumbnail" or "Asset"
+            local thumb = Instance.new("ImageLabel")
+            thumb.Size = UDim2.new(1, -4, 0, 44)
+            thumb.Position = UDim2.new(0, 2, 0, 2)
+            thumb.BackgroundTransparency = 1
+            thumb.Image = "rbxthumb://type=" .. thumbType .. "&id=" .. tostring(fav.id) .. "&w=150&h=150"
+            thumb.ScaleType = Enum.ScaleType.Fit
+            thumb.Parent = card
+
+            -- Name label
+            local nameL = Instance.new("TextLabel")
+            nameL.Size = UDim2.new(1, -4, 0, 18)
+            nameL.Position = UDim2.new(0, 2, 0, 48)
+            nameL.BackgroundTransparency = 1
+            nameL.Text = fav.name or "Emote"
+            nameL.TextColor3 = Colors.textDim
+            nameL.TextSize = 8
+            nameL.Font = Enum.Font.GothamBold
+            nameL.TextXAlignment = Enum.TextXAlignment.Center
+            nameL.TextTruncate = Enum.TextTruncate.AtEnd
+            nameL.TextWrapped = true
+            nameL.Parent = card
+
+            -- Unfavorite star button
+            local starBtn = Instance.new("TextButton")
+            starBtn.Size = UDim2.new(0, 16, 0, 16)
+            starBtn.Position = UDim2.new(1, -18, 0, 64)
+            starBtn.BackgroundTransparency = 1
+            starBtn.Text = "★"
+            starBtn.TextSize = 12
+            starBtn.TextColor3 = Color3.fromRGB(255, 200, 50)
+            starBtn.Parent = card
+
+            starBtn.MouseButton1Click:Connect(function()
+                toggleFavoriteEmote(fav.id, fav.name, fav.isBundle)
+            end)
+
+            -- Click card to play
+            card.MouseButton1Click:Connect(function()
+                playEmote(fav.id)
+            end)
+
+            makeHoverable(card, Colors.card, Colors.surfaceLight)
+        end
+
+        -- Calculate grid height
+        local cols = math.max(1, math.floor(EmoteFavGrid.AbsoluteSize.X / 66))
+        if cols < 1 then cols = 3 end
+        local rows = math.ceil(#favoriteEmotes / cols)
+        EmoteFavGrid.Size = UDim2.new(1, 0, 0, math.max(rows * 88, 88))
+    end
+
+    -- Recalculate layout of everything below favorites
+    recalcEmoteLayout()
 end
 
 
@@ -4804,13 +5064,6 @@ end)
 -- EMOTE TAB EVENTS
 --==================================================
 
--- Preset emote buttons
-for _, data in pairs(emoteButtons) do
-    data.btn.MouseButton1Click:Connect(function()
-        playEmote(data.emote.id)
-    end)
-end
-
 -- Custom animation ID
 PlayCustomBtn.MouseButton1Click:Connect(function()
     local id = tonumber(CustomIDInput.Text)
@@ -4860,16 +5113,34 @@ end)
 -- SHADOW PANEL EVENTS
 --==================================================
 
--- Shadow mode buttons
-for mode, data in pairs(shadowModeToggles) do
+-- Shadow preset buttons
+for _, data in ipairs(shadowPresetButtons) do
     data.btn.MouseButton1Click:Connect(function()
-        if shadowState.active and shadowState.mode == mode then
-            stopShadow()
+        local def = data.def
+        if def.mode == "head" then
+            if shadowState.active and shadowState.mode == "head" then
+                stopShadow()
+            else
+                startShadow("head")
+            end
         else
-            startShadow(mode)
+            -- Orbit mode: set angle, height, faceTarget, then start
+            shadowState.angle = def.angle
+            shadowState.height = def.height
+            shadowState.faceTarget = def.faceTarget
+            ShadowPanelAngleSlider.setValue(def.angle)
+            ShadowPanelHeightSlider.setValue(def.height)
+            ShadowFaceTargetToggle.refresh()
+            startShadow("orbit")
         end
     end)
 end
+
+-- Face Target toggle
+ShadowFaceTargetToggle.btn.MouseButton1Click:Connect(function()
+    shadowState.faceTarget = not shadowState.faceTarget
+    ShadowFaceTargetToggle.refresh()
+end)
 
 StopShadowBtn.MouseButton1Click:Connect(function()
     stopShadow()
@@ -5074,7 +5345,13 @@ switchTab = function(tabId)
         updateServerInfo()
     end
 
-    -- Nothing extra for emote tab (catalog search is on-demand)
+    -- Pre-load trending emotes + favorites on emote tab open
+    if tabId == "emote" then
+        preloadTrendingEmotes()
+        if #favoriteEmotes == 0 then
+            loadFavoriteEmotes()
+        end
+    end
 end
 
 --==================================================
@@ -5154,6 +5431,9 @@ end)
 --==================================================
 -- INIT
 --==================================================
+
+-- Load favorite emotes from file
+loadFavoriteEmotes()
 
 -- Set default tab
 switchTab("scanner")

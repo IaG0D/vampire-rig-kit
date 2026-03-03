@@ -134,9 +134,10 @@ startShadow = function(mode)
                 myHRP.CFrame = head.CFrame * CFrame.new(0, 1.8, 0)
             end
 
-        elseif shadowState.mode == "follow" then
-            -- Follow behind
+        elseif shadowState.mode == "orbit" then
+            -- Angle-based orbit positioning
             local targetCF = targetHRP.CFrame
+            local useCF = targetCF
 
             if shadowState.delay > 0 then
                 -- Store history
@@ -163,21 +164,19 @@ startShadow = function(mode)
                     table.remove(shadowHistory, 1)
                 end
 
-                -- Use delayed position, or follow instantly while history builds up
-                local useCF = delayCF or targetCF
-                local behindCF = useCF * CFrame.new(0, 0, dist)
-                myHRP.CFrame = behindCF
-            else
-                -- Instant follow
-                local behindCF = targetCF * CFrame.new(0, 0, dist)
-                myHRP.CFrame = behindCF
+                useCF = delayCF or targetCF
             end
 
-        elseif shadowState.mode == "mirror" then
-            -- Shadow box: face them, mirrored position
-            local targetCF = targetHRP.CFrame
-            local frontPos = (targetCF * CFrame.new(0, 0, -dist)).Position
-            myHRP.CFrame = CFrame.lookAt(frontPos, targetHRP.Position)
+            local angleRad = math.rad(shadowState.angle)
+            local offsetX = math.sin(angleRad) * dist
+            local offsetZ = math.cos(angleRad) * dist
+            local orbitCF = useCF * CFrame.new(offsetX, shadowState.height, offsetZ)
+
+            if shadowState.faceTarget then
+                myHRP.CFrame = CFrame.lookAt(orbitCF.Position, targetHRP.Position)
+            else
+                myHRP.CFrame = orbitCF
+            end
         end
 
         -- Mirror target animations (~every 0.3s)
@@ -227,8 +226,9 @@ startShadow = function(mode)
         end
     end)
 
-    notify("Shadow: " .. mode .. " on " .. target.Name, "success")
-    log("Shadow started:", mode, target.Name)
+    local modeLabel = mode == "head" and "head" or ("orbit " .. shadowState.angle .. "°")
+    notify("Shadow: " .. modeLabel .. " on " .. target.Name, "success")
+    log("Shadow started:", modeLabel, target.Name)
 end
 
 stopShadow = function()
@@ -279,8 +279,9 @@ searchEmoteCatalog = function(keyword)
     EmoteCatalogEmpty.Visible = false
 
     if keyword == nil or keyword == "" then
-        EmoteCatalogEmpty.Text = "Type to search emotes..."
-        EmoteCatalogEmpty.Visible = true
+        -- Re-show trending if user clears search
+        emoteTabPreloaded = false
+        preloadTrendingEmotes()
         return
     end
 
@@ -366,6 +367,23 @@ populateEmoteCatalogGrid = function(items, append)
         nameL.TextWrapped = true
         nameL.Parent = card
 
+        -- Favorite star button
+        local isFav = isFavoriteEmote(item.Id)
+        local starBtn = Instance.new("TextButton")
+        starBtn.Size = UDim2.new(0, 16, 0, 16)
+        starBtn.Position = UDim2.new(1, -18, 0, 64)
+        starBtn.BackgroundTransparency = 1
+        starBtn.Text = isFav and "★" or "☆"
+        starBtn.TextSize = 12
+        starBtn.TextColor3 = isFav and Color3.fromRGB(255, 200, 50) or Colors.textDim
+        starBtn.Parent = card
+
+        starBtn.MouseButton1Click:Connect(function()
+            local added = toggleFavoriteEmote(item.Id, item.Name or "Emote", isBundle)
+            starBtn.Text = added and "★" or "☆"
+            starBtn.TextColor3 = added and Color3.fromRGB(255, 200, 50) or Colors.textDim
+        end)
+
         -- Click to play
         card.MouseButton1Click:Connect(function()
             playEmote(item.Id)
@@ -385,7 +403,7 @@ populateEmoteCatalogGrid = function(items, append)
     EmoteCatalogGrid.Size = UDim2.new(1, 0, 0, math.max(rows * 88, 88))
 
     -- Refresh scroll canvas
-    EmoteScroll.CanvasSize = UDim2.new(0, 0, 0, EmoteCatalogGrid.Position.Y.Offset + EmoteCatalogGrid.Size.Y.Offset + 20)
+    recalcEmoteLayout()
 end
 
 loadMoreEmotes = function()
@@ -415,4 +433,191 @@ loadMoreEmotes = function()
         emoteCatalogHasMore = not emoteCatalogPages.IsFinished
         populateEmoteCatalogGrid(items, true)
     end)
+end
+
+--==================================================
+-- PRE-LOAD POPULAR EMOTES
+--==================================================
+
+preloadTrendingEmotes = function()
+    if emoteTabPreloaded then return end
+    emoteTabPreloaded = true
+
+    EmoteCatalogEmpty.Text = "Loading popular emotes..."
+    EmoteCatalogEmpty.Visible = true
+
+    -- Clear grid
+    for _, child in pairs(EmoteCatalogGrid:GetChildren()) do
+        if child:IsA("Frame") or child:IsA("TextButton") then child:Destroy() end
+    end
+
+    emoteSearchVersion = emoteSearchVersion + 1
+    local thisVersion = emoteSearchVersion
+
+    task.spawn(function()
+        local params = CatalogSearchParams.new()
+        params.AssetTypes = { Enum.AvatarAssetType.EmoteAnimation }
+        params.SortType = Enum.CatalogSortType.MostFavorited
+
+        local ok, pages = pcall(function()
+            return AvatarEditorService:SearchCatalog(params)
+        end)
+
+        if emoteSearchVersion ~= thisVersion then return end
+
+        if not ok or not pages then
+            EmoteCatalogEmpty.Text = "Failed to load popular emotes"
+            EmoteCatalogEmpty.Visible = true
+            emoteTabPreloaded = false
+            return
+        end
+
+        local pageOk, items = pcall(function()
+            return pages:GetCurrentPage()
+        end)
+
+        if not pageOk or not items or #items == 0 then
+            EmoteCatalogEmpty.Text = "No popular emotes found"
+            EmoteCatalogEmpty.Visible = true
+            return
+        end
+
+        EmoteCatalogEmpty.Visible = false
+        emoteCatalogPages = pages
+        emoteCatalogHasMore = not pages.IsFinished
+
+        populateEmoteCatalogGrid(items, false)
+    end)
+end
+
+--==================================================
+-- FAVORITE EMOTES
+--==================================================
+
+loadFavoriteEmotes = function()
+    favoriteEmotes = {}
+    pcall(function()
+        if isfile and isfile("VampireFavoriteEmotes.json") then
+            local raw = readfile("VampireFavoriteEmotes.json")
+            local parsed = HttpService:JSONDecode(raw)
+            if type(parsed) == "table" then
+                favoriteEmotes = parsed
+            end
+        end
+    end)
+    refreshFavoriteGrid()
+end
+
+saveFavoriteEmotes = function()
+    pcall(function()
+        if writefile then
+            writefile("VampireFavoriteEmotes.json", HttpService:JSONEncode(favoriteEmotes))
+        end
+    end)
+end
+
+toggleFavoriteEmote = function(id, name, isBundle)
+    -- Check if already favorited
+    for i, fav in ipairs(favoriteEmotes) do
+        if fav.id == id then
+            table.remove(favoriteEmotes, i)
+            saveFavoriteEmotes()
+            refreshFavoriteGrid()
+            notify("Removed from favorites", "info")
+            return false
+        end
+    end
+    -- Add new favorite
+    table.insert(favoriteEmotes, { id = id, name = name, isBundle = isBundle or false })
+    saveFavoriteEmotes()
+    refreshFavoriteGrid()
+    notify("Added to favorites!", "success")
+    return true
+end
+
+isFavoriteEmote = function(id)
+    for _, fav in ipairs(favoriteEmotes) do
+        if fav.id == id then return true end
+    end
+    return false
+end
+
+refreshFavoriteGrid = function()
+    -- Clear existing children
+    for _, child in pairs(EmoteFavGrid:GetChildren()) do
+        if child:IsA("Frame") or child:IsA("TextButton") then child:Destroy() end
+    end
+
+    if #favoriteEmotes == 0 then
+        EmoteFavEmpty.Visible = true
+        EmoteFavGrid.Size = UDim2.new(1, 0, 0, 24)
+    else
+        EmoteFavEmpty.Visible = false
+
+        for idx, fav in ipairs(favoriteEmotes) do
+            local card = Instance.new("TextButton")
+            card.Size = UDim2.new(0, 60, 0, 82)
+            card.BackgroundColor3 = Colors.card
+            card.AutoButtonColor = false
+            card.BorderSizePixel = 0
+            card.Text = ""
+            card.LayoutOrder = idx
+            card.Parent = EmoteFavGrid
+            Instance.new("UICorner", card).CornerRadius = UDim.new(0, 6)
+
+            -- Thumbnail
+            local thumbType = fav.isBundle and "BundleThumbnail" or "Asset"
+            local thumb = Instance.new("ImageLabel")
+            thumb.Size = UDim2.new(1, -4, 0, 44)
+            thumb.Position = UDim2.new(0, 2, 0, 2)
+            thumb.BackgroundTransparency = 1
+            thumb.Image = "rbxthumb://type=" .. thumbType .. "&id=" .. tostring(fav.id) .. "&w=150&h=150"
+            thumb.ScaleType = Enum.ScaleType.Fit
+            thumb.Parent = card
+
+            -- Name label
+            local nameL = Instance.new("TextLabel")
+            nameL.Size = UDim2.new(1, -4, 0, 18)
+            nameL.Position = UDim2.new(0, 2, 0, 48)
+            nameL.BackgroundTransparency = 1
+            nameL.Text = fav.name or "Emote"
+            nameL.TextColor3 = Colors.textDim
+            nameL.TextSize = 8
+            nameL.Font = Enum.Font.GothamBold
+            nameL.TextXAlignment = Enum.TextXAlignment.Center
+            nameL.TextTruncate = Enum.TextTruncate.AtEnd
+            nameL.TextWrapped = true
+            nameL.Parent = card
+
+            -- Unfavorite star button
+            local starBtn = Instance.new("TextButton")
+            starBtn.Size = UDim2.new(0, 16, 0, 16)
+            starBtn.Position = UDim2.new(1, -18, 0, 64)
+            starBtn.BackgroundTransparency = 1
+            starBtn.Text = "★"
+            starBtn.TextSize = 12
+            starBtn.TextColor3 = Color3.fromRGB(255, 200, 50)
+            starBtn.Parent = card
+
+            starBtn.MouseButton1Click:Connect(function()
+                toggleFavoriteEmote(fav.id, fav.name, fav.isBundle)
+            end)
+
+            -- Click card to play
+            card.MouseButton1Click:Connect(function()
+                playEmote(fav.id)
+            end)
+
+            makeHoverable(card, Colors.card, Colors.surfaceLight)
+        end
+
+        -- Calculate grid height
+        local cols = math.max(1, math.floor(EmoteFavGrid.AbsoluteSize.X / 66))
+        if cols < 1 then cols = 3 end
+        local rows = math.ceil(#favoriteEmotes / cols)
+        EmoteFavGrid.Size = UDim2.new(1, 0, 0, math.max(rows * 88, 88))
+    end
+
+    -- Recalculate layout of everything below favorites
+    recalcEmoteLayout()
 end

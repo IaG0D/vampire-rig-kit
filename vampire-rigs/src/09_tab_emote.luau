@@ -1,5 +1,5 @@
 --==================================================
--- TAB: EMOTE (Pure — Catalog Search + Presets)
+-- TAB: EMOTE (Favorites + Catalog Search + Custom ID)
 --==================================================
 
 local EmoteContent = Instance.new("Frame")
@@ -20,55 +20,47 @@ EmoteScroll.BorderSizePixel = 0
 EmoteScroll.Parent = EmoteContent
 
 --==================================================
--- PRESET EMOTES
+-- FAVORITES SECTION
 --==================================================
 
-createSectionHeader(EmoteScroll, "Quick Emotes", 0)
+createSectionHeader(EmoteScroll, "Favorites", 0)
 
-local emoteList = {
-    { name = "Wave",      id = 507770239 },
-    { name = "Point",     id = 507770453 },
-    { name = "Laugh",     id = 507770818 },
-    { name = "Cheer",     id = 507770677 },
-    { name = "Dance 1",   id = 507771019 },
-    { name = "Dance 2",   id = 507776043 },
-    { name = "Dance 3",   id = 507777268 },
-}
+local favSectionY = 24
 
--- Grid: 2 columns
-local emoteY = 26
-local emoteButtons = {}
-for i, emote in ipairs(emoteList) do
-    local col = (i - 1) % 2
-    local row = math.floor((i - 1) / 2)
+-- Favorites grid container (global for cross-module access)
+EmoteFavGrid = Instance.new("Frame")
+EmoteFavGrid.Name = "FavGrid"
+EmoteFavGrid.Size = UDim2.new(1, 0, 0, 0)
+EmoteFavGrid.Position = UDim2.new(0, 0, 0, favSectionY)
+EmoteFavGrid.BackgroundTransparency = 1
+EmoteFavGrid.ClipsDescendants = true
+EmoteFavGrid.Parent = EmoteScroll
 
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0.5, -3, 0, 28)
-    btn.Position = UDim2.new(col * 0.5, col == 0 and 0 or 3, 0, emoteY + row * 32)
-    btn.BackgroundColor3 = Colors.purple
-    btn.Text = "💃 " .. emote.name
-    btn.TextColor3 = Colors.text
-    btn.TextSize = 10
-    btn.Font = Enum.Font.GothamBold
-    btn.AutoButtonColor = false
-    btn.Parent = EmoteScroll
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
-    makeHoverable(btn, Colors.purple, Colors.purpleLight)
+EmoteFavGridLayout = Instance.new("UIGridLayout", EmoteFavGrid)
+EmoteFavGridLayout.CellSize = UDim2.new(0, 60, 0, 82)
+EmoteFavGridLayout.CellPadding = UDim2.new(0, 6, 0, 6)
+EmoteFavGridLayout.FillDirection = Enum.FillDirection.Horizontal
+EmoteFavGridLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
-    emoteButtons[i] = { btn = btn, emote = emote }
-end
-
-local emoteGridHeight = math.ceil(#emoteList / 2) * 32
+-- Empty favorites label
+EmoteFavEmpty = Instance.new("TextLabel")
+EmoteFavEmpty.Size = UDim2.new(1, 0, 0, 24)
+EmoteFavEmpty.Position = UDim2.new(0, 0, 0, favSectionY)
+EmoteFavEmpty.BackgroundTransparency = 1
+EmoteFavEmpty.Text = "No favorites yet — star emotes from catalog"
+EmoteFavEmpty.TextColor3 = Colors.textDim
+EmoteFavEmpty.TextSize = 9
+EmoteFavEmpty.Font = Enum.Font.Gotham
+EmoteFavEmpty.Visible = true
+EmoteFavEmpty.Parent = EmoteScroll
 
 --==================================================
 -- CUSTOM ANIMATION ID
+-- (Y positions set by recalcEmoteLayout)
 --==================================================
-
-local customEmoteY = emoteY + emoteGridHeight + 8
 
 local CustomIDLabel = Instance.new("TextLabel")
 CustomIDLabel.Size = UDim2.new(1, 0, 0, 14)
-CustomIDLabel.Position = UDim2.new(0, 0, 0, customEmoteY)
 CustomIDLabel.BackgroundTransparency = 1
 CustomIDLabel.Text = "Custom Animation ID:"
 CustomIDLabel.TextColor3 = Colors.textDim
@@ -79,7 +71,6 @@ CustomIDLabel.Parent = EmoteScroll
 
 local CustomIDInput = Instance.new("TextBox")
 CustomIDInput.Size = UDim2.new(1, -70, 0, 26)
-CustomIDInput.Position = UDim2.new(0, 0, 0, customEmoteY + 16)
 CustomIDInput.BackgroundColor3 = Colors.inputBg
 CustomIDInput.Text = ""
 CustomIDInput.PlaceholderText = "Animation ID..."
@@ -103,7 +94,6 @@ end)
 
 local PlayCustomBtn = Instance.new("TextButton")
 PlayCustomBtn.Size = UDim2.new(0, 62, 0, 26)
-PlayCustomBtn.Position = UDim2.new(1, -62, 0, customEmoteY + 16)
 PlayCustomBtn.BackgroundColor3 = Colors.green
 PlayCustomBtn.Text = "▶ PLAY"
 PlayCustomBtn.TextColor3 = Colors.text
@@ -117,7 +107,6 @@ makeHoverable(PlayCustomBtn, Colors.green, Colors.greenLight)
 -- Stop emote button
 local StopEmoteBtn = Instance.new("TextButton")
 StopEmoteBtn.Size = UDim2.new(1, 0, 0, 26)
-StopEmoteBtn.Position = UDim2.new(0, 0, 0, customEmoteY + 48)
 StopEmoteBtn.BackgroundColor3 = Colors.bloodDark
 StopEmoteBtn.Text = "⏹ STOP EMOTE"
 StopEmoteBtn.TextColor3 = Colors.text
@@ -132,14 +121,11 @@ makeHoverable(StopEmoteBtn, Colors.bloodDark, Colors.blood)
 -- CATALOG SEARCH
 --==================================================
 
-local catalogSectionY = customEmoteY + 86
-
-createSectionHeader(EmoteScroll, "Catalog Search", catalogSectionY)
+EmoteCatalogHeader = createSectionHeader(EmoteScroll, "Catalog Search", 0)
 
 -- Search input (global for event wiring in 22_events)
 EmoteSearchBox = Instance.new("TextBox")
 EmoteSearchBox.Size = UDim2.new(1, 0, 0, 26)
-EmoteSearchBox.Position = UDim2.new(0, 0, 0, catalogSectionY + 26)
 EmoteSearchBox.BackgroundColor3 = Colors.inputBg
 EmoteSearchBox.Text = ""
 EmoteSearchBox.PlaceholderText = "🔍 Search emotes..."
@@ -165,7 +151,6 @@ end)
 EmoteCatalogGrid = Instance.new("Frame")
 EmoteCatalogGrid.Name = "CatalogGrid"
 EmoteCatalogGrid.Size = UDim2.new(1, 0, 0, 300)
-EmoteCatalogGrid.Position = UDim2.new(0, 0, 0, catalogSectionY + 58)
 EmoteCatalogGrid.BackgroundTransparency = 1
 EmoteCatalogGrid.ClipsDescendants = true
 EmoteCatalogGrid.Parent = EmoteScroll
@@ -179,14 +164,40 @@ EmoteCatalogGridLayout.SortOrder = Enum.SortOrder.LayoutOrder
 -- Empty/status label
 EmoteCatalogEmpty = Instance.new("TextLabel")
 EmoteCatalogEmpty.Size = UDim2.new(1, 0, 0, 30)
-EmoteCatalogEmpty.Position = UDim2.new(0, 0, 0, catalogSectionY + 58)
 EmoteCatalogEmpty.BackgroundTransparency = 1
-EmoteCatalogEmpty.Text = "Type to search emotes..."
+EmoteCatalogEmpty.Text = "Loading popular emotes..."
 EmoteCatalogEmpty.TextColor3 = Colors.textDim
 EmoteCatalogEmpty.TextSize = 10
 EmoteCatalogEmpty.Font = Enum.Font.Gotham
 EmoteCatalogEmpty.Visible = true
 EmoteCatalogEmpty.Parent = EmoteScroll
 
--- Update canvas size
-EmoteScroll.CanvasSize = UDim2.new(0, 0, 0, catalogSectionY + 370)
+--==================================================
+-- LAYOUT FUNCTION (global — repositions everything based on favorites grid height)
+--==================================================
+
+recalcEmoteLayout = function()
+    local favHeight = EmoteFavGrid.Size.Y.Offset
+    if favHeight < 10 then favHeight = 24 end
+
+    local baseY = favSectionY + favHeight + 8
+
+    -- Custom ID section
+    CustomIDLabel.Position = UDim2.new(0, 0, 0, baseY)
+    CustomIDInput.Position = UDim2.new(0, 0, 0, baseY + 16)
+    PlayCustomBtn.Position = UDim2.new(1, -62, 0, baseY + 16)
+    StopEmoteBtn.Position = UDim2.new(0, 0, 0, baseY + 48)
+
+    -- Catalog section
+    local catalogY = baseY + 86
+    EmoteCatalogHeader.Position = UDim2.new(0, 0, 0, catalogY)
+    EmoteSearchBox.Position = UDim2.new(0, 0, 0, catalogY + 26)
+    EmoteCatalogGrid.Position = UDim2.new(0, 0, 0, catalogY + 58)
+    EmoteCatalogEmpty.Position = UDim2.new(0, 0, 0, catalogY + 58)
+
+    -- Update canvas
+    EmoteScroll.CanvasSize = UDim2.new(0, 0, 0, catalogY + 58 + EmoteCatalogGrid.Size.Y.Offset + 20)
+end
+
+-- Initial layout (no favorites yet)
+recalcEmoteLayout()

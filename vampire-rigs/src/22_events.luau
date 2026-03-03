@@ -153,13 +153,6 @@ end)
 -- EMOTE TAB EVENTS
 --==================================================
 
--- Preset emote buttons
-for _, data in pairs(emoteButtons) do
-    data.btn.MouseButton1Click:Connect(function()
-        playEmote(data.emote.id)
-    end)
-end
-
 -- Custom animation ID
 PlayCustomBtn.MouseButton1Click:Connect(function()
     local id = tonumber(CustomIDInput.Text)
@@ -209,16 +202,34 @@ end)
 -- SHADOW PANEL EVENTS
 --==================================================
 
--- Shadow mode buttons
-for mode, data in pairs(shadowModeToggles) do
+-- Shadow preset buttons
+for _, data in ipairs(shadowPresetButtons) do
     data.btn.MouseButton1Click:Connect(function()
-        if shadowState.active and shadowState.mode == mode then
-            stopShadow()
+        local def = data.def
+        if def.mode == "head" then
+            if shadowState.active and shadowState.mode == "head" then
+                stopShadow()
+            else
+                startShadow("head")
+            end
         else
-            startShadow(mode)
+            -- Orbit mode: set angle, height, faceTarget, then start
+            shadowState.angle = def.angle
+            shadowState.height = def.height
+            shadowState.faceTarget = def.faceTarget
+            ShadowPanelAngleSlider.setValue(def.angle)
+            ShadowPanelHeightSlider.setValue(def.height)
+            ShadowFaceTargetToggle.refresh()
+            startShadow("orbit")
         end
     end)
 end
+
+-- Face Target toggle
+ShadowFaceTargetToggle.btn.MouseButton1Click:Connect(function()
+    shadowState.faceTarget = not shadowState.faceTarget
+    ShadowFaceTargetToggle.refresh()
+end)
 
 StopShadowBtn.MouseButton1Click:Connect(function()
     stopShadow()
@@ -423,7 +434,13 @@ switchTab = function(tabId)
         updateServerInfo()
     end
 
-    -- Nothing extra for emote tab (catalog search is on-demand)
+    -- Pre-load trending emotes + favorites on emote tab open
+    if tabId == "emote" then
+        preloadTrendingEmotes()
+        if #favoriteEmotes == 0 then
+            loadFavoriteEmotes()
+        end
+    end
 end
 
 --==================================================
@@ -503,6 +520,9 @@ end)
 --==================================================
 -- INIT
 --==================================================
+
+-- Load favorite emotes from file
+loadFavoriteEmotes()
 
 -- Set default tab
 switchTab("scanner")

@@ -138,10 +138,13 @@ currentEmoteTrack = nil
 -- Shadow state
 shadowState = {
     active = false,
-    mode = "follow", -- "follow" | "head" | "mirror"
+    mode = "orbit",   -- "orbit" | "head"
     target = nil,
     delay = 0,
     distance = 4,
+    angle = 0,        -- 0-360° (0=behind, 90=right, 180=front, 270=left)
+    height = 0,       -- -5 to 10 studs vertical offset
+    faceTarget = false, -- look at target or match their rotation
 }
 shadowConnection = nil
 shadowHistory = {}
@@ -166,6 +169,10 @@ emoteCatalogPages = nil
 emoteCatalogHasMore = false
 emoteSearchVersion = 0
 isLoadingMoreEmotes = false
+
+-- Favorite emotes state
+favoriteEmotes = {}         -- Array of { id, name, isBundle }
+emoteTabPreloaded = false   -- Whether trending emotes have been loaded
 
 -- Forward-declared functions are assigned as globals by later modules
 -- (removed local forward declarations to stay under Lua's 200 local limit)

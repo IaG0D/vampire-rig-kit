@@ -109,38 +109,51 @@ ShadowTargetLabel.TextXAlignment = Enum.TextXAlignment.Left
 ShadowTargetLabel.Parent = ShadowPanel
 
 --==================================================
--- SHADOW MODE BUTTONS
+-- QUICK PRESETS (row of 5 buttons)
 --==================================================
 
-shadowModeToggles = {}
-shadowModeDefs = {
-    { name = "Follow Behind",       mode = "follow", color = Colors.green },
-    { name = "Sit on Head",         mode = "head",   color = Colors.warning },
-    { name = "Shadow Box (Mirror)", mode = "mirror", color = Colors.glowPurple },
+shadowPresetButtons = {}
+shadowPresetDefs = {
+    { name = "Behind", angle = 0,   height = 0, faceTarget = false, mode = "orbit" },
+    { name = "Front",  angle = 180, height = 0, faceTarget = true,  mode = "orbit" },
+    { name = "Left",   angle = 270, height = 0, faceTarget = false, mode = "orbit" },
+    { name = "Right",  angle = 90,  height = 0, faceTarget = false, mode = "orbit" },
+    { name = "Head",   angle = 0,   height = 0, faceTarget = false, mode = "head" },
 }
 
 do
-    local modeY = 150
-    for i, def in ipairs(shadowModeDefs) do
+    local btnWidth = 42
+    local gap = 2
+    local startX = 10
+    for i, def in ipairs(shadowPresetDefs) do
         local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(1, -20, 0, 26)
-        btn.Position = UDim2.new(0, 10, 0, modeY + (i - 1) * 30)
-        btn.BackgroundColor3 = Color3.fromRGB(40, 20, 20)
+        btn.Size = UDim2.new(0, btnWidth, 0, 24)
+        btn.Position = UDim2.new(0, startX + (i - 1) * (btnWidth + gap), 0, 152)
+        btn.BackgroundColor3 = Color3.fromRGB(40, 20, 40)
         btn.Text = def.name
         btn.TextColor3 = Colors.textDim
-        btn.TextSize = 10
+        btn.TextSize = 9
         btn.Font = Enum.Font.GothamBold
         btn.AutoButtonColor = false
         btn.Parent = ShadowPanel
-        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
-        shadowModeToggles[def.mode] = { btn = btn, def = def }
+        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 5)
+        makeHoverable(btn, Color3.fromRGB(40, 20, 40), Colors.glowPurple)
+        shadowPresetButtons[i] = { btn = btn, def = def }
     end
 end
 
+--==================================================
+-- REFRESH PRESET HIGHLIGHT
+--==================================================
+
 refreshShadowModeButtons = function()
-    for mode, data in pairs(shadowModeToggles) do
-        local isActive = shadowState.active and shadowState.mode == mode
-        data.btn.BackgroundColor3 = isActive and data.def.color or Color3.fromRGB(40, 20, 20)
+    for _, data in ipairs(shadowPresetButtons) do
+        local def = data.def
+        local isActive = shadowState.active and shadowState.mode == def.mode
+        if def.mode == "orbit" and isActive then
+            isActive = (shadowState.angle == def.angle and shadowState.faceTarget == def.faceTarget)
+        end
+        data.btn.BackgroundColor3 = isActive and Colors.glowPurple or Color3.fromRGB(40, 20, 40)
         data.btn.TextColor3 = isActive and Colors.text or Colors.textDim
     end
 end
@@ -149,23 +162,41 @@ end
 -- SLIDERS
 --==================================================
 
--- Distance slider
-ShadowPanelDistSlider = createSliderRow(ShadowPanel, "Distance (studs)", 1, 15, 4, 244, function(val)
+-- Angle slider (0-360)
+ShadowPanelAngleSlider = createSliderRow(ShadowPanel, "Angle (0-360)", 0, 360, 0, 184, function(val)
+    shadowState.angle = val
+end)
+
+-- Height slider (-5 to 10)
+ShadowPanelHeightSlider = createSliderRow(ShadowPanel, "Height (studs)", -5, 10, 0, 216, function(val)
+    shadowState.height = val
+end)
+
+-- Distance slider (1-15)
+ShadowPanelDistSlider = createSliderRow(ShadowPanel, "Distance (studs)", 1, 15, 4, 248, function(val)
     shadowState.distance = val
 end)
 
--- Delay slider
-ShadowPanelDelaySlider = createSliderRow(ShadowPanel, "Delay (sec)", 0, 5, 0, 276, function(val)
+-- Delay slider (0-5)
+ShadowPanelDelaySlider = createSliderRow(ShadowPanel, "Delay (sec)", 0, 5, 0, 280, function(val)
     shadowState.delay = val
 end)
+
+--==================================================
+-- FACE TARGET TOGGLE
+--==================================================
+
+ShadowFaceTargetToggle = createVampToggle(
+    ShadowPanel, "Face Target", "faceTarget", shadowState, 312, Colors.glowPurple
+)
 
 --==================================================
 -- STOP BUTTON
 --==================================================
 
 StopShadowBtn = Instance.new("TextButton")
-StopShadowBtn.Size = UDim2.new(1, -20, 0, 28)
-StopShadowBtn.Position = UDim2.new(0, 10, 0, 314)
+StopShadowBtn.Size = UDim2.new(1, -20, 0, 26)
+StopShadowBtn.Position = UDim2.new(0, 10, 0, 348)
 StopShadowBtn.BackgroundColor3 = Colors.bloodDark
 StopShadowBtn.Text = "🔴 STOP SHADOW"
 StopShadowBtn.TextColor3 = Colors.text
@@ -200,6 +231,12 @@ openShadowPanel = function(player)
         if ok and thumb then ShadowPanelThumb.Image = thumb end
     end)
 
+    -- Sync sliders to current state
+    ShadowPanelAngleSlider.setValue(shadowState.angle)
+    ShadowPanelHeightSlider.setValue(shadowState.height)
+    ShadowPanelDistSlider.setValue(shadowState.distance)
+    ShadowPanelDelaySlider.setValue(shadowState.delay)
+    ShadowFaceTargetToggle.refresh()
     refreshShadowModeButtons()
     ShadowPanel.Visible = true
     notify("Shadow target: " .. player.DisplayName, "info")
