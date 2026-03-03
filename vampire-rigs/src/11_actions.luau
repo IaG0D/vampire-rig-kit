@@ -131,19 +131,59 @@ local function clearResults()
 end
 
 local function createResultCard(info)
+    local accentColor = info.type == "PLAYER" and Colors.blood or Colors.green
+
     local Card = Instance.new("Frame")
     Card.Size = UDim2.new(1, -10, 0, 70)
     Card.BackgroundColor3 = Colors.card
     Card.BorderSizePixel = 0
     Card.Parent = ScrollFrame
-    Instance.new("UICorner", Card).CornerRadius = UDim.new(0, 6)
+    Instance.new("UICorner", Card).CornerRadius = UDim.new(0, 8)
+    addGradient(Card, Colors.surfaceLight, Colors.card, 0)
+
+    -- Card stroke (hidden, shows on hover)
+    local cardStroke = Instance.new("UIStroke", Card)
+    cardStroke.Color = accentColor
+    cardStroke.Thickness = 1
+    cardStroke.Transparency = 1
+
+    -- Left accent bar
+    local accentBar = Instance.new("Frame")
+    accentBar.Size = UDim2.new(0, 3, 1, -8)
+    accentBar.Position = UDim2.new(0, 0, 0, 4)
+    accentBar.BackgroundColor3 = accentColor
+    accentBar.BorderSizePixel = 0
+    accentBar.Parent = Card
+    Instance.new("UICorner", accentBar).CornerRadius = UDim.new(0, 2)
+
+    -- Card hover effect
+    Card.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement then
+            TweenService:Create(cardStroke, TweenInfo.new(0.15), {
+                Transparency = 0.3,
+            }):Play()
+            TweenService:Create(Card, TweenInfo.new(0.15), {
+                BackgroundColor3 = Colors.surfaceLight,
+            }):Play()
+        end
+    end)
+    Card.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement then
+            TweenService:Create(cardStroke, TweenInfo.new(0.2), {
+                Transparency = 1,
+            }):Play()
+            TweenService:Create(Card, TweenInfo.new(0.2), {
+                BackgroundColor3 = Colors.card,
+            }):Play()
+        end
+    end)
 
     info.cardFrame = Card
 
     local TypeBadge = Instance.new("Frame")
     TypeBadge.Size = UDim2.new(0, 50, 0, 16)
     TypeBadge.Position = UDim2.new(1, -58, 0, 5)
-    TypeBadge.BackgroundColor3 = info.type == "PLAYER" and Colors.green or Colors.blood
+    TypeBadge.BackgroundColor3 = accentColor
     TypeBadge.Parent = Card
     Instance.new("UICorner", TypeBadge).CornerRadius = UDim.new(0, 4)
 
@@ -158,7 +198,7 @@ local function createResultCard(info)
 
     local NameLabel = Instance.new("TextLabel")
     NameLabel.Size = UDim2.new(1, -65, 0, 18)
-    NameLabel.Position = UDim2.new(0, 8, 0, 5)
+    NameLabel.Position = UDim2.new(0, 12, 0, 5)
     NameLabel.BackgroundTransparency = 1
     NameLabel.Text = info.name
     NameLabel.TextColor3 = Colors.bloodLight
@@ -170,9 +210,9 @@ local function createResultCard(info)
 
     local StatusLabel = Instance.new("TextLabel")
     StatusLabel.Size = UDim2.new(1, -10, 0, 14)
-    StatusLabel.Position = UDim2.new(0, 8, 0, 22)
+    StatusLabel.Position = UDim2.new(0, 12, 0, 22)
     StatusLabel.BackgroundTransparency = 1
-    StatusLabel.Text = "Clique VIEW"
+    StatusLabel.Text = "Click VIEW"
     StatusLabel.TextColor3 = Colors.textDim
     StatusLabel.TextSize = 10
     StatusLabel.Font = Enum.Font.Gotham
@@ -184,14 +224,16 @@ local function createResultCard(info)
     -- Botoes
     local ViewBtn = Instance.new("TextButton")
     ViewBtn.Size = UDim2.new(0, 50, 0, 20)
-    ViewBtn.Position = UDim2.new(0, 8, 1, -26)
+    ViewBtn.Position = UDim2.new(0, 12, 1, -26)
     ViewBtn.BackgroundColor3 = Colors.blood
     ViewBtn.Text = "VIEW"
     ViewBtn.TextColor3 = Colors.text
     ViewBtn.TextSize = 10
     ViewBtn.Font = Enum.Font.GothamBold
+    ViewBtn.AutoButtonColor = false
     ViewBtn.Parent = Card
     Instance.new("UICorner", ViewBtn).CornerRadius = UDim.new(0, 4)
+    makeHoverable(ViewBtn, Colors.blood, Colors.glowRed)
 
     ViewBtn.MouseButton1Click:Connect(function()
         showPreview(info)
@@ -199,14 +241,16 @@ local function createResultCard(info)
 
     local TPBtn = Instance.new("TextButton")
     TPBtn.Size = UDim2.new(0, 35, 0, 20)
-    TPBtn.Position = UDim2.new(0, 63, 1, -26)
+    TPBtn.Position = UDim2.new(0, 67, 1, -26)
     TPBtn.BackgroundColor3 = Colors.green
     TPBtn.Text = "TP"
     TPBtn.TextColor3 = Colors.text
     TPBtn.TextSize = 10
     TPBtn.Font = Enum.Font.GothamBold
+    TPBtn.AutoButtonColor = false
     TPBtn.Parent = Card
     Instance.new("UICorner", TPBtn).CornerRadius = UDim.new(0, 4)
+    makeHoverable(TPBtn, Colors.green, Colors.greenLight)
 
     TPBtn.MouseButton1Click:Connect(function()
         local myHRP = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
@@ -223,15 +267,34 @@ local function createResultCard(info)
     end)
 
     local JSONBtn = Instance.new("TextButton")
-    JSONBtn.Size = UDim2.new(0, 45, 0, 20)
-    JSONBtn.Position = UDim2.new(0, 103, 1, -26)
+    JSONBtn.Size = UDim2.new(0, 40, 0, 20)
+    JSONBtn.Position = UDim2.new(0, 107, 1, -26)
     JSONBtn.BackgroundColor3 = Colors.bloodDark
     JSONBtn.Text = "JSON"
     JSONBtn.TextColor3 = Colors.text
     JSONBtn.TextSize = 10
     JSONBtn.Font = Enum.Font.GothamBold
+    JSONBtn.AutoButtonColor = false
     JSONBtn.Parent = Card
     Instance.new("UICorner", JSONBtn).CornerRadius = UDim.new(0, 4)
+    makeHoverable(JSONBtn, Colors.bloodDark, Colors.blood)
+
+    local SpecBtn = Instance.new("TextButton")
+    SpecBtn.Size = UDim2.new(0, 40, 0, 20)
+    SpecBtn.Position = UDim2.new(0, 152, 1, -26)
+    SpecBtn.BackgroundColor3 = Color3.fromRGB(80, 25, 25)
+    SpecBtn.Text = "SPEC"
+    SpecBtn.TextColor3 = Colors.text
+    SpecBtn.TextSize = 10
+    SpecBtn.Font = Enum.Font.GothamBold
+    SpecBtn.AutoButtonColor = false
+    SpecBtn.Parent = Card
+    Instance.new("UICorner", SpecBtn).CornerRadius = UDim.new(0, 4)
+    makeHoverable(SpecBtn, Color3.fromRGB(80, 25, 25), Color3.fromRGB(120, 35, 35))
+
+    SpecBtn.MouseButton1Click:Connect(function()
+        startSpectate(info)
+    end)
 
     JSONBtn.MouseButton1Click:Connect(function()
         if not info.loaded then

@@ -37,12 +37,32 @@ end)
 task.spawn(function()
     while MiniBar and MiniBar.Parent do
         local t1 = TweenService:Create(avatarStroke, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-            Color = Colors.bloodLight,
+            Color = Colors.glowRed,
+            Thickness = 2,
         })
         t1:Play()
         t1.Completed:Wait()
         local t2 = TweenService:Create(avatarStroke, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
             Color = Colors.blood,
+            Thickness = 1.5,
+        })
+        t2:Play()
+        t2.Completed:Wait()
+    end
+end)
+
+-- Pulso sutil no stroke principal da MiniBar
+task.spawn(function()
+    while MiniBar and MiniBar.Parent do
+        local t1 = TweenService:Create(miniStroke, TweenInfo.new(2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+            Thickness = 2,
+            Transparency = 0,
+        })
+        t1:Play()
+        t1.Completed:Wait()
+        local t2 = TweenService:Create(miniStroke, TweenInfo.new(2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+            Thickness = 1.2,
+            Transparency = 0.2,
         })
         t2:Play()
         t2.Completed:Wait()
@@ -110,23 +130,33 @@ local function toggleScanner()
     end
 end
 
--- MiniBar hover effect
+-- MiniBar hover effect (premium)
 MiniBar.MouseEnter:Connect(function()
     TweenService:Create(miniStroke, TweenInfo.new(0.2), {
-        Color = Colors.bloodLight,
-        Thickness = 2,
+        Color = Colors.glowRed,
+        Thickness = 2.5,
+        Transparency = 0,
     }):Play()
     TweenService:Create(MiniBar, TweenInfo.new(0.2), {
-        BackgroundColor3 = Color3.fromRGB(22, 22, 22),
+        BackgroundColor3 = Colors.surfaceLight,
+    }):Play()
+    TweenService:Create(miniSep, TweenInfo.new(0.2), {
+        BackgroundTransparency = 0.2,
+        BackgroundColor3 = Colors.glowRed,
     }):Play()
 end)
 MiniBar.MouseLeave:Connect(function()
     TweenService:Create(miniStroke, TweenInfo.new(0.3), {
         Color = Colors.blood,
         Thickness = 1.5,
+        Transparency = 0,
     }):Play()
     TweenService:Create(MiniBar, TweenInfo.new(0.3), {
         BackgroundColor3 = Colors.bg,
+    }):Play()
+    TweenService:Create(miniSep, TweenInfo.new(0.3), {
+        BackgroundTransparency = 0.5,
+        BackgroundColor3 = Colors.blood,
     }):Play()
 end)
 

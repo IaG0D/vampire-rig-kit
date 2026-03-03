@@ -11,15 +11,20 @@ PreviewFrame.BorderSizePixel = 0
 PreviewFrame.Visible = false
 PreviewFrame.Parent = ScreenGui
 
-Instance.new("UIStroke", PreviewFrame).Color = Colors.blood
-Instance.new("UICorner", PreviewFrame).CornerRadius = UDim.new(0, 8)
+local previewStroke = Instance.new("UIStroke", PreviewFrame)
+previewStroke.Color = Colors.blood
+previewStroke.Thickness = 1.2
+Instance.new("UICorner", PreviewFrame).CornerRadius = UDim.new(0, 10)
+addGradient(PreviewFrame, Colors.surfaceLight, Color3.fromRGB(8, 8, 10), 90)
 
 local PreviewTopBar = Instance.new("Frame")
 PreviewTopBar.Size = UDim2.new(1, 0, 0, 40)
 PreviewTopBar.BackgroundColor3 = Colors.topbar
 PreviewTopBar.BorderSizePixel = 0
 PreviewTopBar.Parent = PreviewFrame
-Instance.new("UICorner", PreviewTopBar).CornerRadius = UDim.new(0, 8)
+Instance.new("UICorner", PreviewTopBar).CornerRadius = UDim.new(0, 10)
+addGradient(PreviewTopBar, Color3.fromRGB(40, 8, 8), Colors.topbar, 0)
+addAccentLine(PreviewTopBar, UDim2.new(0, 0, 1, -1), Colors.blood)
 
 local PreviewTitle = Instance.new("TextLabel")
 PreviewTitle.Size = UDim2.new(1, -80, 1, 0)
@@ -40,8 +45,10 @@ PreviewClose.Text = "X"
 PreviewClose.TextColor3 = Colors.text
 PreviewClose.TextSize = 14
 PreviewClose.Font = Enum.Font.GothamBold
+PreviewClose.AutoButtonColor = false
 PreviewClose.Parent = PreviewTopBar
-Instance.new("UICorner", PreviewClose).CornerRadius = UDim.new(0, 4)
+Instance.new("UICorner", PreviewClose).CornerRadius = UDim.new(0, 6)
+makeHoverable(PreviewClose, Colors.blood, Colors.glowRed)
 
 local Viewport = Instance.new("ViewportFrame")
 Viewport.Size = UDim2.new(1, -20, 0, 200)
@@ -52,8 +59,11 @@ Viewport.Ambient = Color3.fromRGB(200, 200, 200)
 Viewport.LightColor = Color3.fromRGB(255, 255, 255)
 Viewport.LightDirection = Vector3.new(-1, -1, -1)
 Viewport.Parent = PreviewFrame
-Instance.new("UICorner", Viewport).CornerRadius = UDim.new(0, 6)
-Instance.new("UIStroke", Viewport).Color = Colors.blood
+Instance.new("UICorner", Viewport).CornerRadius = UDim.new(0, 8)
+local vpStroke = Instance.new("UIStroke", Viewport)
+vpStroke.Color = Colors.glowRed
+vpStroke.Thickness = 1.5
+vpStroke.Transparency = 0.3
 
 local ViewportStatus = Instance.new("TextLabel")
 ViewportStatus.Size = UDim2.new(1, 0, 1, 0)
@@ -99,8 +109,11 @@ CopyBtn.Text = "🩸 COPY JSON"
 CopyBtn.TextColor3 = Colors.text
 CopyBtn.TextSize = 14
 CopyBtn.Font = Enum.Font.GothamBold
+CopyBtn.AutoButtonColor = false
 CopyBtn.Parent = PreviewFrame
 Instance.new("UICorner", CopyBtn).CornerRadius = UDim.new(0, 6)
+addBtnGradient(CopyBtn)
+makeHoverable(CopyBtn, Colors.blood, Colors.glowRed)
 
 local PreviewFooter = Instance.new("Frame")
 PreviewFooter.Size = UDim2.new(1, 0, 0, 25)
@@ -108,7 +121,8 @@ PreviewFooter.Position = UDim2.new(0, 0, 1, -25)
 PreviewFooter.BackgroundColor3 = Colors.topbar
 PreviewFooter.BorderSizePixel = 0
 PreviewFooter.Parent = PreviewFrame
-Instance.new("UICorner", PreviewFooter).CornerRadius = UDim.new(0, 8)
+Instance.new("UICorner", PreviewFooter).CornerRadius = UDim.new(0, 10)
+addAccentLine(PreviewFooter, UDim2.new(0, 0, 0, 0), Colors.blood)
 
 local PreviewCredits = Instance.new("TextLabel")
 PreviewCredits.Size = UDim2.new(1, 0, 1, 0)

@@ -11,10 +11,11 @@ MiniBar.BorderSizePixel = 0
 MiniBar.AutoButtonColor = false
 MiniBar.Text = ""
 MiniBar.Parent = ScreenGui
-Instance.new("UICorner", MiniBar).CornerRadius = UDim.new(0, 10)
+Instance.new("UICorner", MiniBar).CornerRadius = UDim.new(0, 12)
 local miniStroke = Instance.new("UIStroke", MiniBar)
 miniStroke.Color = Colors.blood
 miniStroke.Thickness = 1.5
+addGradient(MiniBar, Colors.surfaceLight, Colors.bg, 45)
 
 -- Avatar thumbnail
 local AvatarFrame = Instance.new("Frame")
@@ -43,6 +44,15 @@ task.spawn(function()
         AvatarImg.Image = thumb
     end
 end)
+
+-- Separador vertical
+local miniSep = Instance.new("Frame")
+miniSep.Size = UDim2.new(0, 1, 0, 36)
+miniSep.Position = UDim2.new(0, 52, 0, 10)
+miniSep.BackgroundColor3 = Colors.blood
+miniSep.BackgroundTransparency = 0.5
+miniSep.BorderSizePixel = 0
+miniSep.Parent = MiniBar
 
 -- Nome do usuario
 local MiniName = Instance.new("TextLabel")

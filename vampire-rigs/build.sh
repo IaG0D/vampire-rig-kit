@@ -18,7 +18,7 @@ echo "========================"
 # Header
 cat >> "$OUT_FILE" << 'HEADER'
 --==================================================
--- VAMPIRE RIG SCANNER v10 - GENERATE RIG PREVIEW
+-- VAMPIRE RIG SCANNER v12 - PREMIUM UI
 -- Create By VampireSonata
 -- Gera o rig no preview ao inves de clonar!
 -- ⚡ Bundled automaticamente — NÃO edite este arquivo!

@@ -77,12 +77,24 @@ SaveAllBtn.MouseButton1Click:Connect(function()
         task.delay(3, function() SaveAllBtn.Text = "⚡ SAVE ALL" end)
     end)
 end)
+-- Spectate
+UnspectateBtn.MouseButton1Click:Connect(function()
+    stopSpectate()
+end)
+
+-- Tracer toggle
+TracerBtn.MouseButton1Click:Connect(function()
+    toggleTracer()
+end)
+
 PreviewClose.MouseButton1Click:Connect(function()
     clearPreview()
     PreviewFrame.Visible = false
 end)
 -- X fecha tudo (destroy)
 CloseBtn.MouseButton1Click:Connect(function()
+    stopSpectate()
+    clearTracer()
     clearPreview()
     clearResults()
     ScreenGui:Destroy()
@@ -110,7 +122,7 @@ end)
 --==================================================
 
 log("══════════════════════════════════════")
-log("VAMPIRE RIG SCANNER v10")
+log("VAMPIRE RIG SCANNER v12")
 log("Create By VampireSonata")
 log("══════════════════════════════════════")
 log("MiniBar mode! Ctrl+G to toggle")

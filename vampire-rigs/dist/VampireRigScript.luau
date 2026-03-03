@@ -1,5 +1,5 @@
 --==================================================
--- VAMPIRE RIG SCANNER v10 - GENERATE RIG PREVIEW
+-- VAMPIRE RIG SCANNER v12 - PREMIUM UI
 -- Create By VampireSonata
 -- Gera o rig no preview ao inves de clonar!
 -- ⚡ Bundled automaticamente — NÃO edite este arquivo!
@@ -51,11 +51,11 @@ ScreenGui.Parent = LP.PlayerGui
 --==================================================
 
 local Colors = {
-    bg = Color3.fromRGB(15, 15, 15),
-    topbar = Color3.fromRGB(25, 25, 25),
-    content = Color3.fromRGB(10, 10, 10),
-    card = Color3.fromRGB(20, 20, 20),
-    cardLoaded = Color3.fromRGB(20, 30, 20),
+    bg = Color3.fromRGB(12, 12, 14),
+    topbar = Color3.fromRGB(22, 22, 26),
+    content = Color3.fromRGB(8, 8, 10),
+    card = Color3.fromRGB(18, 18, 22),
+    cardLoaded = Color3.fromRGB(18, 28, 18),
 
     blood = Color3.fromRGB(139, 0, 0),
     bloodLight = Color3.fromRGB(180, 20, 20),
@@ -64,10 +64,20 @@ local Colors = {
     green = Color3.fromRGB(40, 120, 40),
     greenLight = Color3.fromRGB(60, 150, 60),
 
-    text = Color3.fromRGB(255, 255, 255),
-    textDim = Color3.fromRGB(150, 150, 150),
+    text = Color3.fromRGB(240, 240, 245),
+    textDim = Color3.fromRGB(130, 130, 140),
     textBlood = Color3.fromRGB(200, 50, 50),
     textLoading = Color3.fromRGB(255, 200, 100),
+
+    -- Premium palette
+    accent = Color3.fromRGB(180, 20, 20),
+    glowRed = Color3.fromRGB(220, 40, 40),
+    glowPurple = Color3.fromRGB(120, 60, 180),
+    surfaceLight = Color3.fromRGB(28, 28, 32),
+    surfaceMid = Color3.fromRGB(22, 22, 26),
+    separator = Color3.fromRGB(45, 20, 20),
+    purple = Color3.fromRGB(80, 40, 120),
+    purpleLight = Color3.fromRGB(110, 60, 160),
 }
 
 --==================================================
@@ -78,6 +88,97 @@ local currentPreviewData = nil
 local previewConnection = nil
 local allScannedRigs = {}
 local isExporting = false
+
+-- Spectate state
+local spectatingInfo = nil
+local spectateHighlight = nil
+local savedCameraSubject = nil
+
+-- Tracer/ESP state
+local tracerActive = false
+local tracerConnection = nil
+local tracerESPs = {}
+
+--==================================================
+-- UI HELPERS (Premium)
+--==================================================
+
+local function addGradient(frame, c1, c2, rotation)
+    local g = Instance.new("UIGradient")
+    g.Color = ColorSequence.new(c1 or Colors.surfaceLight, c2 or Colors.bg)
+    g.Rotation = rotation or 90
+    g.Parent = frame
+    return g
+end
+
+local function addAccentLine(parent, position, color, size)
+    local line = Instance.new("Frame")
+    line.Name = "AccentLine"
+    line.Size = size or UDim2.new(1, 0, 0, 1)
+    line.Position = position or UDim2.new(0, 0, 1, 0)
+    line.BackgroundColor3 = color or Colors.accent
+    line.BackgroundTransparency = 0.3
+    line.BorderSizePixel = 0
+    line.Parent = parent
+    local lineGrad = Instance.new("UIGradient")
+    lineGrad.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, color or Colors.accent),
+        ColorSequenceKeypoint.new(0.5, color or Colors.accent),
+        ColorSequenceKeypoint.new(1, Colors.bg),
+    })
+    lineGrad.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 0),
+        NumberSequenceKeypoint.new(0.7, 0),
+        NumberSequenceKeypoint.new(1, 1),
+    })
+    lineGrad.Parent = line
+    return line
+end
+
+local function makeHoverable(btn, normalColor, hoverColor, pressColor)
+    local hc = hoverColor or Color3.new(
+        math.min(normalColor.R + 0.08, 1),
+        math.min(normalColor.G + 0.08, 1),
+        math.min(normalColor.B + 0.08, 1)
+    )
+    local pc = pressColor or Color3.new(
+        math.max(normalColor.R - 0.05, 0),
+        math.max(normalColor.G - 0.05, 0),
+        math.max(normalColor.B - 0.05, 0)
+    )
+    btn.MouseEnter:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.15), {
+            BackgroundColor3 = hc,
+        }):Play()
+    end)
+    btn.MouseLeave:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.2), {
+            BackgroundColor3 = normalColor,
+        }):Play()
+    end)
+    btn.MouseButton1Down:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.05), {
+            BackgroundColor3 = pc,
+        }):Play()
+    end)
+    btn.MouseButton1Up:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.1), {
+            BackgroundColor3 = hc,
+        }):Play()
+    end)
+end
+
+local function addBtnGradient(btn)
+    local g = Instance.new("UIGradient")
+    g.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 0.15),
+        NumberSequenceKeypoint.new(0.5, 0),
+        NumberSequenceKeypoint.new(1, 0.2),
+    })
+    g.Rotation = 0
+    g.Parent = btn
+    return g
+end
 
 
 --[[ ═══════ MODULE: 02_minibar.luau ═══════ ]]
@@ -95,10 +196,11 @@ MiniBar.BorderSizePixel = 0
 MiniBar.AutoButtonColor = false
 MiniBar.Text = ""
 MiniBar.Parent = ScreenGui
-Instance.new("UICorner", MiniBar).CornerRadius = UDim.new(0, 10)
+Instance.new("UICorner", MiniBar).CornerRadius = UDim.new(0, 12)
 local miniStroke = Instance.new("UIStroke", MiniBar)
 miniStroke.Color = Colors.blood
 miniStroke.Thickness = 1.5
+addGradient(MiniBar, Colors.surfaceLight, Colors.bg, 45)
 
 -- Avatar thumbnail
 local AvatarFrame = Instance.new("Frame")
@@ -127,6 +229,15 @@ task.spawn(function()
         AvatarImg.Image = thumb
     end
 end)
+
+-- Separador vertical
+local miniSep = Instance.new("Frame")
+miniSep.Size = UDim2.new(0, 1, 0, 36)
+miniSep.Position = UDim2.new(0, 52, 0, 10)
+miniSep.BackgroundColor3 = Colors.blood
+miniSep.BackgroundTransparency = 0.5
+miniSep.BorderSizePixel = 0
+miniSep.Parent = MiniBar
 
 -- Nome do usuario
 local MiniName = Instance.new("TextLabel")
@@ -190,15 +301,19 @@ MainFrame.BorderSizePixel = 0
 MainFrame.Visible = false
 MainFrame.Parent = ScreenGui
 
-Instance.new("UIStroke", MainFrame).Color = Colors.blood
-Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
+local mainStroke = Instance.new("UIStroke", MainFrame)
+mainStroke.Color = Colors.blood
+mainStroke.Thickness = 1.2
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
+addGradient(MainFrame, Colors.surfaceLight, Color3.fromRGB(8, 8, 10), 90)
 
 local TopBar = Instance.new("Frame")
 TopBar.Size = UDim2.new(1, 0, 0, 40)
 TopBar.BackgroundColor3 = Colors.topbar
 TopBar.BorderSizePixel = 0
 TopBar.Parent = MainFrame
-Instance.new("UICorner", TopBar).CornerRadius = UDim.new(0, 8)
+Instance.new("UICorner", TopBar).CornerRadius = UDim.new(0, 10)
+addGradient(TopBar, Color3.fromRGB(40, 8, 8), Colors.topbar, 0)
 
 local TopBarFix = Instance.new("Frame")
 TopBarFix.Size = UDim2.new(1, 0, 0, 10)
@@ -206,6 +321,8 @@ TopBarFix.Position = UDim2.new(0, 0, 1, -10)
 TopBarFix.BackgroundColor3 = Colors.topbar
 TopBarFix.BorderSizePixel = 0
 TopBarFix.Parent = TopBar
+
+addAccentLine(TopBar, UDim2.new(0, 0, 1, -1), Colors.blood)
 
 local VampIcon = Instance.new("TextLabel")
 VampIcon.Size = UDim2.new(0, 30, 0, 30)
@@ -234,8 +351,10 @@ CloseBtn.Text = "X"
 CloseBtn.TextColor3 = Colors.text
 CloseBtn.TextSize = 14
 CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.AutoButtonColor = false
 CloseBtn.Parent = TopBar
-Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 4)
+Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
+makeHoverable(CloseBtn, Colors.blood, Colors.glowRed)
 
 local MinBtn = Instance.new("TextButton")
 MinBtn.Size = UDim2.new(0, 25, 0, 25)
@@ -245,16 +364,22 @@ MinBtn.Text = "-"
 MinBtn.TextColor3 = Colors.text
 MinBtn.TextSize = 18
 MinBtn.Font = Enum.Font.GothamBold
+MinBtn.AutoButtonColor = false
 MinBtn.Parent = TopBar
-Instance.new("UICorner", MinBtn).CornerRadius = UDim.new(0, 4)
+Instance.new("UICorner", MinBtn).CornerRadius = UDim.new(0, 6)
+makeHoverable(MinBtn, Color3.fromRGB(50, 50, 50), Color3.fromRGB(70, 70, 70))
 
 local Content = Instance.new("Frame")
-Content.Size = UDim2.new(1, -20, 1, -160)
+Content.Size = UDim2.new(1, -20, 1, -195)
 Content.Position = UDim2.new(0, 10, 0, 50)
 Content.BackgroundColor3 = Colors.content
 Content.BorderSizePixel = 0
 Content.Parent = MainFrame
-Instance.new("UICorner", Content).CornerRadius = UDim.new(0, 6)
+Instance.new("UICorner", Content).CornerRadius = UDim.new(0, 8)
+local contentStroke = Instance.new("UIStroke", Content)
+contentStroke.Color = Colors.separator
+contentStroke.Thickness = 0.5
+contentStroke.Transparency = 0.5
 
 local ScrollFrame = Instance.new("ScrollingFrame")
 ScrollFrame.Size = UDim2.new(1, -10, 1, -10)
@@ -270,42 +395,79 @@ ListLayout.Padding = UDim.new(0, 5)
 ListLayout.Parent = ScrollFrame
 
 local BtnFrame = Instance.new("Frame")
-BtnFrame.Size = UDim2.new(1, -20, 0, 105)
-BtnFrame.Position = UDim2.new(0, 10, 1, -145)
+BtnFrame.Size = UDim2.new(1, -20, 0, 140)
+BtnFrame.Position = UDim2.new(0, 10, 1, -180)
 BtnFrame.BackgroundTransparency = 1
 BtnFrame.Parent = MainFrame
 
 local ScanBtn = Instance.new("TextButton")
-ScanBtn.Size = UDim2.new(1, 0, 0, 30)
+ScanBtn.Size = UDim2.new(1, 0, 0, 32)
 ScanBtn.BackgroundColor3 = Colors.blood
 ScanBtn.Text = "🩸 SCAN"
 ScanBtn.TextColor3 = Colors.text
 ScanBtn.TextSize = 14
 ScanBtn.Font = Enum.Font.GothamBold
+ScanBtn.AutoButtonColor = false
 ScanBtn.Parent = BtnFrame
 Instance.new("UICorner", ScanBtn).CornerRadius = UDim.new(0, 6)
+addBtnGradient(ScanBtn)
+makeHoverable(ScanBtn, Colors.blood, Colors.glowRed)
 
 local ExportAllBtn = Instance.new("TextButton")
 ExportAllBtn.Size = UDim2.new(1, 0, 0, 30)
-ExportAllBtn.Position = UDim2.new(0, 0, 0, 35)
+ExportAllBtn.Position = UDim2.new(0, 0, 0, 37)
 ExportAllBtn.BackgroundColor3 = Colors.bloodDark
 ExportAllBtn.Text = "🦇 EXPORT ALL JSON"
 ExportAllBtn.TextColor3 = Colors.text
-ExportAllBtn.TextSize = 14
+ExportAllBtn.TextSize = 13
 ExportAllBtn.Font = Enum.Font.GothamBold
+ExportAllBtn.AutoButtonColor = false
 ExportAllBtn.Parent = BtnFrame
 Instance.new("UICorner", ExportAllBtn).CornerRadius = UDim.new(0, 6)
+addBtnGradient(ExportAllBtn)
+makeHoverable(ExportAllBtn, Colors.bloodDark, Colors.blood)
 
 local SaveInstanceBtn = Instance.new("TextButton")
-SaveInstanceBtn.Size = UDim2.new(1, 0, 0, 30)
-SaveInstanceBtn.Position = UDim2.new(0, 0, 0, 70)
-SaveInstanceBtn.BackgroundColor3 = Color3.fromRGB(80, 40, 120)
+SaveInstanceBtn.Size = UDim2.new(0.5, -3, 0, 30)
+SaveInstanceBtn.Position = UDim2.new(0, 0, 0, 72)
+SaveInstanceBtn.BackgroundColor3 = Colors.purple
 SaveInstanceBtn.Text = "💾 SAVE INSTANCE"
 SaveInstanceBtn.TextColor3 = Colors.text
-SaveInstanceBtn.TextSize = 14
+SaveInstanceBtn.TextSize = 11
 SaveInstanceBtn.Font = Enum.Font.GothamBold
+SaveInstanceBtn.AutoButtonColor = false
 SaveInstanceBtn.Parent = BtnFrame
 Instance.new("UICorner", SaveInstanceBtn).CornerRadius = UDim.new(0, 6)
+addBtnGradient(SaveInstanceBtn)
+makeHoverable(SaveInstanceBtn, Colors.purple, Colors.purpleLight)
+
+local TracerBtn = Instance.new("TextButton")
+TracerBtn.Size = UDim2.new(0.5, -3, 0, 30)
+TracerBtn.Position = UDim2.new(0.5, 3, 0, 72)
+TracerBtn.BackgroundColor3 = Color3.fromRGB(60, 30, 30)
+TracerBtn.Text = "👁 TRACER OFF"
+TracerBtn.TextColor3 = Colors.text
+TracerBtn.TextSize = 11
+TracerBtn.Font = Enum.Font.GothamBold
+TracerBtn.AutoButtonColor = false
+TracerBtn.Parent = BtnFrame
+Instance.new("UICorner", TracerBtn).CornerRadius = UDim.new(0, 6)
+addBtnGradient(TracerBtn)
+
+local UnspectateBtn = Instance.new("TextButton")
+UnspectateBtn.Size = UDim2.new(1, 0, 0, 28)
+UnspectateBtn.Position = UDim2.new(0, 0, 0, 107)
+UnspectateBtn.BackgroundColor3 = Colors.blood
+UnspectateBtn.Text = "🦇 UNSPECTATE"
+UnspectateBtn.TextColor3 = Colors.text
+UnspectateBtn.TextSize = 12
+UnspectateBtn.Font = Enum.Font.GothamBold
+UnspectateBtn.AutoButtonColor = false
+UnspectateBtn.Visible = false
+UnspectateBtn.Parent = BtnFrame
+Instance.new("UICorner", UnspectateBtn).CornerRadius = UDim.new(0, 6)
+addBtnGradient(UnspectateBtn)
+makeHoverable(UnspectateBtn, Colors.blood, Colors.glowRed)
 
 local Footer = Instance.new("Frame")
 Footer.Size = UDim2.new(1, 0, 0, 25)
@@ -313,7 +475,8 @@ Footer.Position = UDim2.new(0, 0, 1, -25)
 Footer.BackgroundColor3 = Colors.topbar
 Footer.BorderSizePixel = 0
 Footer.Parent = MainFrame
-Instance.new("UICorner", Footer).CornerRadius = UDim.new(0, 8)
+Instance.new("UICorner", Footer).CornerRadius = UDim.new(0, 10)
+addAccentLine(Footer, UDim2.new(0, 0, 0, 0), Colors.blood)
 
 local Credits = Instance.new("TextLabel")
 Credits.Size = UDim2.new(1, 0, 1, 0)
@@ -340,15 +503,20 @@ PreviewFrame.BorderSizePixel = 0
 PreviewFrame.Visible = false
 PreviewFrame.Parent = ScreenGui
 
-Instance.new("UIStroke", PreviewFrame).Color = Colors.blood
-Instance.new("UICorner", PreviewFrame).CornerRadius = UDim.new(0, 8)
+local previewStroke = Instance.new("UIStroke", PreviewFrame)
+previewStroke.Color = Colors.blood
+previewStroke.Thickness = 1.2
+Instance.new("UICorner", PreviewFrame).CornerRadius = UDim.new(0, 10)
+addGradient(PreviewFrame, Colors.surfaceLight, Color3.fromRGB(8, 8, 10), 90)
 
 local PreviewTopBar = Instance.new("Frame")
 PreviewTopBar.Size = UDim2.new(1, 0, 0, 40)
 PreviewTopBar.BackgroundColor3 = Colors.topbar
 PreviewTopBar.BorderSizePixel = 0
 PreviewTopBar.Parent = PreviewFrame
-Instance.new("UICorner", PreviewTopBar).CornerRadius = UDim.new(0, 8)
+Instance.new("UICorner", PreviewTopBar).CornerRadius = UDim.new(0, 10)
+addGradient(PreviewTopBar, Color3.fromRGB(40, 8, 8), Colors.topbar, 0)
+addAccentLine(PreviewTopBar, UDim2.new(0, 0, 1, -1), Colors.blood)
 
 local PreviewTitle = Instance.new("TextLabel")
 PreviewTitle.Size = UDim2.new(1, -80, 1, 0)
@@ -369,8 +537,10 @@ PreviewClose.Text = "X"
 PreviewClose.TextColor3 = Colors.text
 PreviewClose.TextSize = 14
 PreviewClose.Font = Enum.Font.GothamBold
+PreviewClose.AutoButtonColor = false
 PreviewClose.Parent = PreviewTopBar
-Instance.new("UICorner", PreviewClose).CornerRadius = UDim.new(0, 4)
+Instance.new("UICorner", PreviewClose).CornerRadius = UDim.new(0, 6)
+makeHoverable(PreviewClose, Colors.blood, Colors.glowRed)
 
 local Viewport = Instance.new("ViewportFrame")
 Viewport.Size = UDim2.new(1, -20, 0, 200)
@@ -381,8 +551,11 @@ Viewport.Ambient = Color3.fromRGB(200, 200, 200)
 Viewport.LightColor = Color3.fromRGB(255, 255, 255)
 Viewport.LightDirection = Vector3.new(-1, -1, -1)
 Viewport.Parent = PreviewFrame
-Instance.new("UICorner", Viewport).CornerRadius = UDim.new(0, 6)
-Instance.new("UIStroke", Viewport).Color = Colors.blood
+Instance.new("UICorner", Viewport).CornerRadius = UDim.new(0, 8)
+local vpStroke = Instance.new("UIStroke", Viewport)
+vpStroke.Color = Colors.glowRed
+vpStroke.Thickness = 1.5
+vpStroke.Transparency = 0.3
 
 local ViewportStatus = Instance.new("TextLabel")
 ViewportStatus.Size = UDim2.new(1, 0, 1, 0)
@@ -428,8 +601,11 @@ CopyBtn.Text = "🩸 COPY JSON"
 CopyBtn.TextColor3 = Colors.text
 CopyBtn.TextSize = 14
 CopyBtn.Font = Enum.Font.GothamBold
+CopyBtn.AutoButtonColor = false
 CopyBtn.Parent = PreviewFrame
 Instance.new("UICorner", CopyBtn).CornerRadius = UDim.new(0, 6)
+addBtnGradient(CopyBtn)
+makeHoverable(CopyBtn, Colors.blood, Colors.glowRed)
 
 local PreviewFooter = Instance.new("Frame")
 PreviewFooter.Size = UDim2.new(1, 0, 0, 25)
@@ -437,7 +613,8 @@ PreviewFooter.Position = UDim2.new(0, 0, 1, -25)
 PreviewFooter.BackgroundColor3 = Colors.topbar
 PreviewFooter.BorderSizePixel = 0
 PreviewFooter.Parent = PreviewFrame
-Instance.new("UICorner", PreviewFooter).CornerRadius = UDim.new(0, 8)
+Instance.new("UICorner", PreviewFooter).CornerRadius = UDim.new(0, 10)
+addAccentLine(PreviewFooter, UDim2.new(0, 0, 0, 0), Colors.blood)
 
 local PreviewCredits = Instance.new("TextLabel")
 PreviewCredits.Size = UDim2.new(1, 0, 1, 0)
@@ -464,15 +641,20 @@ SavePanel.BorderSizePixel = 0
 SavePanel.Visible = false
 SavePanel.Parent = ScreenGui
 
-Instance.new("UIStroke", SavePanel).Color = Color3.fromRGB(80, 40, 120)
-Instance.new("UICorner", SavePanel).CornerRadius = UDim.new(0, 8)
+local savePanelStroke = Instance.new("UIStroke", SavePanel)
+savePanelStroke.Color = Colors.purple
+savePanelStroke.Thickness = 1.2
+Instance.new("UICorner", SavePanel).CornerRadius = UDim.new(0, 10)
+addGradient(SavePanel, Color3.fromRGB(20, 14, 28), Colors.bg, 90)
 
 local SaveTopBar = Instance.new("Frame")
 SaveTopBar.Size = UDim2.new(1, 0, 0, 40)
 SaveTopBar.BackgroundColor3 = Colors.topbar
 SaveTopBar.BorderSizePixel = 0
 SaveTopBar.Parent = SavePanel
-Instance.new("UICorner", SaveTopBar).CornerRadius = UDim.new(0, 8)
+Instance.new("UICorner", SaveTopBar).CornerRadius = UDim.new(0, 10)
+addGradient(SaveTopBar, Color3.fromRGB(30, 14, 45), Colors.topbar, 0)
+addAccentLine(SaveTopBar, UDim2.new(0, 0, 1, -1), Colors.purple)
 
 local SaveTopBarFix = Instance.new("Frame")
 SaveTopBarFix.Size = UDim2.new(1, 0, 0, 10)
@@ -486,7 +668,7 @@ SaveTitle.Size = UDim2.new(1, -80, 1, 0)
 SaveTitle.Position = UDim2.new(0, 10, 0, 0)
 SaveTitle.BackgroundTransparency = 1
 SaveTitle.Text = "💾 Save Instance"
-SaveTitle.TextColor3 = Color3.fromRGB(160, 100, 220)
+SaveTitle.TextColor3 = Colors.purpleLight
 SaveTitle.TextSize = 14
 SaveTitle.Font = Enum.Font.GothamBold
 SaveTitle.TextXAlignment = Enum.TextXAlignment.Left
@@ -495,20 +677,22 @@ SaveTitle.Parent = SaveTopBar
 local SavePanelClose = Instance.new("TextButton")
 SavePanelClose.Size = UDim2.new(0, 25, 0, 25)
 SavePanelClose.Position = UDim2.new(1, -32, 0, 7)
-SavePanelClose.BackgroundColor3 = Color3.fromRGB(80, 40, 120)
+SavePanelClose.BackgroundColor3 = Colors.purple
 SavePanelClose.Text = "X"
 SavePanelClose.TextColor3 = Colors.text
 SavePanelClose.TextSize = 14
 SavePanelClose.Font = Enum.Font.GothamBold
+SavePanelClose.AutoButtonColor = false
 SavePanelClose.Parent = SaveTopBar
-Instance.new("UICorner", SavePanelClose).CornerRadius = UDim.new(0, 4)
+Instance.new("UICorner", SavePanelClose).CornerRadius = UDim.new(0, 6)
+makeHoverable(SavePanelClose, Colors.purple, Colors.purpleLight)
 
 -- Nome do arquivo
 local FileNameLabel = Instance.new("TextLabel")
 FileNameLabel.Size = UDim2.new(1, -20, 0, 16)
 FileNameLabel.Position = UDim2.new(0, 10, 0, 50)
 FileNameLabel.BackgroundTransparency = 1
-FileNameLabel.Text = "Nome do arquivo:"
+FileNameLabel.Text = "File name:"
 FileNameLabel.TextColor3 = Colors.textDim
 FileNameLabel.TextSize = 11
 FileNameLabel.Font = Enum.Font.GothamBold
@@ -518,7 +702,7 @@ FileNameLabel.Parent = SavePanel
 local FileNameBox = Instance.new("TextBox")
 FileNameBox.Size = UDim2.new(1, -20, 0, 30)
 FileNameBox.Position = UDim2.new(0, 10, 0, 68)
-FileNameBox.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+FileNameBox.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
 FileNameBox.Text = ""
 FileNameBox.PlaceholderText = "auto: PlaceId_Data"
 FileNameBox.TextColor3 = Colors.text
@@ -527,8 +711,24 @@ FileNameBox.TextSize = 12
 FileNameBox.Font = Enum.Font.Code
 FileNameBox.ClearTextOnFocus = false
 FileNameBox.Parent = SavePanel
-Instance.new("UICorner", FileNameBox).CornerRadius = UDim.new(0, 4)
-Instance.new("UIStroke", FileNameBox).Color = Color3.fromRGB(60, 60, 60)
+Instance.new("UICorner", FileNameBox).CornerRadius = UDim.new(0, 6)
+local fileBoxStroke = Instance.new("UIStroke", FileNameBox)
+fileBoxStroke.Color = Color3.fromRGB(50, 50, 60)
+fileBoxStroke.Thickness = 1
+
+-- Focus glow no input
+FileNameBox.Focused:Connect(function()
+    TweenService:Create(fileBoxStroke, TweenInfo.new(0.2), {
+        Color = Colors.purpleLight,
+        Thickness = 1.5,
+    }):Play()
+end)
+FileNameBox.FocusLost:Connect(function()
+    TweenService:Create(fileBoxStroke, TweenInfo.new(0.3), {
+        Color = Color3.fromRGB(50, 50, 60),
+        Thickness = 1,
+    }):Play()
+end)
 
 -- Toggles container
 local ToggleStart = 110
@@ -566,19 +766,43 @@ local function createToggle(label, key, yPos)
     btn.Position = UDim2.new(1, -44, 0, 3)
     btn.TextSize = 10
     btn.Font = Enum.Font.GothamBold
+    btn.AutoButtonColor = false
     btn.Parent = row
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
 
     local function refresh()
         local on = saveConfigState[key]
         btn.Text = on and "ON" or "OFF"
-        btn.BackgroundColor3 = on and Color3.fromRGB(40, 120, 40) or Color3.fromRGB(60, 30, 30)
+        local targetColor = on and Colors.green or Color3.fromRGB(50, 25, 25)
+        TweenService:Create(btn, TweenInfo.new(0.15), {
+            BackgroundColor3 = targetColor,
+        }):Play()
         btn.TextColor3 = Colors.text
     end
 
     btn.MouseButton1Click:Connect(function()
         saveConfigState[key] = not saveConfigState[key]
         refresh()
+    end)
+
+    -- Hover effect
+    local function getColor()
+        return saveConfigState[key] and Colors.green or Color3.fromRGB(50, 25, 25)
+    end
+    btn.MouseEnter:Connect(function()
+        local base = getColor()
+        TweenService:Create(btn, TweenInfo.new(0.15), {
+            BackgroundColor3 = Color3.new(
+                math.min(base.R + 0.06, 1),
+                math.min(base.G + 0.06, 1),
+                math.min(base.B + 0.06, 1)
+            ),
+        }):Play()
+    end)
+    btn.MouseLeave:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.2), {
+            BackgroundColor3 = getColor(),
+        }):Play()
     end)
 
     refresh()
@@ -593,30 +817,35 @@ createToggle("Non-Creatable", "SaveNonCreatable", ToggleStart + 120)
 createToggle("Isolate LocalPlayer", "IsolateLocalPlayer", ToggleStart + 150)
 createToggle("Camera Instances", "SaveCameraInstances", ToggleStart + 180)
 
--- Botao SALVAR
 -- Botao SAVE (usa config dos toggles)
 local ConfirmSaveBtn = Instance.new("TextButton")
 ConfirmSaveBtn.Size = UDim2.new(0.5, -15, 0, 36)
 ConfirmSaveBtn.Position = UDim2.new(0, 10, 1, -50)
-ConfirmSaveBtn.BackgroundColor3 = Color3.fromRGB(80, 40, 120)
+ConfirmSaveBtn.BackgroundColor3 = Colors.purple
 ConfirmSaveBtn.Text = "💾 SAVE"
 ConfirmSaveBtn.TextColor3 = Colors.text
 ConfirmSaveBtn.TextSize = 13
 ConfirmSaveBtn.Font = Enum.Font.GothamBold
+ConfirmSaveBtn.AutoButtonColor = false
 ConfirmSaveBtn.Parent = SavePanel
 Instance.new("UICorner", ConfirmSaveBtn).CornerRadius = UDim.new(0, 6)
+addBtnGradient(ConfirmSaveBtn)
+makeHoverable(ConfirmSaveBtn, Colors.purple, Colors.purpleLight)
 
 -- Botao SAVE ALL (ignora config, salva tudo padrao)
 local SaveAllBtn = Instance.new("TextButton")
 SaveAllBtn.Size = UDim2.new(0.5, -15, 0, 36)
 SaveAllBtn.Position = UDim2.new(0.5, 5, 1, -50)
-SaveAllBtn.BackgroundColor3 = Color3.fromRGB(40, 100, 40)
+SaveAllBtn.BackgroundColor3 = Colors.green
 SaveAllBtn.Text = "⚡ SAVE ALL"
 SaveAllBtn.TextColor3 = Colors.text
 SaveAllBtn.TextSize = 13
 SaveAllBtn.Font = Enum.Font.GothamBold
+SaveAllBtn.AutoButtonColor = false
 SaveAllBtn.Parent = SavePanel
 Instance.new("UICorner", SaveAllBtn).CornerRadius = UDim.new(0, 6)
+addBtnGradient(SaveAllBtn)
+makeHoverable(SaveAllBtn, Colors.green, Colors.greenLight)
 
 
 --[[ ═══════ MODULE: 06_helpers.luau ═══════ ]]
@@ -1111,12 +1340,32 @@ end)
 task.spawn(function()
     while MiniBar and MiniBar.Parent do
         local t1 = TweenService:Create(avatarStroke, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-            Color = Colors.bloodLight,
+            Color = Colors.glowRed,
+            Thickness = 2,
         })
         t1:Play()
         t1.Completed:Wait()
         local t2 = TweenService:Create(avatarStroke, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
             Color = Colors.blood,
+            Thickness = 1.5,
+        })
+        t2:Play()
+        t2.Completed:Wait()
+    end
+end)
+
+-- Pulso sutil no stroke principal da MiniBar
+task.spawn(function()
+    while MiniBar and MiniBar.Parent do
+        local t1 = TweenService:Create(miniStroke, TweenInfo.new(2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+            Thickness = 2,
+            Transparency = 0,
+        })
+        t1:Play()
+        t1.Completed:Wait()
+        local t2 = TweenService:Create(miniStroke, TweenInfo.new(2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+            Thickness = 1.2,
+            Transparency = 0.2,
         })
         t2:Play()
         t2.Completed:Wait()
@@ -1184,23 +1433,33 @@ local function toggleScanner()
     end
 end
 
--- MiniBar hover effect
+-- MiniBar hover effect (premium)
 MiniBar.MouseEnter:Connect(function()
     TweenService:Create(miniStroke, TweenInfo.new(0.2), {
-        Color = Colors.bloodLight,
-        Thickness = 2,
+        Color = Colors.glowRed,
+        Thickness = 2.5,
+        Transparency = 0,
     }):Play()
     TweenService:Create(MiniBar, TweenInfo.new(0.2), {
-        BackgroundColor3 = Color3.fromRGB(22, 22, 22),
+        BackgroundColor3 = Colors.surfaceLight,
+    }):Play()
+    TweenService:Create(miniSep, TweenInfo.new(0.2), {
+        BackgroundTransparency = 0.2,
+        BackgroundColor3 = Colors.glowRed,
     }):Play()
 end)
 MiniBar.MouseLeave:Connect(function()
     TweenService:Create(miniStroke, TweenInfo.new(0.3), {
         Color = Colors.blood,
         Thickness = 1.5,
+        Transparency = 0,
     }):Play()
     TweenService:Create(MiniBar, TweenInfo.new(0.3), {
         BackgroundColor3 = Colors.bg,
+    }):Play()
+    TweenService:Create(miniSep, TweenInfo.new(0.3), {
+        BackgroundTransparency = 0.5,
+        BackgroundColor3 = Colors.blood,
     }):Play()
 end)
 
@@ -1471,19 +1730,59 @@ local function clearResults()
 end
 
 local function createResultCard(info)
+    local accentColor = info.type == "PLAYER" and Colors.blood or Colors.green
+
     local Card = Instance.new("Frame")
     Card.Size = UDim2.new(1, -10, 0, 70)
     Card.BackgroundColor3 = Colors.card
     Card.BorderSizePixel = 0
     Card.Parent = ScrollFrame
-    Instance.new("UICorner", Card).CornerRadius = UDim.new(0, 6)
+    Instance.new("UICorner", Card).CornerRadius = UDim.new(0, 8)
+    addGradient(Card, Colors.surfaceLight, Colors.card, 0)
+
+    -- Card stroke (hidden, shows on hover)
+    local cardStroke = Instance.new("UIStroke", Card)
+    cardStroke.Color = accentColor
+    cardStroke.Thickness = 1
+    cardStroke.Transparency = 1
+
+    -- Left accent bar
+    local accentBar = Instance.new("Frame")
+    accentBar.Size = UDim2.new(0, 3, 1, -8)
+    accentBar.Position = UDim2.new(0, 0, 0, 4)
+    accentBar.BackgroundColor3 = accentColor
+    accentBar.BorderSizePixel = 0
+    accentBar.Parent = Card
+    Instance.new("UICorner", accentBar).CornerRadius = UDim.new(0, 2)
+
+    -- Card hover effect
+    Card.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement then
+            TweenService:Create(cardStroke, TweenInfo.new(0.15), {
+                Transparency = 0.3,
+            }):Play()
+            TweenService:Create(Card, TweenInfo.new(0.15), {
+                BackgroundColor3 = Colors.surfaceLight,
+            }):Play()
+        end
+    end)
+    Card.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement then
+            TweenService:Create(cardStroke, TweenInfo.new(0.2), {
+                Transparency = 1,
+            }):Play()
+            TweenService:Create(Card, TweenInfo.new(0.2), {
+                BackgroundColor3 = Colors.card,
+            }):Play()
+        end
+    end)
 
     info.cardFrame = Card
 
     local TypeBadge = Instance.new("Frame")
     TypeBadge.Size = UDim2.new(0, 50, 0, 16)
     TypeBadge.Position = UDim2.new(1, -58, 0, 5)
-    TypeBadge.BackgroundColor3 = info.type == "PLAYER" and Colors.green or Colors.blood
+    TypeBadge.BackgroundColor3 = accentColor
     TypeBadge.Parent = Card
     Instance.new("UICorner", TypeBadge).CornerRadius = UDim.new(0, 4)
 
@@ -1498,7 +1797,7 @@ local function createResultCard(info)
 
     local NameLabel = Instance.new("TextLabel")
     NameLabel.Size = UDim2.new(1, -65, 0, 18)
-    NameLabel.Position = UDim2.new(0, 8, 0, 5)
+    NameLabel.Position = UDim2.new(0, 12, 0, 5)
     NameLabel.BackgroundTransparency = 1
     NameLabel.Text = info.name
     NameLabel.TextColor3 = Colors.bloodLight
@@ -1510,9 +1809,9 @@ local function createResultCard(info)
 
     local StatusLabel = Instance.new("TextLabel")
     StatusLabel.Size = UDim2.new(1, -10, 0, 14)
-    StatusLabel.Position = UDim2.new(0, 8, 0, 22)
+    StatusLabel.Position = UDim2.new(0, 12, 0, 22)
     StatusLabel.BackgroundTransparency = 1
-    StatusLabel.Text = "Clique VIEW"
+    StatusLabel.Text = "Click VIEW"
     StatusLabel.TextColor3 = Colors.textDim
     StatusLabel.TextSize = 10
     StatusLabel.Font = Enum.Font.Gotham
@@ -1524,14 +1823,16 @@ local function createResultCard(info)
     -- Botoes
     local ViewBtn = Instance.new("TextButton")
     ViewBtn.Size = UDim2.new(0, 50, 0, 20)
-    ViewBtn.Position = UDim2.new(0, 8, 1, -26)
+    ViewBtn.Position = UDim2.new(0, 12, 1, -26)
     ViewBtn.BackgroundColor3 = Colors.blood
     ViewBtn.Text = "VIEW"
     ViewBtn.TextColor3 = Colors.text
     ViewBtn.TextSize = 10
     ViewBtn.Font = Enum.Font.GothamBold
+    ViewBtn.AutoButtonColor = false
     ViewBtn.Parent = Card
     Instance.new("UICorner", ViewBtn).CornerRadius = UDim.new(0, 4)
+    makeHoverable(ViewBtn, Colors.blood, Colors.glowRed)
 
     ViewBtn.MouseButton1Click:Connect(function()
         showPreview(info)
@@ -1539,14 +1840,16 @@ local function createResultCard(info)
 
     local TPBtn = Instance.new("TextButton")
     TPBtn.Size = UDim2.new(0, 35, 0, 20)
-    TPBtn.Position = UDim2.new(0, 63, 1, -26)
+    TPBtn.Position = UDim2.new(0, 67, 1, -26)
     TPBtn.BackgroundColor3 = Colors.green
     TPBtn.Text = "TP"
     TPBtn.TextColor3 = Colors.text
     TPBtn.TextSize = 10
     TPBtn.Font = Enum.Font.GothamBold
+    TPBtn.AutoButtonColor = false
     TPBtn.Parent = Card
     Instance.new("UICorner", TPBtn).CornerRadius = UDim.new(0, 4)
+    makeHoverable(TPBtn, Colors.green, Colors.greenLight)
 
     TPBtn.MouseButton1Click:Connect(function()
         local myHRP = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
@@ -1563,15 +1866,34 @@ local function createResultCard(info)
     end)
 
     local JSONBtn = Instance.new("TextButton")
-    JSONBtn.Size = UDim2.new(0, 45, 0, 20)
-    JSONBtn.Position = UDim2.new(0, 103, 1, -26)
+    JSONBtn.Size = UDim2.new(0, 40, 0, 20)
+    JSONBtn.Position = UDim2.new(0, 107, 1, -26)
     JSONBtn.BackgroundColor3 = Colors.bloodDark
     JSONBtn.Text = "JSON"
     JSONBtn.TextColor3 = Colors.text
     JSONBtn.TextSize = 10
     JSONBtn.Font = Enum.Font.GothamBold
+    JSONBtn.AutoButtonColor = false
     JSONBtn.Parent = Card
     Instance.new("UICorner", JSONBtn).CornerRadius = UDim.new(0, 4)
+    makeHoverable(JSONBtn, Colors.bloodDark, Colors.blood)
+
+    local SpecBtn = Instance.new("TextButton")
+    SpecBtn.Size = UDim2.new(0, 40, 0, 20)
+    SpecBtn.Position = UDim2.new(0, 152, 1, -26)
+    SpecBtn.BackgroundColor3 = Color3.fromRGB(80, 25, 25)
+    SpecBtn.Text = "SPEC"
+    SpecBtn.TextColor3 = Colors.text
+    SpecBtn.TextSize = 10
+    SpecBtn.Font = Enum.Font.GothamBold
+    SpecBtn.AutoButtonColor = false
+    SpecBtn.Parent = Card
+    Instance.new("UICorner", SpecBtn).CornerRadius = UDim.new(0, 4)
+    makeHoverable(SpecBtn, Color3.fromRGB(80, 25, 25), Color3.fromRGB(120, 35, 35))
+
+    SpecBtn.MouseButton1Click:Connect(function()
+        startSpectate(info)
+    end)
 
     JSONBtn.MouseButton1Click:Connect(function()
         if not info.loaded then
@@ -1659,7 +1981,301 @@ local function runScan()
 end
 
 
---[[ ═══════ MODULE: 12_events.luau ═══════ ]]
+--[[ ═══════ MODULE: 12_spectate.luau ═══════ ]]
+
+--==================================================
+-- SPECTATE MODE
+--==================================================
+
+local function startSpectate(info)
+    -- Pega o character atual do target
+    local targetChar = info.character
+    if info.player and info.player.Character then
+        targetChar = info.player.Character
+    end
+
+    if not targetChar then
+        log("Spectate: character not found")
+        return
+    end
+
+    local humanoid = targetChar:FindFirstChildOfClass("Humanoid")
+    if not humanoid then
+        log("Spectate: no Humanoid found")
+        return
+    end
+
+    -- Se ja ta spectando o mesmo, desspecta
+    if spectatingInfo and spectatingInfo == info then
+        stopSpectate()
+        return
+    end
+
+    -- Limpa spectate anterior
+    if spectatingInfo then
+        stopSpectate()
+    end
+
+    -- Salva camera original
+    local camera = workspace.CurrentCamera
+    savedCameraSubject = camera.CameraSubject
+
+    -- Seta camera no target
+    camera.CameraSubject = humanoid
+    spectatingInfo = info
+
+    -- Cria Highlight blood no character
+    if spectateHighlight then
+        spectateHighlight:Destroy()
+    end
+    spectateHighlight = Instance.new("Highlight")
+    spectateHighlight.Name = "VampSpectateHL"
+    spectateHighlight.FillColor = Colors.blood
+    spectateHighlight.FillTransparency = 0.7
+    spectateHighlight.OutlineColor = Colors.bloodLight
+    spectateHighlight.OutlineTransparency = 0
+    spectateHighlight.Adornee = targetChar
+    spectateHighlight.Parent = targetChar
+
+    -- Mostra botao unspectate
+    UnspectateBtn.Visible = true
+    UnspectateBtn.Text = "🦇 UNSPECTATE (" .. info.name .. ")"
+
+    log("Spectating:", info.name)
+end
+
+local function stopSpectate()
+    if not spectatingInfo then return end
+
+    -- Restaura camera
+    local camera = workspace.CurrentCamera
+    if savedCameraSubject then
+        camera.CameraSubject = savedCameraSubject
+        savedCameraSubject = nil
+    else
+        -- Fallback: volta pro character local
+        local localChar = LP.Character
+        if localChar then
+            local hum = localChar:FindFirstChildOfClass("Humanoid")
+            if hum then
+                camera.CameraSubject = hum
+            end
+        end
+    end
+
+    -- Remove highlight
+    if spectateHighlight then
+        spectateHighlight:Destroy()
+        spectateHighlight = nil
+    end
+
+    spectatingInfo = nil
+    UnspectateBtn.Visible = false
+
+    log("Spectate stopped")
+end
+
+
+--[[ ═══════ MODULE: 13_tracer.luau ═══════ ]]
+
+--==================================================
+-- TRACER / ESP WALL
+--==================================================
+
+local function createESP(target, espName, espColor, isCamera)
+    local existing = target:FindFirstChild("VampESP_BG")
+    if existing then return end
+
+    -- Highlight outline
+    local hl = Instance.new("Highlight")
+    hl.Name = "VampESP_HL"
+    hl.FillColor = espColor
+    hl.FillTransparency = 0.85
+    hl.OutlineColor = espColor
+    hl.OutlineTransparency = 0.2
+    hl.Adornee = target
+    hl.Parent = target
+
+    -- BillboardGui com nome e distancia
+    local bg = Instance.new("BillboardGui")
+    bg.Name = "VampESP_BG"
+    bg.Size = UDim2.new(0, 200, 0, 50)
+    bg.StudsOffset = Vector3.new(0, isCamera and 2 or 4, 0)
+    bg.AlwaysOnTop = true
+    bg.Adornee = target
+    bg.Parent = target
+
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Name = "ESPName"
+    nameLabel.Size = UDim2.new(1, 0, 0.5, 0)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Text = espName
+    nameLabel.TextColor3 = espColor
+    nameLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    nameLabel.TextStrokeTransparency = 0.3
+    nameLabel.TextSize = 14
+    nameLabel.Font = Enum.Font.GothamBold
+    nameLabel.Parent = bg
+
+    local distLabel = Instance.new("TextLabel")
+    distLabel.Name = "ESPDist"
+    distLabel.Size = UDim2.new(1, 0, 0.5, 0)
+    distLabel.Position = UDim2.new(0, 0, 0.5, 0)
+    distLabel.BackgroundTransparency = 1
+    distLabel.Text = "? studs"
+    distLabel.TextColor3 = Colors.textDim
+    distLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    distLabel.TextStrokeTransparency = 0.3
+    distLabel.TextSize = 11
+    distLabel.Font = Enum.Font.Gotham
+    distLabel.Parent = bg
+
+    local typeLabel = Instance.new("TextLabel")
+    typeLabel.Name = "ESPType"
+    typeLabel.Size = UDim2.new(1, 0, 0, 12)
+    typeLabel.Position = UDim2.new(0, 0, 1, 0)
+    typeLabel.BackgroundTransparency = 1
+    typeLabel.Text = isCamera and "📷 CAMERA" or ""
+    typeLabel.TextColor3 = Color3.fromRGB(255, 200, 100)
+    typeLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    typeLabel.TextStrokeTransparency = 0.3
+    typeLabel.TextSize = 10
+    typeLabel.Font = Enum.Font.GothamBold
+    typeLabel.Parent = bg
+
+    table.insert(tracerESPs, {
+        target = target,
+        highlight = hl,
+        billboard = bg,
+        nameLabel = nameLabel,
+        distLabel = distLabel,
+        isCamera = isCamera,
+    })
+end
+
+local function removeESP(target)
+    local hl = target:FindFirstChild("VampESP_HL")
+    if hl then hl:Destroy() end
+    local bg = target:FindFirstChild("VampESP_BG")
+    if bg then bg:Destroy() end
+end
+
+local function clearTracer()
+    -- Desconecta RenderStepped
+    if tracerConnection then
+        tracerConnection:Disconnect()
+        tracerConnection = nil
+    end
+
+    -- Remove todos os ESPs
+    for _, esp in ipairs(tracerESPs) do
+        if esp.target and esp.target.Parent then
+            removeESP(esp.target)
+        end
+    end
+    tracerESPs = {}
+end
+
+local function startTracer()
+    clearTracer()
+
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+
+    -- ESP em todos os players
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LP then
+            local char = player.Character
+            if char and char:FindFirstChildOfClass("Humanoid") then
+                createESP(char, player.Name, Colors.bloodLight, false)
+            end
+        end
+    end
+
+    -- ESP em NPCs (models com Humanoid que nao sao players)
+    local playerChars = {}
+    for _, p in pairs(Players:GetPlayers()) do
+        if p.Character then playerChars[p.Character] = true end
+    end
+
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj:IsA("Model") and obj:FindFirstChildOfClass("Humanoid") and not playerChars[obj] then
+            createESP(obj, obj.Name, Colors.green, false)
+        end
+    end
+
+    -- ESP em cameras (objetos Camera ou Parts com nome de camera)
+    local cameraKeywords = { "camera", "cam", "cctv", "security", "surveillance", "monitor" }
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj:IsA("Camera") and obj ~= workspace.CurrentCamera then
+            createESP(obj, obj.Name, Color3.fromRGB(255, 200, 100), true)
+        elseif (obj:IsA("BasePart") or obj:IsA("Model")) and not obj:FindFirstChild("VampESP_BG") then
+            local lowerName = obj.Name:lower()
+            for _, keyword in ipairs(cameraKeywords) do
+                if lowerName:find(keyword) then
+                    local target = obj:IsA("Model") and obj or obj
+                    createESP(target, obj.Name, Color3.fromRGB(255, 200, 100), true)
+                    break
+                end
+            end
+        end
+    end
+
+    -- Update loop: atualiza distancias
+    tracerConnection = RunService.RenderStepped:Connect(function()
+        local char = LP.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
+
+        local myPos = hrp.Position
+
+        for i = #tracerESPs, 1, -1 do
+            local esp = tracerESPs[i]
+            if not esp.target or not esp.target.Parent then
+                -- Target sumiu, limpa
+                table.remove(tracerESPs, i)
+            else
+                local targetPos
+                if esp.target:IsA("Model") then
+                    local tHRP = esp.target:FindFirstChild("HumanoidRootPart")
+                        or esp.target:FindFirstChild("Head")
+                        or esp.target.PrimaryPart
+                    if tHRP then
+                        targetPos = tHRP.Position
+                    end
+                elseif esp.target:IsA("BasePart") then
+                    targetPos = esp.target.Position
+                elseif esp.target:IsA("Camera") then
+                    targetPos = esp.target.CFrame.Position
+                end
+
+                if targetPos then
+                    local dist = math.floor((myPos - targetPos).Magnitude)
+                    esp.distLabel.Text = dist .. " studs"
+                end
+            end
+        end
+    end)
+
+    log("Tracer ON:", #tracerESPs, "targets")
+end
+
+local function toggleTracer()
+    tracerActive = not tracerActive
+
+    if tracerActive then
+        startTracer()
+        TracerBtn.Text = "👁 TRACER ON"
+        TracerBtn.BackgroundColor3 = Colors.green
+    else
+        clearTracer()
+        TracerBtn.Text = "👁 TRACER OFF"
+        TracerBtn.BackgroundColor3 = Color3.fromRGB(60, 30, 30)
+    end
+end
+
+
+--[[ ═══════ MODULE: 14_events.luau ═══════ ]]
 
 --==================================================
 -- EVENTS
@@ -1740,12 +2356,24 @@ SaveAllBtn.MouseButton1Click:Connect(function()
         task.delay(3, function() SaveAllBtn.Text = "⚡ SAVE ALL" end)
     end)
 end)
+-- Spectate
+UnspectateBtn.MouseButton1Click:Connect(function()
+    stopSpectate()
+end)
+
+-- Tracer toggle
+TracerBtn.MouseButton1Click:Connect(function()
+    toggleTracer()
+end)
+
 PreviewClose.MouseButton1Click:Connect(function()
     clearPreview()
     PreviewFrame.Visible = false
 end)
 -- X fecha tudo (destroy)
 CloseBtn.MouseButton1Click:Connect(function()
+    stopSpectate()
+    clearTracer()
     clearPreview()
     clearResults()
     ScreenGui:Destroy()
@@ -1773,7 +2401,7 @@ end)
 --==================================================
 
 log("══════════════════════════════════════")
-log("VAMPIRE RIG SCANNER v10")
+log("VAMPIRE RIG SCANNER v12")
 log("Create By VampireSonata")
 log("══════════════════════════════════════")
 log("MiniBar mode! Ctrl+G to toggle")
