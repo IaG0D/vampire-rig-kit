@@ -1121,98 +1121,354 @@ scanRemotes = function()
     log("Scanned remotes:", #scannedRemotes)
 end
 
+--==================================================
+-- SERIALIZE ARG — converte valor Lua em codigo copiavel
+--==================================================
+
+serializeArg = function(value)
+    local t = typeof(value)
+    if t == "string" then
+        return '"' .. value:gsub('\\', '\\\\'):gsub('"', '\\"'):gsub('\n', '\\n') .. '"'
+    elseif t == "number" then
+        return tostring(value)
+    elseif t == "boolean" then
+        return tostring(value)
+    elseif t == "nil" then
+        return "nil"
+    elseif t == "Instance" then
+        return "game." .. value:GetFullName()
+    elseif t == "Vector3" then
+        return string.format("Vector3.new(%s, %s, %s)", value.X, value.Y, value.Z)
+    elseif t == "CFrame" then
+        local c = {value:GetComponents()}
+        return "CFrame.new(" .. table.concat(c, ", ") .. ")"
+    elseif t == "Color3" then
+        return string.format("Color3.new(%s, %s, %s)", value.R, value.G, value.B)
+    elseif t == "UDim2" then
+        return string.format("UDim2.new(%s, %s, %s, %s)", value.X.Scale, value.X.Offset, value.Y.Scale, value.Y.Offset)
+    elseif t == "EnumItem" then
+        return tostring(value)
+    elseif t == "table" then
+        local parts = {}
+        for k, v in pairs(value) do
+            if type(k) == "number" then
+                table.insert(parts, serializeArg(v))
+            else
+                table.insert(parts, "[" .. serializeArg(k) .. "] = " .. serializeArg(v))
+            end
+        end
+        return "{" .. table.concat(parts, ", ") .. "}"
+    else
+        return "nil --[[ " .. t .. ": " .. tostring(value) .. " ]]"
+    end
+end
+
+--==================================================
+-- COPY LOG ENTRY — gera script e copia pro clipboard
+--==================================================
+
+copyLogEntry = function(entry)
+    local argParts = {}
+    for _, arg in ipairs(entry.args) do
+        pcall(function()
+            table.insert(argParts, serializeArg(arg))
+        end)
+    end
+    local argsStr = table.concat(argParts, ", ")
+
+    local script = ""
+    -- Comentario com caller se disponivel
+    if entry.caller and entry.caller ~= "" then
+        script = script .. "-- Caller: " .. entry.caller .. "\n"
+    end
+    -- Comentario com return se disponivel
+    if entry.returnValue then
+        script = script .. "-- Return: " .. entry.returnValue .. "\n"
+    end
+    -- Comando principal
+    script = script .. "game." .. entry.path .. ":" .. entry.method .. "(" .. argsStr .. ")"
+
+    pcall(function()
+        if setclipboard then
+            setclipboard(script)
+        elseif toclipboard then
+            toclipboard(script)
+        end
+    end)
+    notify("Script copied!", "success")
+    log("Copied script:", script:sub(1, 100))
+end
+
+--==================================================
+-- EXPORT SPY LOG — copia log inteiro pro clipboard
+--==================================================
+
+exportSpyLog = function()
+    if #remoteSpyLog == 0 then
+        notify("Spy log is empty", "warning")
+        return
+    end
+
+    local lines = {}
+    table.insert(lines, "-- Remote Spy Log Export")
+    table.insert(lines, "-- " .. #remoteSpyLog .. " entries")
+    table.insert(lines, "")
+
+    for idx, entry in ipairs(remoteSpyLog) do
+        local secs = math.floor(entry.time % 60)
+        local mins = math.floor((entry.time / 60) % 60)
+        local hrs = math.floor((entry.time / 3600) % 24)
+        local timeStr = string.format("%02d:%02d:%02d", hrs, mins, secs)
+
+        local argParts = {}
+        for _, arg in ipairs(entry.args) do
+            pcall(function()
+                table.insert(argParts, serializeArg(arg))
+            end)
+        end
+        local argsStr = table.concat(argParts, ", ")
+
+        local line = "-- [" .. timeStr .. "]"
+        if entry.caller and entry.caller ~= "" then
+            line = line .. " from " .. entry.caller
+        end
+        table.insert(lines, line)
+        local cmd = "game." .. entry.path .. ":" .. entry.method .. "(" .. argsStr .. ")"
+        if entry.returnValue then
+            cmd = cmd .. " -- → " .. entry.returnValue
+        end
+        table.insert(lines, cmd)
+        table.insert(lines, "")
+    end
+
+    local fullText = table.concat(lines, "\n")
+    pcall(function()
+        if setclipboard then
+            setclipboard(fullText)
+        elseif toclipboard then
+            toclipboard(fullText)
+        end
+    end)
+    notify("Exported " .. #remoteSpyLog .. " entries to clipboard!", "success")
+end
+
+--==================================================
+-- SPY HOOK — com block, call counter, caller, return logger
+--==================================================
+
 startRemoteSpy = function()
     if remoteSpyActive then return end
-
-    -- Checa se executor suporta hookmetamethod
-    if not hookmetamethod then
-        notify("hookmetamethod not supported", "error")
-        return false
-    end
-    if not getnamecallmethod then
-        notify("getnamecallmethod not supported", "error")
-        return false
-    end
-    if not newcclosure then
-        notify("newcclosure not supported", "error")
-        return false
-    end
 
     remoteSpyActive = true
     remoteSpyLog = {}
 
-    pcall(function()
-        remoteSpyHook = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
-            local method = getnamecallmethod()
-            if remoteSpyActive and (method == "FireServer" or method == "InvokeServer") then
-                local isRemote = false
-                pcall(function()
-                    isRemote = self:IsA("RemoteEvent") or self:IsA("RemoteFunction")
-                end)
-                if isRemote then
-                    local entry = {
-                        time = os.clock(),
-                        name = "?",
-                        path = "?",
-                        method = method,
-                        args = {...},
-                    }
-                    pcall(function() entry.name = self.Name end)
-                    pcall(function() entry.path = self:GetFullName() end)
-                    table.insert(remoteSpyLog, entry)
-                    if #remoteSpyLog > 200 then
-                        table.remove(remoteSpyLog, 1)
-                    end
-                    -- Refresh UI (safe)
-                    pcall(function() refreshRemoteSpyLog() end)
-                end
-            end
-            return remoteSpyHook(self, ...)
-        end))
-    end)
+    -- So instala hook uma vez (evita double-hook)
+    if not remoteSpyHook then
+        -- Checa se executor suporta
+        if not hookmetamethod then
+            remoteSpyActive = false
+            notify("hookmetamethod not supported", "error")
+            return false
+        end
+        if not getnamecallmethod then
+            remoteSpyActive = false
+            notify("getnamecallmethod not supported", "error")
+            return false
+        end
+        if not newcclosure then
+            remoteSpyActive = false
+            notify("newcclosure not supported", "error")
+            return false
+        end
 
-    if remoteSpyHook then
-        notify("Remote Spy ON — logging calls", "success")
-        RemoteSpyStatusLabel.Text = "Spy: ON (logging...)"
-        RemoteSpyStatusLabel.TextColor3 = Color3.fromRGB(100, 220, 200)
-        RemoteSpyToggleBtn.Text = "⏹ STOP SPY"
-        RemoteSpyToggleBtn.BackgroundColor3 = Color3.fromRGB(180, 60, 30)
-        return true
-    else
-        remoteSpyActive = false
-        notify("Failed to hook __namecall", "error")
-        return false
+        pcall(function()
+            remoteSpyHook = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+                local method = getnamecallmethod()
+                if method == "FireServer" or method == "InvokeServer" then
+                    local isRemote = false
+                    pcall(function()
+                        isRemote = self:IsA("RemoteEvent") or self:IsA("RemoteFunction")
+                    end)
+                    if isRemote then
+                        local remotePath = "?"
+                        pcall(function() remotePath = self:GetFullName() end)
+
+                        -- Call counter (sempre ativo)
+                        remoteCallCounts[remotePath] = (remoteCallCounts[remotePath] or 0) + 1
+
+                        -- Block check (sempre ativo)
+                        if blockedRemotes[remotePath] then
+                            return nil
+                        end
+
+                        -- Log apenas se spy ativo
+                        if remoteSpyActive then
+                            -- Caller script
+                            local caller = ""
+                            pcall(function()
+                                if getcallingscript then
+                                    local cs = getcallingscript()
+                                    if cs then caller = cs:GetFullName() end
+                                end
+                            end)
+
+                            local entry = {
+                                time = os.clock(),
+                                name = "?",
+                                path = remotePath,
+                                method = method,
+                                args = {...},
+                                caller = caller,
+                                returnValue = nil,
+                            }
+                            pcall(function() entry.name = self.Name end)
+
+                            -- Call original e captura retorno
+                            local result = remoteSpyHook(self, ...)
+
+                            -- Return logger (InvokeServer)
+                            if method == "InvokeServer" then
+                                pcall(function()
+                                    entry.returnValue = tostring(result)
+                                end)
+                            end
+
+                            table.insert(remoteSpyLog, entry)
+                            if #remoteSpyLog > 200 then
+                                table.remove(remoteSpyLog, 1)
+                            end
+                            pcall(function() refreshRemoteSpyLog() end)
+
+                            return result
+                        end
+                    end
+                end
+                return remoteSpyHook(self, ...)
+            end))
+        end)
+
+        if not remoteSpyHook then
+            remoteSpyActive = false
+            notify("Failed to hook __namecall", "error")
+            return false
+        end
     end
+
+    notify("Remote Spy ON — logging calls", "success")
+    RemoteSpyStatusLabel.Text = "Spy: ON (logging...)"
+    RemoteSpyStatusLabel.TextColor3 = Color3.fromRGB(100, 220, 200)
+    RemoteSpyToggleBtn.Text = "⏹ STOP SPY"
+    RemoteSpyToggleBtn.BackgroundColor3 = Color3.fromRGB(180, 60, 30)
+    return true
 end
 
 stopRemoteSpy = function()
     remoteSpyActive = false
-    RemoteSpyStatusLabel.Text = "Spy: OFF"
+    RemoteSpyStatusLabel.Text = "Spy: OFF (hook active)"
     RemoteSpyStatusLabel.TextColor3 = Colors.textDim
     RemoteSpyToggleBtn.Text = "🕵 START SPY"
     RemoteSpyToggleBtn.BackgroundColor3 = Color3.fromRGB(40, 80, 70)
     notify("Remote Spy OFF", "info")
 end
 
-fireTestRemote = function(remote)
+--==================================================
+-- PARSE FIRE ARGS
+--==================================================
+
+parseFireArgs = function(text)
+    if not text or text == "" then return {} end
+    local fn, err = loadstring("return {" .. text .. "}")
+    if fn then
+        local ok, result = pcall(fn)
+        if ok and type(result) == "table" then
+            return result
+        end
+    end
+    notify("Args parse error — sending as string", "warning")
+    return { text }
+end
+
+fireTestRemote = function(remote, customArgs)
     if not remote or not remote.Parent then
         notify("Remote no longer exists", "error")
         return
     end
-    pcall(function()
-        if remote:IsA("RemoteEvent") then
-            remote:FireServer()
-            notify("Fired: " .. remote.Name, "success")
-        elseif remote:IsA("RemoteFunction") then
-            local result = remote:InvokeServer()
-            notify("Invoked: " .. remote.Name .. " → " .. tostring(result), "success")
+    local remoteName = remote.Name
+    local remotePath = pcall(function() return remote:GetFullName() end) and remote:GetFullName() or remoteName
+    local args = customArgs or {}
+    local argCount = #args
+
+    log("Test fire:", remotePath, "args:", argCount)
+
+    task.spawn(function()
+        local ok, err = pcall(function()
+            if remote:IsA("RemoteEvent") then
+                remote:FireServer(unpack(args))
+                notify("Fired: " .. remoteName .. " (" .. argCount .. " args)", "success")
+            elseif remote:IsA("RemoteFunction") then
+                notify("Invoking: " .. remoteName .. "...", "info")
+                local result = remote:InvokeServer(unpack(args))
+                notify("Invoked: " .. remoteName .. " → " .. tostring(result), "success")
+            end
+        end)
+        if not ok then
+            notify("Fire error: " .. tostring(err):sub(1, 60), "error")
         end
     end)
-    log("Test fire:", remote:GetFullName())
 end
 
 --==================================================
--- VULNERABILITY SCAN — testa remotes com args vazios
+-- AUTO-REPEAT — repete fire no remote selecionado
+--==================================================
+
+startAutoRepeat = function(interval, count)
+    if not selectedFireRemote then
+        notify("Select a remote first (🎯)", "warning")
+        return
+    end
+    if autoRepeatActive then
+        notify("Already repeating", "warning")
+        return
+    end
+
+    autoRepeatActive = true
+    local remote = selectedFireRemote.instance
+    local args = parseFireArgs(RemoteSpyArgsBox.Text)
+    local remoteName = selectedFireRemote.name
+
+    RemoteSpyRepeatBtn.Text = "⏹ STOP"
+    RemoteSpyRepeatBtn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
+
+    task.spawn(function()
+        local fired = 0
+        while autoRepeatActive and (count == 0 or fired < count) do
+            if not remote or not remote.Parent then
+                notify("Remote gone, stopping", "error")
+                break
+            end
+            pcall(function()
+                if remote:IsA("RemoteEvent") then
+                    remote:FireServer(unpack(args))
+                else
+                    remote:InvokeServer(unpack(args))
+                end
+            end)
+            fired = fired + 1
+            task.wait(interval)
+        end
+        autoRepeatActive = false
+        RemoteSpyRepeatBtn.Text = "▶ REPEAT"
+        RemoteSpyRepeatBtn.BackgroundColor3 = Color3.fromRGB(80, 40, 120)
+        notify("Repeat done: " .. fired .. "x " .. remoteName, "info")
+    end)
+end
+
+stopAutoRepeat = function()
+    autoRepeatActive = false
+end
+
+--==================================================
+-- VULNERABILITY SCAN
 --==================================================
 
 vulnScanRemotes = function()
@@ -1221,35 +1477,59 @@ vulnScanRemotes = function()
     end
     local vulnCount = 0
     local tested = 0
+    local pending = 0
+
     for _, data in ipairs(scannedRemotes) do
         local remote = data.instance
         if not remote or not remote.Parent then
             data.vuln = "gone"
         else
             tested = tested + 1
-            local ok = pcall(function()
-                if remote:IsA("RemoteEvent") then
+            if remote:IsA("RemoteEvent") then
+                local ok = pcall(function()
                     remote:FireServer()
-                elseif remote:IsA("RemoteFunction") then
-                    remote:InvokeServer()
-                end
-            end)
-            if ok then
-                data.vuln = "vuln"
-                vulnCount = vulnCount + 1
+                end)
+                data.vuln = ok and "vuln" or "safe"
+                if ok then vulnCount = vulnCount + 1 end
             else
-                data.vuln = "safe"
+                data.vuln = "testing"
+                pending = pending + 1
+                task.spawn(function()
+                    local ok = pcall(function()
+                        remote:InvokeServer()
+                    end)
+                    if data.vuln == "testing" then
+                        data.vuln = ok and "vuln" or "safe"
+                        if ok then vulnCount = vulnCount + 1 end
+                    end
+                    pending = pending - 1
+                end)
             end
         end
     end
+
+    local deadline = os.clock() + 3
+    while pending > 0 and os.clock() < deadline do
+        task.wait(0.1)
+    end
+
+    for _, data in ipairs(scannedRemotes) do
+        if data.vuln == "testing" then
+            data.vuln = "timeout"
+        end
+    end
+
     refreshRemoteList(RemoteSpyFilterBox.Text)
-    local msg = "Vuln scan: " .. vulnCount .. " vulnerable / " .. tested .. " tested"
+    local msg = "Vuln scan: " .. vulnCount .. " vuln / " .. tested .. " tested"
+    if pending > 0 then
+        msg = msg .. " (" .. pending .. " timeout)"
+    end
     notify(msg, vulnCount > 0 and "error" or "success")
     RemoteSpyStatsLabel.Text = msg
 end
 
 --==================================================
--- MASS FIRE — dispara todos os remotes de uma vez
+-- MASS FIRE
 --==================================================
 
 massFireRemotes = function()
@@ -1260,7 +1540,7 @@ massFireRemotes = function()
     local fired = 0
     for _, data in ipairs(scannedRemotes) do
         local remote = data.instance
-        if remote and remote.Parent then
+        if remote and remote.Parent and not blockedRemotes[data.path] then
             pcall(function()
                 if remote:IsA("RemoteEvent") then
                     remote:FireServer()

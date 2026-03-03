@@ -216,6 +216,9 @@ remoteSpyActive = false
 remoteSpyLog = {}
 remoteSpyHook = nil
 scannedRemotes = {}
+blockedRemotes = {}
+remoteCallCounts = {}
+autoRepeatActive = false
 
 -- Anti-AFK state
 antiAfkActive = false

@@ -227,6 +227,9 @@ remoteSpyActive = false
 remoteSpyLog = {}
 remoteSpyHook = nil
 scannedRemotes = {}
+blockedRemotes = {}
+remoteCallCounts = {}
+autoRepeatActive = false
 
 -- Anti-AFK state
 antiAfkActive = false
@@ -2253,15 +2256,16 @@ end
 
 --==================================================
 -- REMOTE SPY PANEL — FLOATING
--- Scanner de RemoteEvents/RemoteFunctions + Spy __namecall
--- Vuln detection + Mass fire
+-- Scanner + Spy + Custom Fire + Block + Repeat + Export
 -- Todas as variaveis sao GLOBALS para nao gastar locals
 --==================================================
 
+selectedFireRemote = nil
+
 RemoteSpyPanel = Instance.new("Frame")
 RemoteSpyPanel.Name = "RemoteSpyPanel"
-RemoteSpyPanel.Size = UDim2.new(0, 280, 0, 580)
-RemoteSpyPanel.Position = UDim2.new(0.5, -400, 0.5, -290)
+RemoteSpyPanel.Size = UDim2.new(0, 280, 0, 720)
+RemoteSpyPanel.Position = UDim2.new(0.5, -400, 0.5, -360)
 RemoteSpyPanel.BackgroundColor3 = Colors.bg
 RemoteSpyPanel.BorderSizePixel = 0
 RemoteSpyPanel.Visible = false
@@ -2285,7 +2289,6 @@ RemoteSpyTopBar.Parent = RemoteSpyPanel
 Instance.new("UICorner", RemoteSpyTopBar).CornerRadius = UDim.new(0, 10)
 addGradient(RemoteSpyTopBar, Color3.fromRGB(8, 30, 28), Colors.topbar, 0)
 
--- Fix bottom corners
 RemoteSpyTopBarFix = Instance.new("Frame")
 RemoteSpyTopBarFix.Size = UDim2.new(1, 0, 0, 10)
 RemoteSpyTopBarFix.Position = UDim2.new(0, 0, 1, -10)
@@ -2323,7 +2326,6 @@ makeHoverable(RemoteSpyCloseBtn, Color3.fromRGB(0, 140, 120), Color3.fromRGB(0, 
 -- SCAN SECTION
 --==================================================
 
--- Row: [SCAN REMOTES | VULN SCAN]
 RemoteSpyScanBtn = Instance.new("TextButton")
 RemoteSpyScanBtn.Size = UDim2.new(0.5, -12, 0, 28)
 RemoteSpyScanBtn.Position = UDim2.new(0, 10, 0, 40)
@@ -2352,7 +2354,6 @@ Instance.new("UICorner", RemoteSpyVulnScanBtn).CornerRadius = UDim.new(0, 6)
 addBtnGradient(RemoteSpyVulnScanBtn)
 makeHoverable(RemoteSpyVulnScanBtn, Color3.fromRGB(180, 80, 20), Color3.fromRGB(220, 100, 30))
 
--- Stats label
 RemoteSpyStatsLabel = Instance.new("TextLabel")
 RemoteSpyStatsLabel.Size = UDim2.new(1, -20, 0, 14)
 RemoteSpyStatsLabel.Position = UDim2.new(0, 10, 0, 72)
@@ -2364,7 +2365,6 @@ RemoteSpyStatsLabel.Font = Enum.Font.Code
 RemoteSpyStatsLabel.TextXAlignment = Enum.TextXAlignment.Left
 RemoteSpyStatsLabel.Parent = RemoteSpyPanel
 
--- Filter textbox
 RemoteSpyFilterBox = Instance.new("TextBox")
 RemoteSpyFilterBox.Size = UDim2.new(1, -20, 0, 22)
 RemoteSpyFilterBox.Position = UDim2.new(0, 10, 0, 90)
@@ -2381,9 +2381,8 @@ RemoteSpyFilterBox.Parent = RemoteSpyPanel
 Instance.new("UICorner", RemoteSpyFilterBox).CornerRadius = UDim.new(0, 4)
 Instance.new("UIPadding", RemoteSpyFilterBox).PaddingLeft = UDim.new(0, 6)
 
--- Remote list scroll
 RemoteSpyListScroll = Instance.new("ScrollingFrame")
-RemoteSpyListScroll.Size = UDim2.new(1, -20, 0, 146)
+RemoteSpyListScroll.Size = UDim2.new(1, -20, 0, 120)
 RemoteSpyListScroll.Position = UDim2.new(0, 10, 0, 116)
 RemoteSpyListScroll.BackgroundColor3 = Colors.content
 RemoteSpyListScroll.BorderSizePixel = 0
@@ -2403,14 +2402,66 @@ RemoteSpyListPad.PaddingLeft = UDim.new(0, 3)
 RemoteSpyListPad.PaddingRight = UDim.new(0, 3)
 
 --==================================================
--- MASS FIRE BUTTON
+-- CUSTOM FIRE SECTION
 --==================================================
 
+RemoteSpySelectedLabel = Instance.new("TextLabel")
+RemoteSpySelectedLabel.Size = UDim2.new(1, -20, 0, 14)
+RemoteSpySelectedLabel.Position = UDim2.new(0, 10, 0, 240)
+RemoteSpySelectedLabel.BackgroundTransparency = 1
+RemoteSpySelectedLabel.Text = "Selected: (click 🎯 to select)"
+RemoteSpySelectedLabel.TextColor3 = Colors.textDim
+RemoteSpySelectedLabel.TextSize = 9
+RemoteSpySelectedLabel.Font = Enum.Font.Code
+RemoteSpySelectedLabel.TextXAlignment = Enum.TextXAlignment.Left
+RemoteSpySelectedLabel.TextTruncate = Enum.TextTruncate.AtEnd
+RemoteSpySelectedLabel.Parent = RemoteSpyPanel
+
+RemoteSpyArgsBox = Instance.new("TextBox")
+RemoteSpyArgsBox.Size = UDim2.new(1, -20, 0, 28)
+RemoteSpyArgsBox.Position = UDim2.new(0, 10, 0, 256)
+RemoteSpyArgsBox.BackgroundColor3 = Colors.inputBg
+RemoteSpyArgsBox.Text = ""
+RemoteSpyArgsBox.PlaceholderText = "Args: \"hello\", 123, true"
+RemoteSpyArgsBox.PlaceholderColor3 = Colors.textDim
+RemoteSpyArgsBox.TextColor3 = Colors.text
+RemoteSpyArgsBox.TextSize = 10
+RemoteSpyArgsBox.Font = Enum.Font.Code
+RemoteSpyArgsBox.TextXAlignment = Enum.TextXAlignment.Left
+RemoteSpyArgsBox.ClearTextOnFocus = false
+RemoteSpyArgsBox.Parent = RemoteSpyPanel
+Instance.new("UICorner", RemoteSpyArgsBox).CornerRadius = UDim.new(0, 4)
+Instance.new("UIPadding", RemoteSpyArgsBox).PaddingLeft = UDim.new(0, 6)
+RemoteSpyArgsStroke = Instance.new("UIStroke", RemoteSpyArgsBox)
+RemoteSpyArgsStroke.Color = Colors.inputBorder
+RemoteSpyArgsStroke.Thickness = 1
+
+RemoteSpyArgsBox.Focused:Connect(function()
+    TweenService:Create(RemoteSpyArgsStroke, TweenInfo.new(0.2), { Color = Color3.fromRGB(0, 200, 180), Thickness = 1.5 }):Play()
+end)
+RemoteSpyArgsBox.FocusLost:Connect(function()
+    TweenService:Create(RemoteSpyArgsStroke, TweenInfo.new(0.3), { Color = Colors.inputBorder, Thickness = 1 }):Play()
+end)
+
+RemoteSpyFireCustomBtn = Instance.new("TextButton")
+RemoteSpyFireCustomBtn.Size = UDim2.new(0.5, -12, 0, 26)
+RemoteSpyFireCustomBtn.Position = UDim2.new(0, 10, 0, 288)
+RemoteSpyFireCustomBtn.BackgroundColor3 = Color3.fromRGB(180, 60, 30)
+RemoteSpyFireCustomBtn.Text = "🔥 FIRE"
+RemoteSpyFireCustomBtn.TextColor3 = Colors.text
+RemoteSpyFireCustomBtn.TextSize = 10
+RemoteSpyFireCustomBtn.Font = Enum.Font.GothamBold
+RemoteSpyFireCustomBtn.AutoButtonColor = false
+RemoteSpyFireCustomBtn.Parent = RemoteSpyPanel
+Instance.new("UICorner", RemoteSpyFireCustomBtn).CornerRadius = UDim.new(0, 6)
+addBtnGradient(RemoteSpyFireCustomBtn)
+makeHoverable(RemoteSpyFireCustomBtn, Color3.fromRGB(180, 60, 30), Color3.fromRGB(220, 80, 40))
+
 RemoteSpyMassFireBtn = Instance.new("TextButton")
-RemoteSpyMassFireBtn.Size = UDim2.new(1, -20, 0, 26)
-RemoteSpyMassFireBtn.Position = UDim2.new(0, 10, 0, 268)
+RemoteSpyMassFireBtn.Size = UDim2.new(0.5, -12, 0, 26)
+RemoteSpyMassFireBtn.Position = UDim2.new(0.5, 2, 0, 288)
 RemoteSpyMassFireBtn.BackgroundColor3 = Color3.fromRGB(160, 30, 30)
-RemoteSpyMassFireBtn.Text = "💣 MASS FIRE ALL REMOTES"
+RemoteSpyMassFireBtn.Text = "💣 MASS FIRE"
 RemoteSpyMassFireBtn.TextColor3 = Colors.text
 RemoteSpyMassFireBtn.TextSize = 10
 RemoteSpyMassFireBtn.Font = Enum.Font.GothamBold
@@ -2424,11 +2475,11 @@ makeHoverable(RemoteSpyMassFireBtn, Color3.fromRGB(160, 30, 30), Color3.fromRGB(
 -- SPY SECTION
 --==================================================
 
-addAccentLine(RemoteSpyPanel, UDim2.new(0, 10, 0, 300), Color3.fromRGB(0, 180, 160), UDim2.new(1, -20, 0, 1))
+addAccentLine(RemoteSpyPanel, UDim2.new(0, 10, 0, 320), Color3.fromRGB(0, 180, 160), UDim2.new(1, -20, 0, 1))
 
 RemoteSpyToggleBtn = Instance.new("TextButton")
 RemoteSpyToggleBtn.Size = UDim2.new(1, -20, 0, 28)
-RemoteSpyToggleBtn.Position = UDim2.new(0, 10, 0, 308)
+RemoteSpyToggleBtn.Position = UDim2.new(0, 10, 0, 328)
 RemoteSpyToggleBtn.BackgroundColor3 = Color3.fromRGB(40, 80, 70)
 RemoteSpyToggleBtn.Text = "🕵 START SPY"
 RemoteSpyToggleBtn.TextColor3 = Colors.text
@@ -2440,10 +2491,9 @@ Instance.new("UICorner", RemoteSpyToggleBtn).CornerRadius = UDim.new(0, 6)
 addBtnGradient(RemoteSpyToggleBtn)
 makeHoverable(RemoteSpyToggleBtn, Color3.fromRGB(40, 80, 70), Color3.fromRGB(0, 140, 120))
 
--- Spy status label
 RemoteSpyStatusLabel = Instance.new("TextLabel")
 RemoteSpyStatusLabel.Size = UDim2.new(1, -20, 0, 14)
-RemoteSpyStatusLabel.Position = UDim2.new(0, 10, 0, 340)
+RemoteSpyStatusLabel.Position = UDim2.new(0, 10, 0, 360)
 RemoteSpyStatusLabel.BackgroundTransparency = 1
 RemoteSpyStatusLabel.Text = "Spy: OFF"
 RemoteSpyStatusLabel.TextColor3 = Colors.textDim
@@ -2452,10 +2502,26 @@ RemoteSpyStatusLabel.Font = Enum.Font.Code
 RemoteSpyStatusLabel.TextXAlignment = Enum.TextXAlignment.Left
 RemoteSpyStatusLabel.Parent = RemoteSpyPanel
 
+RemoteSpyLogFilterBox = Instance.new("TextBox")
+RemoteSpyLogFilterBox.Size = UDim2.new(1, -20, 0, 22)
+RemoteSpyLogFilterBox.Position = UDim2.new(0, 10, 0, 378)
+RemoteSpyLogFilterBox.BackgroundColor3 = Colors.content
+RemoteSpyLogFilterBox.Text = ""
+RemoteSpyLogFilterBox.PlaceholderText = "Search spy log..."
+RemoteSpyLogFilterBox.PlaceholderColor3 = Colors.textDim
+RemoteSpyLogFilterBox.TextColor3 = Colors.text
+RemoteSpyLogFilterBox.TextSize = 10
+RemoteSpyLogFilterBox.Font = Enum.Font.Code
+RemoteSpyLogFilterBox.TextXAlignment = Enum.TextXAlignment.Left
+RemoteSpyLogFilterBox.ClearTextOnFocus = false
+RemoteSpyLogFilterBox.Parent = RemoteSpyPanel
+Instance.new("UICorner", RemoteSpyLogFilterBox).CornerRadius = UDim.new(0, 4)
+Instance.new("UIPadding", RemoteSpyLogFilterBox).PaddingLeft = UDim.new(0, 6)
+
 -- Spy log scroll
 RemoteSpyLogScroll = Instance.new("ScrollingFrame")
-RemoteSpyLogScroll.Size = UDim2.new(1, -20, 0, 158)
-RemoteSpyLogScroll.Position = UDim2.new(0, 10, 0, 358)
+RemoteSpyLogScroll.Size = UDim2.new(1, -20, 0, 150)
+RemoteSpyLogScroll.Position = UDim2.new(0, 10, 0, 404)
 RemoteSpyLogScroll.BackgroundColor3 = Color3.fromRGB(10, 14, 14)
 RemoteSpyLogScroll.BorderSizePixel = 0
 RemoteSpyLogScroll.ScrollBarThickness = 3
@@ -2473,13 +2539,110 @@ RemoteSpyLogPad.PaddingTop = UDim.new(0, 2)
 RemoteSpyLogPad.PaddingLeft = UDim.new(0, 3)
 RemoteSpyLogPad.PaddingRight = UDim.new(0, 3)
 
+-- Hint label
+RemoteSpyLogHint = Instance.new("TextLabel")
+RemoteSpyLogHint.Size = UDim2.new(1, -20, 0, 12)
+RemoteSpyLogHint.Position = UDim2.new(0, 10, 0, 556)
+RemoteSpyLogHint.BackgroundTransparency = 1
+RemoteSpyLogHint.Text = "💡 Click log entry → copy script to clipboard"
+RemoteSpyLogHint.TextColor3 = Color3.fromRGB(80, 80, 90)
+RemoteSpyLogHint.TextSize = 8
+RemoteSpyLogHint.Font = Enum.Font.Gotham
+RemoteSpyLogHint.TextXAlignment = Enum.TextXAlignment.Left
+RemoteSpyLogHint.Parent = RemoteSpyPanel
+
+--==================================================
+-- AUTO-REPEAT SECTION
+--==================================================
+
+addAccentLine(RemoteSpyPanel, UDim2.new(0, 10, 0, 572), Color3.fromRGB(120, 60, 180), UDim2.new(1, -20, 0, 1))
+
+RemoteSpyRepeatLabel = Instance.new("TextLabel")
+RemoteSpyRepeatLabel.Size = UDim2.new(0, 48, 0, 22)
+RemoteSpyRepeatLabel.Position = UDim2.new(0, 10, 0, 580)
+RemoteSpyRepeatLabel.BackgroundTransparency = 1
+RemoteSpyRepeatLabel.Text = "Repeat:"
+RemoteSpyRepeatLabel.TextColor3 = Colors.textDim
+RemoteSpyRepeatLabel.TextSize = 9
+RemoteSpyRepeatLabel.Font = Enum.Font.GothamBold
+RemoteSpyRepeatLabel.TextXAlignment = Enum.TextXAlignment.Left
+RemoteSpyRepeatLabel.Parent = RemoteSpyPanel
+
+-- Interval box
+RemoteSpyIntervalBox = Instance.new("TextBox")
+RemoteSpyIntervalBox.Size = UDim2.new(0, 50, 0, 22)
+RemoteSpyIntervalBox.Position = UDim2.new(0, 60, 0, 580)
+RemoteSpyIntervalBox.BackgroundColor3 = Colors.inputBg
+RemoteSpyIntervalBox.Text = "1"
+RemoteSpyIntervalBox.PlaceholderText = "sec"
+RemoteSpyIntervalBox.PlaceholderColor3 = Colors.textDim
+RemoteSpyIntervalBox.TextColor3 = Colors.text
+RemoteSpyIntervalBox.TextSize = 9
+RemoteSpyIntervalBox.Font = Enum.Font.Code
+RemoteSpyIntervalBox.ClearTextOnFocus = false
+RemoteSpyIntervalBox.Parent = RemoteSpyPanel
+Instance.new("UICorner", RemoteSpyIntervalBox).CornerRadius = UDim.new(0, 4)
+
+RemoteSpyRepeatXLabel = Instance.new("TextLabel")
+RemoteSpyRepeatXLabel.Size = UDim2.new(0, 16, 0, 22)
+RemoteSpyRepeatXLabel.Position = UDim2.new(0, 113, 0, 580)
+RemoteSpyRepeatXLabel.BackgroundTransparency = 1
+RemoteSpyRepeatXLabel.Text = "x"
+RemoteSpyRepeatXLabel.TextColor3 = Colors.textDim
+RemoteSpyRepeatXLabel.TextSize = 9
+RemoteSpyRepeatXLabel.Font = Enum.Font.GothamBold
+RemoteSpyRepeatXLabel.Parent = RemoteSpyPanel
+
+-- Count box (0 = infinite)
+RemoteSpyCountBox = Instance.new("TextBox")
+RemoteSpyCountBox.Size = UDim2.new(0, 40, 0, 22)
+RemoteSpyCountBox.Position = UDim2.new(0, 130, 0, 580)
+RemoteSpyCountBox.BackgroundColor3 = Colors.inputBg
+RemoteSpyCountBox.Text = "10"
+RemoteSpyCountBox.PlaceholderText = "0=∞"
+RemoteSpyCountBox.PlaceholderColor3 = Colors.textDim
+RemoteSpyCountBox.TextColor3 = Colors.text
+RemoteSpyCountBox.TextSize = 9
+RemoteSpyCountBox.Font = Enum.Font.Code
+RemoteSpyCountBox.ClearTextOnFocus = false
+RemoteSpyCountBox.Parent = RemoteSpyPanel
+Instance.new("UICorner", RemoteSpyCountBox).CornerRadius = UDim.new(0, 4)
+
+-- Repeat button
+RemoteSpyRepeatBtn = Instance.new("TextButton")
+RemoteSpyRepeatBtn.Size = UDim2.new(0, 90, 0, 22)
+RemoteSpyRepeatBtn.Position = UDim2.new(1, -100, 0, 580)
+RemoteSpyRepeatBtn.BackgroundColor3 = Color3.fromRGB(80, 40, 120)
+RemoteSpyRepeatBtn.Text = "▶ REPEAT"
+RemoteSpyRepeatBtn.TextColor3 = Colors.text
+RemoteSpyRepeatBtn.TextSize = 9
+RemoteSpyRepeatBtn.Font = Enum.Font.GothamBold
+RemoteSpyRepeatBtn.AutoButtonColor = false
+RemoteSpyRepeatBtn.Parent = RemoteSpyPanel
+Instance.new("UICorner", RemoteSpyRepeatBtn).CornerRadius = UDim.new(0, 4)
+makeHoverable(RemoteSpyRepeatBtn, Color3.fromRGB(80, 40, 120), Color3.fromRGB(110, 60, 160))
+
 --==================================================
 -- BOTTOM BUTTONS
 --==================================================
 
+-- Row: [EXPORT] [CLEAR]
+RemoteSpyExportBtn = Instance.new("TextButton")
+RemoteSpyExportBtn.Size = UDim2.new(0.5, -12, 0, 26)
+RemoteSpyExportBtn.Position = UDim2.new(0, 10, 0, 612)
+RemoteSpyExportBtn.BackgroundColor3 = Color3.fromRGB(0, 100, 140)
+RemoteSpyExportBtn.Text = "📋 EXPORT LOG"
+RemoteSpyExportBtn.TextColor3 = Colors.text
+RemoteSpyExportBtn.TextSize = 9
+RemoteSpyExportBtn.Font = Enum.Font.GothamBold
+RemoteSpyExportBtn.AutoButtonColor = false
+RemoteSpyExportBtn.Parent = RemoteSpyPanel
+Instance.new("UICorner", RemoteSpyExportBtn).CornerRadius = UDim.new(0, 6)
+makeHoverable(RemoteSpyExportBtn, Color3.fromRGB(0, 100, 140), Color3.fromRGB(0, 140, 180))
+
 RemoteSpyClearBtn = Instance.new("TextButton")
 RemoteSpyClearBtn.Size = UDim2.new(0.5, -12, 0, 26)
-RemoteSpyClearBtn.Position = UDim2.new(0, 10, 0, 524)
+RemoteSpyClearBtn.Position = UDim2.new(0.5, 2, 0, 612)
 RemoteSpyClearBtn.BackgroundColor3 = Colors.warning
 RemoteSpyClearBtn.Text = "🗑 CLEAR"
 RemoteSpyClearBtn.TextColor3 = Colors.bg
@@ -2490,9 +2653,10 @@ RemoteSpyClearBtn.Parent = RemoteSpyPanel
 Instance.new("UICorner", RemoteSpyClearBtn).CornerRadius = UDim.new(0, 6)
 makeHoverable(RemoteSpyClearBtn, Colors.warning, Color3.fromRGB(230, 180, 60))
 
+-- Row: [CLOSE]
 RemoteSpyCloseBottomBtn = Instance.new("TextButton")
-RemoteSpyCloseBottomBtn.Size = UDim2.new(0.5, -12, 0, 26)
-RemoteSpyCloseBottomBtn.Position = UDim2.new(0.5, 2, 0, 524)
+RemoteSpyCloseBottomBtn.Size = UDim2.new(1, -20, 0, 26)
+RemoteSpyCloseBottomBtn.Position = UDim2.new(0, 10, 0, 642)
 RemoteSpyCloseBottomBtn.BackgroundColor3 = Colors.bloodDark
 RemoteSpyCloseBottomBtn.Text = "🔴 CLOSE"
 RemoteSpyCloseBottomBtn.TextColor3 = Colors.text
@@ -2504,11 +2668,10 @@ Instance.new("UICorner", RemoteSpyCloseBottomBtn).CornerRadius = UDim.new(0, 6)
 makeHoverable(RemoteSpyCloseBottomBtn, Colors.bloodDark, Colors.blood)
 
 --==================================================
--- REFRESH REMOTE LIST (popula scroll com cards + vuln indicator)
+-- REFRESH REMOTE LIST (cards com 🎯 select + 🚫 block + call count)
 --==================================================
 
 refreshRemoteList = function(filterText)
-    -- Clear existing cards
     for _, child in pairs(RemoteSpyListScroll:GetChildren()) do
         if child:IsA("Frame") then child:Destroy() end
     end
@@ -2518,7 +2681,6 @@ refreshRemoteList = function(filterText)
     local count = 0
     local vulnCount = 0
     for idx, data in ipairs(scannedRemotes) do
-        -- Filter
         local match = true
         if filterText ~= "" and not data.name:lower():find(filterText, 1, true) and not data.path:lower():find(filterText, 1, true) then
             match = false
@@ -2528,6 +2690,9 @@ refreshRemoteList = function(filterText)
         count = count + 1
         if data.vuln == "vuln" then vulnCount = vulnCount + 1 end
 
+        local isBlocked = blockedRemotes[data.path] == true
+        local callCount = remoteCallCounts[data.path] or 0
+
         local card = Instance.new("Frame")
         card.Size = UDim2.new(1, -6, 0, 36)
         card.BorderSizePixel = 0
@@ -2535,11 +2700,15 @@ refreshRemoteList = function(filterText)
         card.Parent = RemoteSpyListScroll
         Instance.new("UICorner", card).CornerRadius = UDim.new(0, 4)
 
-        -- Card color based on vuln status
-        if data.vuln == "vuln" then
+        -- Card color
+        if isBlocked then
+            card.BackgroundColor3 = Color3.fromRGB(50, 10, 10)
+        elseif data.vuln == "vuln" then
             card.BackgroundColor3 = Color3.fromRGB(50, 15, 15)
         elseif data.vuln == "safe" then
             card.BackgroundColor3 = Color3.fromRGB(15, 40, 20)
+        elseif data.vuln == "timeout" then
+            card.BackgroundColor3 = Color3.fromRGB(40, 35, 10)
         else
             card.BackgroundColor3 = Colors.card
         end
@@ -2553,8 +2722,16 @@ refreshRemoteList = function(filterText)
         icon.TextSize = 11
         icon.Parent = card
 
-        -- Vuln badge
-        if data.vuln == "vuln" then
+        -- Vuln/Block badge
+        if isBlocked then
+            local badge = Instance.new("TextLabel")
+            badge.Size = UDim2.new(0, 18, 0, 10)
+            badge.Position = UDim2.new(0, 3, 0, 20)
+            badge.BackgroundTransparency = 1
+            badge.Text = "🚫"
+            badge.TextSize = 7
+            badge.Parent = card
+        elseif data.vuln == "vuln" then
             local badge = Instance.new("TextLabel")
             badge.Size = UDim2.new(0, 18, 0, 10)
             badge.Position = UDim2.new(0, 3, 0, 20)
@@ -2573,22 +2750,32 @@ refreshRemoteList = function(filterText)
             badge.TextColor3 = Color3.fromRGB(60, 200, 80)
             badge.Font = Enum.Font.GothamBold
             badge.Parent = card
+        elseif data.vuln == "timeout" then
+            local badge = Instance.new("TextLabel")
+            badge.Size = UDim2.new(0, 18, 0, 10)
+            badge.Position = UDim2.new(0, 3, 0, 20)
+            badge.BackgroundTransparency = 1
+            badge.Text = "⏱"
+            badge.TextSize = 8
+            badge.TextColor3 = Color3.fromRGB(200, 180, 60)
+            badge.Parent = card
         end
 
-        -- Name
+        -- Name (with blocked prefix)
         local nameL = Instance.new("TextLabel")
         nameL.Size = UDim2.new(1, -68, 0, 14)
         nameL.Position = UDim2.new(0, 22, 0, 1)
         nameL.BackgroundTransparency = 1
-        nameL.Text = data.name
+        nameL.Text = (isBlocked and "[BLOCKED] " or "") .. data.name
         nameL.TextSize = 9
         nameL.Font = Enum.Font.GothamBold
         nameL.TextXAlignment = Enum.TextXAlignment.Left
         nameL.TextTruncate = Enum.TextTruncate.AtEnd
         nameL.Parent = card
 
-        -- Name color based on vuln
-        if data.vuln == "vuln" then
+        if isBlocked then
+            nameL.TextColor3 = Color3.fromRGB(180, 60, 60)
+        elseif data.vuln == "vuln" then
             nameL.TextColor3 = Color3.fromRGB(255, 100, 60)
         elseif data.vuln == "safe" then
             nameL.TextColor3 = Color3.fromRGB(80, 220, 100)
@@ -2596,12 +2783,16 @@ refreshRemoteList = function(filterText)
             nameL.TextColor3 = Color3.fromRGB(100, 220, 200)
         end
 
-        -- Path
+        -- Path + call count
+        local pathText = data.path
+        if callCount > 0 then
+            pathText = pathText .. " [x" .. callCount .. "]"
+        end
         local pathL = Instance.new("TextLabel")
         pathL.Size = UDim2.new(1, -68, 0, 12)
         pathL.Position = UDim2.new(0, 22, 0, 16)
         pathL.BackgroundTransparency = 1
-        pathL.Text = data.path
+        pathL.Text = pathText
         pathL.TextColor3 = Colors.textDim
         pathL.TextSize = 7
         pathL.Font = Enum.Font.Code
@@ -2609,65 +2800,92 @@ refreshRemoteList = function(filterText)
         pathL.TextTruncate = Enum.TextTruncate.AtEnd
         pathL.Parent = card
 
-        -- Fire button
-        local fireBtn = Instance.new("TextButton")
-        fireBtn.Size = UDim2.new(0, 36, 0, 20)
-        fireBtn.Position = UDim2.new(1, -40, 0, 8)
-        fireBtn.BackgroundColor3 = Color3.fromRGB(180, 60, 30)
-        fireBtn.Text = "🔥"
-        fireBtn.TextSize = 10
-        fireBtn.TextColor3 = Colors.text
-        fireBtn.Font = Enum.Font.GothamBold
-        fireBtn.AutoButtonColor = false
-        fireBtn.Parent = card
-        Instance.new("UICorner", fireBtn).CornerRadius = UDim.new(0, 4)
-        makeHoverable(fireBtn, Color3.fromRGB(180, 60, 30), Color3.fromRGB(220, 80, 40))
+        -- 🎯 Select button (left)
+        local selBtn = Instance.new("TextButton")
+        selBtn.Size = UDim2.new(0, 18, 0, 18)
+        selBtn.Position = UDim2.new(1, -40, 0, 9)
+        selBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 100)
+        selBtn.Text = "🎯"
+        selBtn.TextSize = 9
+        selBtn.TextColor3 = Colors.text
+        selBtn.Font = Enum.Font.GothamBold
+        selBtn.AutoButtonColor = false
+        selBtn.Parent = card
+        Instance.new("UICorner", selBtn).CornerRadius = UDim.new(0, 4)
+        makeHoverable(selBtn, Color3.fromRGB(0, 120, 100), Color3.fromRGB(0, 160, 140))
 
-        fireBtn.MouseButton1Click:Connect(function()
-            fireTestRemote(data.instance)
+        selBtn.MouseButton1Click:Connect(function()
+            selectedFireRemote = data
+            RemoteSpySelectedLabel.Text = "Selected: " .. data.class:sub(7, 7) .. " " .. data.name
+            RemoteSpySelectedLabel.TextColor3 = Color3.fromRGB(100, 220, 200)
+            notify("Selected: " .. data.name, "info")
+        end)
+
+        -- 🚫 Block button (right)
+        local blockBtn = Instance.new("TextButton")
+        blockBtn.Size = UDim2.new(0, 18, 0, 18)
+        blockBtn.Position = UDim2.new(1, -20, 0, 9)
+        blockBtn.BackgroundColor3 = isBlocked and Color3.fromRGB(40, 120, 40) or Color3.fromRGB(120, 30, 30)
+        blockBtn.Text = isBlocked and "✅" or "🚫"
+        blockBtn.TextSize = 9
+        blockBtn.TextColor3 = Colors.text
+        blockBtn.Font = Enum.Font.GothamBold
+        blockBtn.AutoButtonColor = false
+        blockBtn.Parent = card
+        Instance.new("UICorner", blockBtn).CornerRadius = UDim.new(0, 4)
+        makeHoverable(blockBtn,
+            isBlocked and Color3.fromRGB(40, 120, 40) or Color3.fromRGB(120, 30, 30),
+            isBlocked and Color3.fromRGB(60, 160, 60) or Color3.fromRGB(160, 50, 50)
+        )
+
+        blockBtn.MouseButton1Click:Connect(function()
+            if blockedRemotes[data.path] then
+                blockedRemotes[data.path] = nil
+                notify("Unblocked: " .. data.name, "success")
+            else
+                blockedRemotes[data.path] = true
+                notify("Blocked: " .. data.name, "warning")
+            end
+            refreshRemoteList(RemoteSpyFilterBox.Text)
         end)
         end -- if match
     end
 
-    -- Update canvas size
     RemoteSpyListScroll.CanvasSize = UDim2.new(0, 0, 0, count * 38)
 
-    -- Update stats
     local statsText = "Found: " .. #scannedRemotes .. " remotes"
     if vulnCount > 0 then
-        statsText = statsText .. " | ⚠ " .. vulnCount .. " vulnerable"
+        statsText = statsText .. " | ⚠ " .. vulnCount .. " vuln"
+    end
+    local blockedCount = 0
+    for _ in pairs(blockedRemotes) do blockedCount = blockedCount + 1 end
+    if blockedCount > 0 then
+        statsText = statsText .. " | 🚫 " .. blockedCount .. " blocked"
     end
     if filterText ~= "" then
-        statsText = statsText .. " (showing " .. count .. ")"
+        statsText = statsText .. " (" .. count .. " shown)"
     end
     RemoteSpyStatsLabel.Text = statsText
 end
 
 --==================================================
--- REFRESH SPY LOG
+-- REFRESH SPY LOG (clickable entries, filtro, caller, return)
 --==================================================
 
 refreshRemoteSpyLog = function()
-    -- Clear existing entries
     for _, child in pairs(RemoteSpyLogScroll:GetChildren()) do
-        if child:IsA("TextLabel") then child:Destroy() end
+        if child:IsA("TextButton") or child:IsA("TextLabel") then child:Destroy() end
     end
 
-    for idx, entry in ipairs(remoteSpyLog) do
-        local label = Instance.new("TextLabel")
-        label.Size = UDim2.new(1, -6, 0, 14)
-        label.BackgroundColor3 = idx % 2 == 0 and Color3.fromRGB(14, 18, 18) or Color3.fromRGB(10, 14, 14)
-        label.BackgroundTransparency = 0
-        label.BorderSizePixel = 0
-        label.LayoutOrder = idx
+    local filterText = RemoteSpyLogFilterBox.Text:lower()
+    local count = 0
 
-        -- Format time
+    for idx, entry in ipairs(remoteSpyLog) do
         local secs = math.floor(entry.time % 60)
         local mins = math.floor((entry.time / 60) % 60)
         local hrs = math.floor((entry.time / 3600) % 24)
         local timeStr = string.format("%02d:%02d:%02d", hrs, mins, secs)
 
-        -- Format args
         local argStrs = {}
         for _, arg in ipairs(entry.args) do
             local s = tostring(arg)
@@ -2676,18 +2894,57 @@ refreshRemoteSpyLog = function()
         end
         local argsText = #argStrs > 0 and ("(" .. table.concat(argStrs, ", ") .. ")") or "()"
 
-        label.Text = timeStr .. " " .. entry.method .. " " .. entry.name .. argsText
-        label.TextColor3 = entry.method == "FireServer" and Color3.fromRGB(100, 220, 200) or Color3.fromRGB(220, 180, 100)
-        label.TextSize = 7
-        label.Font = Enum.Font.Code
-        label.TextXAlignment = Enum.TextXAlignment.Left
-        label.TextTruncate = Enum.TextTruncate.AtEnd
-        label.Parent = RemoteSpyLogScroll
+        local fullText = timeStr .. " " .. entry.name .. ":" .. entry.method .. argsText
+        -- Add return value for InvokeServer
+        if entry.returnValue then
+            fullText = fullText .. " → " .. entry.returnValue
+        end
+
+        -- Apply filter
+        local show = true
+        if filterText ~= "" then
+            if not fullText:lower():find(filterText, 1, true) and not entry.name:lower():find(filterText, 1, true) then
+                show = false
+            end
+        end
+
+        if show then
+            count = count + 1
+
+            -- TextButton for clickable (copy script)
+            local btn = Instance.new("TextButton")
+            btn.Size = UDim2.new(1, -6, 0, 14)
+            btn.BackgroundColor3 = count % 2 == 0 and Color3.fromRGB(14, 18, 18) or Color3.fromRGB(10, 14, 14)
+            btn.BackgroundTransparency = 0
+            btn.BorderSizePixel = 0
+            btn.LayoutOrder = idx
+            btn.AutoButtonColor = false
+
+            btn.Text = fullText
+            btn.TextColor3 = entry.method == "FireServer" and Color3.fromRGB(100, 220, 200) or Color3.fromRGB(220, 180, 100)
+            btn.TextSize = 7
+            btn.Font = Enum.Font.Code
+            btn.TextXAlignment = Enum.TextXAlignment.Left
+            btn.TextTruncate = Enum.TextTruncate.AtEnd
+            btn.Parent = RemoteSpyLogScroll
+
+            -- Click → copy generated script
+            btn.MouseButton1Click:Connect(function()
+                copyLogEntry(entry)
+            end)
+
+            -- Hover effect
+            btn.MouseEnter:Connect(function()
+                btn.BackgroundColor3 = Color3.fromRGB(20, 30, 30)
+            end)
+            btn.MouseLeave:Connect(function()
+                btn.BackgroundColor3 = count % 2 == 0 and Color3.fromRGB(14, 18, 18) or Color3.fromRGB(10, 14, 14)
+            end)
+        end
     end
 
-    -- Update canvas + auto-scroll to bottom
-    RemoteSpyLogScroll.CanvasSize = UDim2.new(0, 0, 0, #remoteSpyLog * 15)
-    RemoteSpyLogScroll.CanvasPosition = Vector2.new(0, math.max(0, #remoteSpyLog * 15 - 158))
+    RemoteSpyLogScroll.CanvasSize = UDim2.new(0, 0, 0, count * 15)
+    RemoteSpyLogScroll.CanvasPosition = Vector2.new(0, math.max(0, count * 15 - 150))
 end
 
 --==================================================
@@ -2695,7 +2952,6 @@ end
 --==================================================
 
 openRemoteSpyPanel = function()
-    -- Auto-scan on open
     scanRemotes()
     refreshRemoteList("")
     RemoteSpyPanel.Visible = true
@@ -7254,98 +7510,354 @@ scanRemotes = function()
     log("Scanned remotes:", #scannedRemotes)
 end
 
+--==================================================
+-- SERIALIZE ARG — converte valor Lua em codigo copiavel
+--==================================================
+
+serializeArg = function(value)
+    local t = typeof(value)
+    if t == "string" then
+        return '"' .. value:gsub('\\', '\\\\'):gsub('"', '\\"'):gsub('\n', '\\n') .. '"'
+    elseif t == "number" then
+        return tostring(value)
+    elseif t == "boolean" then
+        return tostring(value)
+    elseif t == "nil" then
+        return "nil"
+    elseif t == "Instance" then
+        return "game." .. value:GetFullName()
+    elseif t == "Vector3" then
+        return string.format("Vector3.new(%s, %s, %s)", value.X, value.Y, value.Z)
+    elseif t == "CFrame" then
+        local c = {value:GetComponents()}
+        return "CFrame.new(" .. table.concat(c, ", ") .. ")"
+    elseif t == "Color3" then
+        return string.format("Color3.new(%s, %s, %s)", value.R, value.G, value.B)
+    elseif t == "UDim2" then
+        return string.format("UDim2.new(%s, %s, %s, %s)", value.X.Scale, value.X.Offset, value.Y.Scale, value.Y.Offset)
+    elseif t == "EnumItem" then
+        return tostring(value)
+    elseif t == "table" then
+        local parts = {}
+        for k, v in pairs(value) do
+            if type(k) == "number" then
+                table.insert(parts, serializeArg(v))
+            else
+                table.insert(parts, "[" .. serializeArg(k) .. "] = " .. serializeArg(v))
+            end
+        end
+        return "{" .. table.concat(parts, ", ") .. "}"
+    else
+        return "nil --[[ " .. t .. ": " .. tostring(value) .. " ]]"
+    end
+end
+
+--==================================================
+-- COPY LOG ENTRY — gera script e copia pro clipboard
+--==================================================
+
+copyLogEntry = function(entry)
+    local argParts = {}
+    for _, arg in ipairs(entry.args) do
+        pcall(function()
+            table.insert(argParts, serializeArg(arg))
+        end)
+    end
+    local argsStr = table.concat(argParts, ", ")
+
+    local script = ""
+    -- Comentario com caller se disponivel
+    if entry.caller and entry.caller ~= "" then
+        script = script .. "-- Caller: " .. entry.caller .. "\n"
+    end
+    -- Comentario com return se disponivel
+    if entry.returnValue then
+        script = script .. "-- Return: " .. entry.returnValue .. "\n"
+    end
+    -- Comando principal
+    script = script .. "game." .. entry.path .. ":" .. entry.method .. "(" .. argsStr .. ")"
+
+    pcall(function()
+        if setclipboard then
+            setclipboard(script)
+        elseif toclipboard then
+            toclipboard(script)
+        end
+    end)
+    notify("Script copied!", "success")
+    log("Copied script:", script:sub(1, 100))
+end
+
+--==================================================
+-- EXPORT SPY LOG — copia log inteiro pro clipboard
+--==================================================
+
+exportSpyLog = function()
+    if #remoteSpyLog == 0 then
+        notify("Spy log is empty", "warning")
+        return
+    end
+
+    local lines = {}
+    table.insert(lines, "-- Remote Spy Log Export")
+    table.insert(lines, "-- " .. #remoteSpyLog .. " entries")
+    table.insert(lines, "")
+
+    for idx, entry in ipairs(remoteSpyLog) do
+        local secs = math.floor(entry.time % 60)
+        local mins = math.floor((entry.time / 60) % 60)
+        local hrs = math.floor((entry.time / 3600) % 24)
+        local timeStr = string.format("%02d:%02d:%02d", hrs, mins, secs)
+
+        local argParts = {}
+        for _, arg in ipairs(entry.args) do
+            pcall(function()
+                table.insert(argParts, serializeArg(arg))
+            end)
+        end
+        local argsStr = table.concat(argParts, ", ")
+
+        local line = "-- [" .. timeStr .. "]"
+        if entry.caller and entry.caller ~= "" then
+            line = line .. " from " .. entry.caller
+        end
+        table.insert(lines, line)
+        local cmd = "game." .. entry.path .. ":" .. entry.method .. "(" .. argsStr .. ")"
+        if entry.returnValue then
+            cmd = cmd .. " -- → " .. entry.returnValue
+        end
+        table.insert(lines, cmd)
+        table.insert(lines, "")
+    end
+
+    local fullText = table.concat(lines, "\n")
+    pcall(function()
+        if setclipboard then
+            setclipboard(fullText)
+        elseif toclipboard then
+            toclipboard(fullText)
+        end
+    end)
+    notify("Exported " .. #remoteSpyLog .. " entries to clipboard!", "success")
+end
+
+--==================================================
+-- SPY HOOK — com block, call counter, caller, return logger
+--==================================================
+
 startRemoteSpy = function()
     if remoteSpyActive then return end
-
-    -- Checa se executor suporta hookmetamethod
-    if not hookmetamethod then
-        notify("hookmetamethod not supported", "error")
-        return false
-    end
-    if not getnamecallmethod then
-        notify("getnamecallmethod not supported", "error")
-        return false
-    end
-    if not newcclosure then
-        notify("newcclosure not supported", "error")
-        return false
-    end
 
     remoteSpyActive = true
     remoteSpyLog = {}
 
-    pcall(function()
-        remoteSpyHook = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
-            local method = getnamecallmethod()
-            if remoteSpyActive and (method == "FireServer" or method == "InvokeServer") then
-                local isRemote = false
-                pcall(function()
-                    isRemote = self:IsA("RemoteEvent") or self:IsA("RemoteFunction")
-                end)
-                if isRemote then
-                    local entry = {
-                        time = os.clock(),
-                        name = "?",
-                        path = "?",
-                        method = method,
-                        args = {...},
-                    }
-                    pcall(function() entry.name = self.Name end)
-                    pcall(function() entry.path = self:GetFullName() end)
-                    table.insert(remoteSpyLog, entry)
-                    if #remoteSpyLog > 200 then
-                        table.remove(remoteSpyLog, 1)
-                    end
-                    -- Refresh UI (safe)
-                    pcall(function() refreshRemoteSpyLog() end)
-                end
-            end
-            return remoteSpyHook(self, ...)
-        end))
-    end)
+    -- So instala hook uma vez (evita double-hook)
+    if not remoteSpyHook then
+        -- Checa se executor suporta
+        if not hookmetamethod then
+            remoteSpyActive = false
+            notify("hookmetamethod not supported", "error")
+            return false
+        end
+        if not getnamecallmethod then
+            remoteSpyActive = false
+            notify("getnamecallmethod not supported", "error")
+            return false
+        end
+        if not newcclosure then
+            remoteSpyActive = false
+            notify("newcclosure not supported", "error")
+            return false
+        end
 
-    if remoteSpyHook then
-        notify("Remote Spy ON — logging calls", "success")
-        RemoteSpyStatusLabel.Text = "Spy: ON (logging...)"
-        RemoteSpyStatusLabel.TextColor3 = Color3.fromRGB(100, 220, 200)
-        RemoteSpyToggleBtn.Text = "⏹ STOP SPY"
-        RemoteSpyToggleBtn.BackgroundColor3 = Color3.fromRGB(180, 60, 30)
-        return true
-    else
-        remoteSpyActive = false
-        notify("Failed to hook __namecall", "error")
-        return false
+        pcall(function()
+            remoteSpyHook = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+                local method = getnamecallmethod()
+                if method == "FireServer" or method == "InvokeServer" then
+                    local isRemote = false
+                    pcall(function()
+                        isRemote = self:IsA("RemoteEvent") or self:IsA("RemoteFunction")
+                    end)
+                    if isRemote then
+                        local remotePath = "?"
+                        pcall(function() remotePath = self:GetFullName() end)
+
+                        -- Call counter (sempre ativo)
+                        remoteCallCounts[remotePath] = (remoteCallCounts[remotePath] or 0) + 1
+
+                        -- Block check (sempre ativo)
+                        if blockedRemotes[remotePath] then
+                            return nil
+                        end
+
+                        -- Log apenas se spy ativo
+                        if remoteSpyActive then
+                            -- Caller script
+                            local caller = ""
+                            pcall(function()
+                                if getcallingscript then
+                                    local cs = getcallingscript()
+                                    if cs then caller = cs:GetFullName() end
+                                end
+                            end)
+
+                            local entry = {
+                                time = os.clock(),
+                                name = "?",
+                                path = remotePath,
+                                method = method,
+                                args = {...},
+                                caller = caller,
+                                returnValue = nil,
+                            }
+                            pcall(function() entry.name = self.Name end)
+
+                            -- Call original e captura retorno
+                            local result = remoteSpyHook(self, ...)
+
+                            -- Return logger (InvokeServer)
+                            if method == "InvokeServer" then
+                                pcall(function()
+                                    entry.returnValue = tostring(result)
+                                end)
+                            end
+
+                            table.insert(remoteSpyLog, entry)
+                            if #remoteSpyLog > 200 then
+                                table.remove(remoteSpyLog, 1)
+                            end
+                            pcall(function() refreshRemoteSpyLog() end)
+
+                            return result
+                        end
+                    end
+                end
+                return remoteSpyHook(self, ...)
+            end))
+        end)
+
+        if not remoteSpyHook then
+            remoteSpyActive = false
+            notify("Failed to hook __namecall", "error")
+            return false
+        end
     end
+
+    notify("Remote Spy ON — logging calls", "success")
+    RemoteSpyStatusLabel.Text = "Spy: ON (logging...)"
+    RemoteSpyStatusLabel.TextColor3 = Color3.fromRGB(100, 220, 200)
+    RemoteSpyToggleBtn.Text = "⏹ STOP SPY"
+    RemoteSpyToggleBtn.BackgroundColor3 = Color3.fromRGB(180, 60, 30)
+    return true
 end
 
 stopRemoteSpy = function()
     remoteSpyActive = false
-    RemoteSpyStatusLabel.Text = "Spy: OFF"
+    RemoteSpyStatusLabel.Text = "Spy: OFF (hook active)"
     RemoteSpyStatusLabel.TextColor3 = Colors.textDim
     RemoteSpyToggleBtn.Text = "🕵 START SPY"
     RemoteSpyToggleBtn.BackgroundColor3 = Color3.fromRGB(40, 80, 70)
     notify("Remote Spy OFF", "info")
 end
 
-fireTestRemote = function(remote)
+--==================================================
+-- PARSE FIRE ARGS
+--==================================================
+
+parseFireArgs = function(text)
+    if not text or text == "" then return {} end
+    local fn, err = loadstring("return {" .. text .. "}")
+    if fn then
+        local ok, result = pcall(fn)
+        if ok and type(result) == "table" then
+            return result
+        end
+    end
+    notify("Args parse error — sending as string", "warning")
+    return { text }
+end
+
+fireTestRemote = function(remote, customArgs)
     if not remote or not remote.Parent then
         notify("Remote no longer exists", "error")
         return
     end
-    pcall(function()
-        if remote:IsA("RemoteEvent") then
-            remote:FireServer()
-            notify("Fired: " .. remote.Name, "success")
-        elseif remote:IsA("RemoteFunction") then
-            local result = remote:InvokeServer()
-            notify("Invoked: " .. remote.Name .. " → " .. tostring(result), "success")
+    local remoteName = remote.Name
+    local remotePath = pcall(function() return remote:GetFullName() end) and remote:GetFullName() or remoteName
+    local args = customArgs or {}
+    local argCount = #args
+
+    log("Test fire:", remotePath, "args:", argCount)
+
+    task.spawn(function()
+        local ok, err = pcall(function()
+            if remote:IsA("RemoteEvent") then
+                remote:FireServer(unpack(args))
+                notify("Fired: " .. remoteName .. " (" .. argCount .. " args)", "success")
+            elseif remote:IsA("RemoteFunction") then
+                notify("Invoking: " .. remoteName .. "...", "info")
+                local result = remote:InvokeServer(unpack(args))
+                notify("Invoked: " .. remoteName .. " → " .. tostring(result), "success")
+            end
+        end)
+        if not ok then
+            notify("Fire error: " .. tostring(err):sub(1, 60), "error")
         end
     end)
-    log("Test fire:", remote:GetFullName())
 end
 
 --==================================================
--- VULNERABILITY SCAN — testa remotes com args vazios
+-- AUTO-REPEAT — repete fire no remote selecionado
+--==================================================
+
+startAutoRepeat = function(interval, count)
+    if not selectedFireRemote then
+        notify("Select a remote first (🎯)", "warning")
+        return
+    end
+    if autoRepeatActive then
+        notify("Already repeating", "warning")
+        return
+    end
+
+    autoRepeatActive = true
+    local remote = selectedFireRemote.instance
+    local args = parseFireArgs(RemoteSpyArgsBox.Text)
+    local remoteName = selectedFireRemote.name
+
+    RemoteSpyRepeatBtn.Text = "⏹ STOP"
+    RemoteSpyRepeatBtn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
+
+    task.spawn(function()
+        local fired = 0
+        while autoRepeatActive and (count == 0 or fired < count) do
+            if not remote or not remote.Parent then
+                notify("Remote gone, stopping", "error")
+                break
+            end
+            pcall(function()
+                if remote:IsA("RemoteEvent") then
+                    remote:FireServer(unpack(args))
+                else
+                    remote:InvokeServer(unpack(args))
+                end
+            end)
+            fired = fired + 1
+            task.wait(interval)
+        end
+        autoRepeatActive = false
+        RemoteSpyRepeatBtn.Text = "▶ REPEAT"
+        RemoteSpyRepeatBtn.BackgroundColor3 = Color3.fromRGB(80, 40, 120)
+        notify("Repeat done: " .. fired .. "x " .. remoteName, "info")
+    end)
+end
+
+stopAutoRepeat = function()
+    autoRepeatActive = false
+end
+
+--==================================================
+-- VULNERABILITY SCAN
 --==================================================
 
 vulnScanRemotes = function()
@@ -7354,35 +7866,59 @@ vulnScanRemotes = function()
     end
     local vulnCount = 0
     local tested = 0
+    local pending = 0
+
     for _, data in ipairs(scannedRemotes) do
         local remote = data.instance
         if not remote or not remote.Parent then
             data.vuln = "gone"
         else
             tested = tested + 1
-            local ok = pcall(function()
-                if remote:IsA("RemoteEvent") then
+            if remote:IsA("RemoteEvent") then
+                local ok = pcall(function()
                     remote:FireServer()
-                elseif remote:IsA("RemoteFunction") then
-                    remote:InvokeServer()
-                end
-            end)
-            if ok then
-                data.vuln = "vuln"
-                vulnCount = vulnCount + 1
+                end)
+                data.vuln = ok and "vuln" or "safe"
+                if ok then vulnCount = vulnCount + 1 end
             else
-                data.vuln = "safe"
+                data.vuln = "testing"
+                pending = pending + 1
+                task.spawn(function()
+                    local ok = pcall(function()
+                        remote:InvokeServer()
+                    end)
+                    if data.vuln == "testing" then
+                        data.vuln = ok and "vuln" or "safe"
+                        if ok then vulnCount = vulnCount + 1 end
+                    end
+                    pending = pending - 1
+                end)
             end
         end
     end
+
+    local deadline = os.clock() + 3
+    while pending > 0 and os.clock() < deadline do
+        task.wait(0.1)
+    end
+
+    for _, data in ipairs(scannedRemotes) do
+        if data.vuln == "testing" then
+            data.vuln = "timeout"
+        end
+    end
+
     refreshRemoteList(RemoteSpyFilterBox.Text)
-    local msg = "Vuln scan: " .. vulnCount .. " vulnerable / " .. tested .. " tested"
+    local msg = "Vuln scan: " .. vulnCount .. " vuln / " .. tested .. " tested"
+    if pending > 0 then
+        msg = msg .. " (" .. pending .. " timeout)"
+    end
     notify(msg, vulnCount > 0 and "error" or "success")
     RemoteSpyStatsLabel.Text = msg
 end
 
 --==================================================
--- MASS FIRE — dispara todos os remotes de uma vez
+-- MASS FIRE
 --==================================================
 
 massFireRemotes = function()
@@ -7393,7 +7929,7 @@ massFireRemotes = function()
     local fired = 0
     for _, data in ipairs(scannedRemotes) do
         local remote = data.instance
-        if remote and remote.Parent then
+        if remote and remote.Parent and not blockedRemotes[data.path] then
             pcall(function()
                 if remote:IsA("RemoteEvent") then
                     remote:FireServer()
@@ -9453,6 +9989,16 @@ RemoteSpyVulnScanBtn.MouseButton1Click:Connect(function()
     end)
 end)
 
+RemoteSpyFireCustomBtn.MouseButton1Click:Connect(function()
+    if not selectedFireRemote then
+        notify("Select a remote first (click 🎯)", "warning")
+        return
+    end
+    local remote = selectedFireRemote.instance
+    local args = parseFireArgs(RemoteSpyArgsBox.Text)
+    fireTestRemote(remote, args)
+end)
+
 RemoteSpyMassFireBtn.MouseButton1Click:Connect(function()
     massFireRemotes()
 end)
@@ -9471,15 +10017,40 @@ RemoteSpyClearBtn.MouseButton1Click:Connect(function()
     notify("Spy log cleared", "info")
 end)
 
+RemoteSpyRepeatBtn.MouseButton1Click:Connect(function()
+    if autoRepeatActive then
+        stopAutoRepeat()
+        RemoteSpyRepeatBtn.Text = "▶ REPEAT"
+        RemoteSpyRepeatBtn.BackgroundColor3 = Color3.fromRGB(0, 160, 140)
+    else
+        if not selectedFireRemote then
+            notify("Select a remote first (click 🎯)", "warning")
+            return
+        end
+        local interval = tonumber(RemoteSpyRepeatIntervalBox.Text) or 1
+        local count = tonumber(RemoteSpyRepeatCountBox.Text) or 0
+        if interval < 0.1 then interval = 0.1 end
+        startAutoRepeat(interval, count)
+        RemoteSpyRepeatBtn.Text = "⏹ STOP"
+        RemoteSpyRepeatBtn.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+    end
+end)
+
+RemoteSpyExportBtn.MouseButton1Click:Connect(function()
+    exportSpyLog()
+end)
+
 RemoteSpyCloseBtn.MouseButton1Click:Connect(function()
+    if autoRepeatActive then stopAutoRepeat() end
     RemoteSpyPanel.Visible = false
 end)
 
 RemoteSpyCloseBottomBtn.MouseButton1Click:Connect(function()
+    if autoRepeatActive then stopAutoRepeat() end
     RemoteSpyPanel.Visible = false
 end)
 
--- Filter debounce
+-- Remote list filter debounce
 do
     local remoteFilterTimer = nil
     RemoteSpyFilterBox:GetPropertyChangedSignal("Text"):Connect(function()
@@ -9489,6 +10060,20 @@ do
         remoteFilterTimer = task.delay(0.3, function()
             remoteFilterTimer = nil
             refreshRemoteList(RemoteSpyFilterBox.Text)
+        end)
+    end)
+end
+
+-- Spy log filter debounce
+do
+    local spyLogFilterTimer = nil
+    RemoteSpyLogFilterBox:GetPropertyChangedSignal("Text"):Connect(function()
+        if spyLogFilterTimer then
+            task.cancel(spyLogFilterTimer)
+        end
+        spyLogFilterTimer = task.delay(0.3, function()
+            spyLogFilterTimer = nil
+            refreshRemoteSpyLog()
         end)
     end)
 end
@@ -9663,6 +10248,7 @@ CloseBtn.MouseButton1Click:Connect(function()
     ShadowPanel.Visible = false
     TrollPanel.Visible = false
     stopRemoteSpy()
+    if autoRepeatActive then stopAutoRepeat() end
     RemoteSpyPanel.Visible = false
     stopChatSpy()
     ChatSpyPanel.Visible = false

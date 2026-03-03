@@ -670,6 +670,16 @@ RemoteSpyVulnScanBtn.MouseButton1Click:Connect(function()
     end)
 end)
 
+RemoteSpyFireCustomBtn.MouseButton1Click:Connect(function()
+    if not selectedFireRemote then
+        notify("Select a remote first (click 🎯)", "warning")
+        return
+    end
+    local remote = selectedFireRemote.instance
+    local args = parseFireArgs(RemoteSpyArgsBox.Text)
+    fireTestRemote(remote, args)
+end)
+
 RemoteSpyMassFireBtn.MouseButton1Click:Connect(function()
     massFireRemotes()
 end)
@@ -688,15 +698,40 @@ RemoteSpyClearBtn.MouseButton1Click:Connect(function()
     notify("Spy log cleared", "info")
 end)
 
+RemoteSpyRepeatBtn.MouseButton1Click:Connect(function()
+    if autoRepeatActive then
+        stopAutoRepeat()
+        RemoteSpyRepeatBtn.Text = "▶ REPEAT"
+        RemoteSpyRepeatBtn.BackgroundColor3 = Color3.fromRGB(0, 160, 140)
+    else
+        if not selectedFireRemote then
+            notify("Select a remote first (click 🎯)", "warning")
+            return
+        end
+        local interval = tonumber(RemoteSpyRepeatIntervalBox.Text) or 1
+        local count = tonumber(RemoteSpyRepeatCountBox.Text) or 0
+        if interval < 0.1 then interval = 0.1 end
+        startAutoRepeat(interval, count)
+        RemoteSpyRepeatBtn.Text = "⏹ STOP"
+        RemoteSpyRepeatBtn.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+    end
+end)
+
+RemoteSpyExportBtn.MouseButton1Click:Connect(function()
+    exportSpyLog()
+end)
+
 RemoteSpyCloseBtn.MouseButton1Click:Connect(function()
+    if autoRepeatActive then stopAutoRepeat() end
     RemoteSpyPanel.Visible = false
 end)
 
 RemoteSpyCloseBottomBtn.MouseButton1Click:Connect(function()
+    if autoRepeatActive then stopAutoRepeat() end
     RemoteSpyPanel.Visible = false
 end)
 
--- Filter debounce
+-- Remote list filter debounce
 do
     local remoteFilterTimer = nil
     RemoteSpyFilterBox:GetPropertyChangedSignal("Text"):Connect(function()
@@ -706,6 +741,20 @@ do
         remoteFilterTimer = task.delay(0.3, function()
             remoteFilterTimer = nil
             refreshRemoteList(RemoteSpyFilterBox.Text)
+        end)
+    end)
+end
+
+-- Spy log filter debounce
+do
+    local spyLogFilterTimer = nil
+    RemoteSpyLogFilterBox:GetPropertyChangedSignal("Text"):Connect(function()
+        if spyLogFilterTimer then
+            task.cancel(spyLogFilterTimer)
+        end
+        spyLogFilterTimer = task.delay(0.3, function()
+            spyLogFilterTimer = nil
+            refreshRemoteSpyLog()
         end)
     end)
 end
@@ -880,6 +929,7 @@ CloseBtn.MouseButton1Click:Connect(function()
     ShadowPanel.Visible = false
     TrollPanel.Visible = false
     stopRemoteSpy()
+    if autoRepeatActive then stopAutoRepeat() end
     RemoteSpyPanel.Visible = false
     stopChatSpy()
     ChatSpyPanel.Visible = false
