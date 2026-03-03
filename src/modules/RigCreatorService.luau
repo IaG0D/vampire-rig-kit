@@ -83,7 +83,7 @@ end
 -- Cria um model R15 a partir de HumanoidDescription
 -- Posiciona, limpa e retorna o model pronto
 -- ════════════════════════════════════════════════════════════════
-local function createModelFromDescription(description: HumanoidDescription, rigName: string, parent: Instance): Model?
+function RigCreatorService.createModelFromDescription(description: HumanoidDescription, rigName: string, parent: Instance): Model?
 	local success, model = pcall(function()
 		return Players:CreateHumanoidModelFromDescription(description, Enum.HumanoidRigType.R15)
 	end)
@@ -223,7 +223,7 @@ function RigCreatorService.criarRigDeUserId(userId: number, rigName: string, par
 		return nil, "Falha ao obter avatar do userId " .. tostring(userId)
 	end
 
-	local model = createModelFromDescription(description, rigName, parent)
+	local model = RigCreatorService.createModelFromDescription(description, rigName, parent)
 	description:Destroy()
 
 	if not model then

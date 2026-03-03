@@ -2,7 +2,7 @@
 	vulpy-rig-kit | UI
 	Cria a interface do plugin (DockWidgetPluginGui).
 	Layout com TAB BAR no topo: cada aba ocupa o painel inteiro.
-	Abas: Alinhamento | Rig Creator | Config
+	Abas: Alinhamento | Rig Creator | Loja | Config
 
 	Suporte a temas e idiomas via aba de configuracoes.
 ]]
@@ -13,6 +13,8 @@ local UIHelpers = require(script.Parent.UIHelpers)
 local Locale = require(script.Parent.Locale)
 local FriendsService = require(script.Parent.FriendsService)
 local RigCreatorService = require(script.Parent.RigCreatorService)
+local JsonRigService = require(script.Parent.JsonRigService)
+local OutfitBuilderPanel = require(script.Parent.components.OutfitBuilderPanel)
 
 local COLORS = UIHelpers.COLORS
 
@@ -24,6 +26,11 @@ local UI = {}
 function UI.criarWidget(pluginInstance: Plugin, callbacks: {
 	setStatus: (string) -> (),
 	onSettingsChanged: (string, string) -> (),
+	onOutfitRigCreated: (Model) -> (),
+	onJsonRigCreated: (Model) -> (),
+	onJsonBatchCreated: (Folder) -> (),
+	experimentalShop: boolean?,
+	onExperimentalShopChanged: ((boolean) -> ())?,
 })
 	local widgetInfo = DockWidgetPluginGuiInfo.new(
 		Enum.InitialDockState.Float,
@@ -38,12 +45,19 @@ function UI.criarWidget(pluginInstance: Plugin, callbacks: {
 	local widget = pluginInstance:CreateDockWidgetPluginGuiAsync("VulpyRigKit", widgetInfo)
 	widget.Title = Locale.get("pluginTitle")
 
+	-- Referencia para outfitBuilderPanel (precisa destruir no rebuild)
+	local outfitPanelApi: any = nil
+
 	-- ══════════════════════════════════════════════════════════
 	-- Funcao que constroi todo o conteudo dentro do widget
 	-- ══════════════════════════════════════════════════════════
 	local function buildContent(initialTab: string?)
 		local startTab = initialTab or "align"
 		-- Limpa conteudo anterior
+		if outfitPanelApi then
+			outfitPanelApi.destroy()
+			outfitPanelApi = nil
+		end
 		for _, child in widget:GetChildren() do
 			child:Destroy()
 		end
@@ -166,8 +180,11 @@ function UI.criarWidget(pluginInstance: Plugin, callbacks: {
 		local TABS = {
 			{ key = "align", labelKey = "tabAlign" },
 			{ key = "creator", labelKey = "tabCreator" },
-			{ key = "settings", labelKey = "tabSettings" },
 		}
+		if callbacks.experimentalShop then
+			table.insert(TABS, { key = "shop", labelKey = "tabShop" })
+		end
+		table.insert(TABS, { key = "settings", labelKey = "tabSettings" })
 
 		local tabButtons: { [string]: TextButton } = {}
 		local tabPages: { [string]: GuiObject } = {}
@@ -918,7 +935,208 @@ function UI.criarWidget(pluginInstance: Plugin, callbacks: {
 		end
 
 		-- ══════════════════════════════════════════════════════════
-		-- PAGE 3: CONFIGURACOES
+		-- BROWSE: secao JSON Import
+		-- ══════════════════════════════════════════════════════════
+		UIHelpers.criarSeparador(browseScreen).LayoutOrder = 11
+
+		criarSectionHeader(browseScreen, Locale.get("jsonImportTitle"), 12)
+
+		UIHelpers.criarLabel(browseScreen, {
+			text = Locale.get("jsonImportDesc"),
+			size = UDim2.new(1, 0, 0, 16),
+			color = COLORS.textDim, textSize = 10,
+		}).LayoutOrder = 13
+
+		-- TextBox grande para colar JSON
+		local jsonInput = Instance.new("TextBox")
+		jsonInput.Name = "JsonInput"
+		jsonInput.Size = UDim2.new(1, 0, 0, 80)
+		jsonInput.Text = ""
+		jsonInput.PlaceholderText = Locale.get("jsonPastePlaceholder")
+		jsonInput.PlaceholderColor3 = COLORS.textDim
+		jsonInput.TextColor3 = COLORS.text
+		jsonInput.TextSize = 10
+		jsonInput.Font = Enum.Font.Code
+		jsonInput.BackgroundColor3 = COLORS.input
+		jsonInput.ClearTextOnFocus = false
+		jsonInput.MultiLine = true
+		jsonInput.TextWrapped = true
+		jsonInput.TextXAlignment = Enum.TextXAlignment.Left
+		jsonInput.TextYAlignment = Enum.TextYAlignment.Top
+		jsonInput.LayoutOrder = 14
+		jsonInput.Parent = browseScreen
+		UIHelpers.criarCorner(jsonInput, 6)
+
+		local jsonInputPad = Instance.new("UIPadding")
+		jsonInputPad.PaddingTop = UDim.new(0, 6)
+		jsonInputPad.PaddingLeft = UDim.new(0, 8)
+		jsonInputPad.PaddingRight = UDim.new(0, 8)
+		jsonInputPad.PaddingBottom = UDim.new(0, 6)
+		jsonInputPad.Parent = jsonInput
+
+		-- Row com os dois botoes
+		local jsonBtnRow = Instance.new("Frame")
+		jsonBtnRow.Name = "JsonBtnRow"
+		jsonBtnRow.Size = UDim2.new(1, 0, 0, 36)
+		jsonBtnRow.BackgroundTransparency = 1
+		jsonBtnRow.LayoutOrder = 15
+		jsonBtnRow.Parent = browseScreen
+
+		local jsonBtnLayout = Instance.new("UIListLayout")
+		jsonBtnLayout.FillDirection = Enum.FillDirection.Horizontal
+		jsonBtnLayout.Padding = UDim.new(0, 6)
+		jsonBtnLayout.Parent = jsonBtnRow
+
+		local jsonLoadSingleBtn = UIHelpers.criarBotao(jsonBtnRow, {
+			text = Locale.get("jsonLoadSingle"),
+			size = UDim2.new(0.5, -3, 1, 0),
+			color = COLORS.primary,
+		})
+		jsonLoadSingleBtn.TextSize = 12
+		jsonLoadSingleBtn.Font = Enum.Font.GothamBold
+		jsonLoadSingleBtn.LayoutOrder = 1
+
+		local jsonLoadAllBtn = UIHelpers.criarBotao(jsonBtnRow, {
+			text = Locale.get("jsonLoadAll"),
+			size = UDim2.new(0.5, -3, 1, 0),
+			color = COLORS.green,
+		})
+		jsonLoadAllBtn.TextSize = 12
+		jsonLoadAllBtn.Font = Enum.Font.GothamBold
+		jsonLoadAllBtn.LayoutOrder = 2
+
+		-- Status label do JSON
+		local jsonStatusLabel = UIHelpers.criarLabel(browseScreen, {
+			text = "",
+			size = UDim2.new(1, 0, 0, 16),
+			color = COLORS.textDim, textSize = 10,
+		})
+		jsonStatusLabel.LayoutOrder = 16
+		jsonStatusLabel.Visible = false
+
+		-- Handler: Load 1 Rig
+		jsonLoadSingleBtn.MouseButton1Click:Connect(function()
+			local text = jsonInput.Text
+			if text == "" then
+				callbacks.setStatus(Locale.get("jsonEmptyInput"))
+				return
+			end
+
+			local formato, data, err = JsonRigService.parseJson(text)
+			if not formato then
+				callbacks.setStatus(Locale.get("jsonInvalidFormat") .. " " .. (err or ""))
+				return
+			end
+
+			-- Aceita formato "single" direto, ou pega o primeiro do batch
+			local rigData
+			if formato == "single" then
+				rigData = data
+			elseif formato == "batch" then
+				if #data == 0 then
+					callbacks.setStatus(Locale.get("jsonSingleNotDetected"))
+					return
+				end
+				rigData = data[1]
+			else
+				callbacks.setStatus(Locale.get("jsonSingleNotDetected"))
+				return
+			end
+
+			callbacks.setStatus(Locale.get("jsonCreatingSingle"))
+			jsonStatusLabel.Visible = true
+			jsonStatusLabel.Text = Locale.get("jsonCreatingSingle")
+
+			task.spawn(function()
+				local rigName = rigData.name or ("JsonRig_" .. math.random(1000, 9999))
+				local model, rigErr = JsonRigService.criarRigDeJson(rigData, rigName, workspace)
+
+				if model then
+					callbacks.setStatus(Locale.fmt("jsonSingleCreated", model.Name))
+					jsonStatusLabel.Text = Locale.fmt("jsonSingleCreated", model.Name)
+					callbacks.onJsonRigCreated(model)
+				else
+					callbacks.setStatus(Locale.get("rigError") .. (rigErr or ""))
+					jsonStatusLabel.Text = Locale.get("rigError") .. (rigErr or "")
+				end
+			end)
+		end)
+
+		-- Handler: Load All Rigs
+		jsonLoadAllBtn.MouseButton1Click:Connect(function()
+			local text = jsonInput.Text
+			if text == "" then
+				callbacks.setStatus(Locale.get("jsonEmptyInput"))
+				return
+			end
+
+			local formato, data, err = JsonRigService.parseJson(text)
+			if not formato then
+				callbacks.setStatus(Locale.get("jsonInvalidFormat") .. " " .. (err or ""))
+				return
+			end
+
+			local rigsArray
+			if formato == "batch" then
+				rigsArray = data
+			elseif formato == "single" then
+				-- Formato single: cria como array de 1
+				rigsArray = { data }
+			else
+				callbacks.setStatus(Locale.get("jsonBatchNotDetected"))
+				return
+			end
+
+			if #rigsArray == 0 then
+				callbacks.setStatus(Locale.get("jsonBatchNotDetected"))
+				return
+			end
+
+			callbacks.setStatus(Locale.fmt("jsonCreatingBatch", 0, #rigsArray))
+			jsonStatusLabel.Visible = true
+			jsonStatusLabel.Text = Locale.fmt("jsonCreatingBatch", 0, #rigsArray)
+
+			task.spawn(function()
+				local folder, criados, falhas = JsonRigService.criarRigsBatch(
+					rigsArray,
+					workspace,
+					function(current, total)
+						local msg = Locale.fmt("jsonCreatingBatch", current, total)
+						callbacks.setStatus(msg)
+						jsonStatusLabel.Text = msg
+					end
+				)
+
+				local msg = Locale.fmt("jsonBatchDone", criados, falhas)
+				callbacks.setStatus(msg)
+				jsonStatusLabel.Text = msg
+
+				if folder then
+					callbacks.onJsonBatchCreated(folder)
+				end
+			end)
+		end)
+
+		-- ══════════════════════════════════════════════════════════
+		-- PAGE 3: LOJA (apenas se experimental habilitado)
+		-- ══════════════════════════════════════════════════════════
+		if callbacks.experimentalShop then
+			local shopPage = Instance.new("Frame")
+			shopPage.Name = "ShopPage"
+			shopPage.Size = UDim2.new(1, 0, 1, 0)
+			shopPage.BackgroundTransparency = 1
+			shopPage.Visible = startTab == "shop"
+			shopPage.Parent = contentArea
+			tabPages["shop"] = shopPage
+
+			outfitPanelApi = OutfitBuilderPanel.create(shopPage, {
+				setStatus = callbacks.setStatus,
+				onRigCreated = callbacks.onOutfitRigCreated,
+			})
+		end
+
+		-- ══════════════════════════════════════════════════════════
+		-- PAGE 4: CONFIGURACOES
 		-- ══════════════════════════════════════════════════════════
 		local settingsPage = criarPagina("SettingsPage", startTab == "settings")
 		tabPages["settings"] = settingsPage
@@ -1117,12 +1335,96 @@ function UI.criarWidget(pluginInstance: Plugin, callbacks: {
 
 		UIHelpers.criarSeparador(settingsPage).LayoutOrder = 9
 
+		-- ── Secao Experimental ──
+		UIHelpers.criarLabel(settingsPage, {
+			text = Locale.get("experimentalSection"),
+			size = UDim2.new(1, 0, 0, 18),
+			bold = true, textSize = 13,
+			color = COLORS.primary,
+		}).LayoutOrder = 10
+
+		local experimentalShopRow = Instance.new("Frame")
+		experimentalShopRow.Name = "ExperimentalShopRow"
+		experimentalShopRow.Size = UDim2.new(1, 0, 0, 40)
+		experimentalShopRow.BackgroundColor3 = COLORS.surface
+		experimentalShopRow.LayoutOrder = 11
+		experimentalShopRow.Parent = settingsPage
+		UIHelpers.criarCorner(experimentalShopRow, 8)
+
+		local expShopLabel = Instance.new("TextLabel")
+		expShopLabel.Size = UDim2.new(1, -60, 0, 16)
+		expShopLabel.Position = UDim2.new(0, 10, 0, 4)
+		expShopLabel.BackgroundTransparency = 1
+		expShopLabel.Text = Locale.get("experimentalShopLabel")
+		expShopLabel.TextColor3 = COLORS.text
+		expShopLabel.TextSize = 12
+		expShopLabel.Font = Enum.Font.GothamBold
+		expShopLabel.TextXAlignment = Enum.TextXAlignment.Left
+		expShopLabel.Parent = experimentalShopRow
+
+		local expShopDesc = Instance.new("TextLabel")
+		expShopDesc.Size = UDim2.new(1, -60, 0, 12)
+		expShopDesc.Position = UDim2.new(0, 10, 0, 22)
+		expShopDesc.BackgroundTransparency = 1
+		expShopDesc.Text = Locale.get("experimentalShopDesc")
+		expShopDesc.TextColor3 = COLORS.textDim
+		expShopDesc.TextSize = 9
+		expShopDesc.Font = Enum.Font.GothamMedium
+		expShopDesc.TextXAlignment = Enum.TextXAlignment.Left
+		expShopDesc.TextTruncate = Enum.TextTruncate.AtEnd
+		expShopDesc.Parent = experimentalShopRow
+
+		-- Toggle botao (pill on/off)
+		local expShopEnabled = callbacks.experimentalShop or false
+		local toggleBtn = Instance.new("TextButton")
+		toggleBtn.Name = "ToggleBtn"
+		toggleBtn.Size = UDim2.new(0, 42, 0, 22)
+		toggleBtn.Position = UDim2.new(1, -52, 0.5, -11)
+		toggleBtn.BackgroundColor3 = if expShopEnabled then COLORS.green else COLORS.surface
+		toggleBtn.Text = ""
+		toggleBtn.AutoButtonColor = false
+		toggleBtn.Parent = experimentalShopRow
+		UIHelpers.criarCorner(toggleBtn, 11)
+		UIHelpers.criarStroke(toggleBtn, if expShopEnabled then COLORS.green else COLORS.separator, 1)
+
+		local toggleKnob = Instance.new("Frame")
+		toggleKnob.Name = "Knob"
+		toggleKnob.Size = UDim2.new(0, 16, 0, 16)
+		toggleKnob.Position = if expShopEnabled then UDim2.new(1, -19, 0.5, -8) else UDim2.new(0, 3, 0.5, -8)
+		toggleKnob.BackgroundColor3 = Color3.new(1, 1, 1)
+		toggleKnob.Parent = toggleBtn
+		UIHelpers.criarCorner(toggleKnob, 8)
+
+		toggleBtn.MouseButton1Click:Connect(function()
+			expShopEnabled = not expShopEnabled
+
+			UIHelpers.tweenProperty(toggleBtn, {
+				BackgroundColor3 = if expShopEnabled then COLORS.green else COLORS.surface,
+			}, 0.2)
+			UIHelpers.tweenProperty(toggleKnob, {
+				Position = if expShopEnabled then UDim2.new(1, -19, 0.5, -8) else UDim2.new(0, 3, 0.5, -8),
+			}, 0.2)
+			local stroke = toggleBtn:FindFirstChildOfClass("UIStroke")
+			if stroke then
+				UIHelpers.tweenProperty(stroke, {
+					Color = if expShopEnabled then COLORS.green else COLORS.separator,
+				}, 0.2)
+			end
+
+			-- Notifica o init.server para salvar e rebuild
+			if callbacks.onExperimentalShopChanged then
+				callbacks.onExperimentalShopChanged(expShopEnabled)
+			end
+		end)
+
+		UIHelpers.criarSeparador(settingsPage).LayoutOrder = 12
+
 		-- Creditos na pagina de settings tambem
 		local settingsCreditsFrame = Instance.new("Frame")
 		settingsCreditsFrame.Name = "SettingsCredits"
 		settingsCreditsFrame.Size = UDim2.new(1, 0, 0, 60)
 		settingsCreditsFrame.BackgroundTransparency = 1
-		settingsCreditsFrame.LayoutOrder = 10
+		settingsCreditsFrame.LayoutOrder = 13
 		settingsCreditsFrame.Parent = settingsPage
 
 		-- Avatar circular
@@ -1190,6 +1492,8 @@ function UI.criarWidget(pluginInstance: Plugin, callbacks: {
 			getNameTagState = getNameTagState,
 			selectedUserId = function() return selectedUserId end,
 			selectedUsername = function() return selectedUsername end,
+			-- Outfit Builder
+			outfitPanel = outfitPanelApi,
 		}
 	end
 

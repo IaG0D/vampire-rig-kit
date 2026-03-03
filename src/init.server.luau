@@ -7,7 +7,8 @@
 	Funcionalidades:
 	  1. Alinhar rigs sobre pedestais automaticamente
 	  2. Criar rigs a partir de userId/username
-	  3. Temas (Default / Vampire) e idiomas (EN / PT-BR) configuraveis
+	  3. Buscar e aplicar itens do catalogo Roblox (painel visual com grid)
+	  4. Temas (Default / Vampire) e idiomas (EN / PT-BR) configuraveis
 ]]
 
 local Selection = game:GetService("Selection")
@@ -24,6 +25,7 @@ local UI = require(script.modules.UI)
 -- ════════════════════════════════════════════════════════════════
 local savedLang = plugin:GetSetting("VulpyRigKit_Language") or "en"
 local savedTheme = plugin:GetSetting("VulpyRigKit_Theme") or "default"
+local experimentalShop = plugin:GetSetting("VulpyRigKit_ExperimentalShop") or false
 
 Locale.setLanguage(savedLang)
 UIHelpers.applyTheme(savedTheme)
@@ -391,10 +393,33 @@ end
 -- ════════════════════════════════════════════════════════════════
 -- Widget UI
 -- ════════════════════════════════════════════════════════════════
-elements = UI.criarWidget(plugin, {
+local uiCallbacks = {
 	setStatus = setStatus,
 	onSettingsChanged = onSettingsChanged,
-})
+	onOutfitRigCreated = function(model: Model)
+		Selection:Set({ model })
+		setStatus(Locale.get("outfitRigCreated") .. model.Name)
+	end,
+	onJsonRigCreated = function(model: Model)
+		Selection:Set({ model })
+	end,
+	onJsonBatchCreated = function(folder: Folder)
+		Selection:Set({ folder })
+	end,
+	experimentalShop = experimentalShop,
+}
+uiCallbacks.onExperimentalShopChanged = function(enabled: boolean)
+	experimentalShop = enabled
+	uiCallbacks.experimentalShop = enabled
+	plugin:SetSetting("VulpyRigKit_ExperimentalShop", enabled)
+
+	-- Rebuild widget para mostrar/ocultar a aba Shop
+	elements.rebuild("settings")
+	conectarHandlers()
+	setStatus(Locale.get("settingsSaved"))
+end
+
+elements = UI.criarWidget(plugin, uiCallbacks)
 
 local widget = elements.widget
 conectarHandlers()
@@ -415,6 +440,9 @@ plugin.Unloading:Connect(function()
 	rigs = {}
 	pedestais = {}
 	limparConnections()
+	if elements.outfitPanel then
+		elements.outfitPanel.destroy()
+	end
 end)
 
 print("[Vampire Rigs] Plugin loaded! Created by VampireSonata")
