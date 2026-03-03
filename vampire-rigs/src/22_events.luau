@@ -354,7 +354,7 @@ MinBtn.MouseButton1Click:Connect(function()
     closeScanner()
 end)
 
--- Ctrl+G = toggle abrir/fechar | Esc = stop freecam
+-- Ctrl+G = toggle abrir/fechar | N = toggle freecam
 UIS.InputBegan:Connect(function(input, gpe)
     if gpe then return end
     if input.KeyCode == HOTKEY then
@@ -363,10 +363,14 @@ UIS.InputBegan:Connect(function(input, gpe)
         elseif not REQUIRE_CTRL then
             toggleScanner()
         end
-    elseif input.KeyCode == Enum.KeyCode.Escape and movementState.freecam then
-        movementState.freecam = false
+    elseif input.KeyCode == Enum.KeyCode.N then
+        movementState.freecam = not movementState.freecam
         moveToggles.freecam.refresh()
-        stopFreecam()
+        if movementState.freecam then
+            startFreecam()
+        else
+            stopFreecam()
+        end
     end
 end)
 
