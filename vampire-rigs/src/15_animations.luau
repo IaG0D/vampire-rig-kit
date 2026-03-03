@@ -73,6 +73,12 @@ local function openScanner()
     if scannerOpen then return end
     scannerOpen = true
 
+    -- Release mouse if freecam is active
+    if movementState.freecam then
+        UIS.MouseBehavior = Enum.MouseBehavior.Default
+        UIS.MouseIconEnabled = true
+    end
+
     lastMiniBarPos = MiniBar.Position
     MiniBar.Visible = false
 
@@ -96,6 +102,12 @@ local function closeScanner()
     scannerOpen = false
 
     PreviewFrame.Visible = false
+
+    -- Re-lock mouse if freecam is still active
+    if movementState.freecam then
+        UIS.MouseBehavior = Enum.MouseBehavior.LockCenter
+        UIS.MouseIconEnabled = false
+    end
 
     local closeTween = TweenService:Create(MainFrame, tweenInfoIn, {
         Size = UDim2.new(0, 380, 0, 500),
