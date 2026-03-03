@@ -101,11 +101,18 @@ local tabDefs = {
     { id = "esp",      icon = "👁",  label = "ESP" },
     { id = "player",   icon = "👤", label = "Players" },
     { id = "movement", icon = "🏃", label = "Move" },
-    { id = "teleport", icon = "📍", label = "TP" },
+    { id = "emote",    icon = "💃", label = "Emote" },
     { id = "settings", icon = "⚙",  label = "Config" },
 }
 
-local tabBarLayout = Instance.new("UIListLayout", TabBar)
+-- Container para os botoes (UIListLayout aqui dentro, sem afetar o accent line)
+local TabBtnContainer = Instance.new("Frame")
+TabBtnContainer.Size = UDim2.new(1, 0, 1, 0)
+TabBtnContainer.BackgroundTransparency = 1
+TabBtnContainer.BorderSizePixel = 0
+TabBtnContainer.Parent = TabBar
+
+local tabBarLayout = Instance.new("UIListLayout", TabBtnContainer)
 tabBarLayout.FillDirection = Enum.FillDirection.Horizontal
 tabBarLayout.SortOrder = Enum.SortOrder.LayoutOrder
 tabBarLayout.Padding = UDim.new(0, 0)
@@ -123,7 +130,7 @@ for i, def in ipairs(tabDefs) do
     tabBtn.Font = Enum.Font.GothamBold
     tabBtn.AutoButtonColor = false
     tabBtn.BorderSizePixel = 0
-    tabBtn.Parent = TabBar
+    tabBtn.Parent = TabBtnContainer
 
     -- Active indicator line (bottom of tab)
     local indicator = Instance.new("Frame")

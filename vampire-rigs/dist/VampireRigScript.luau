@@ -1,7 +1,7 @@
 --==================================================
 -- VAMPIRE RIG SCANNER v13 - TAB SYSTEM + FULL FEATURES
 -- Create By VampireSonata
--- Tabs: Scanner, ESP, Players, Movement, TP, Settings
+-- Tabs: Scanner, ESP, Players, Movement, Emote, Settings
 -- ⚡ Bundled automaticamente — NÃO edite este arquivo!
 -- ⚡ Edite os modulos em vampire-rigs/src/
 --==================================================
@@ -109,6 +109,7 @@ local scannedNPCSet = {}
 local spectatingInfo = nil
 local spectateHighlight = nil
 local savedCameraSubject = nil
+local spectateConfig = { showHighlight = true }
 
 -- ESP state
 local espState = {
@@ -140,8 +141,19 @@ local freecamConnection = nil
 local savedCameraState = nil
 local speedConnection = nil
 
--- Teleport state
-local waypoints = {}
+-- Emote state
+local currentEmoteTrack = nil
+
+-- Shadow state
+local shadowState = {
+    active = false,
+    mode = "follow", -- "follow" | "head" | "mirror"
+    target = nil,
+    delay = 0,
+    distance = 4,
+}
+local shadowConnection = nil
+local shadowHistory = {}
 
 -- Notification state
 local notifContainer = nil
@@ -172,12 +184,12 @@ local startFly, stopFly
 local toggleNoclip, toggleInfiniteJump
 local startFreecam, stopFreecam
 local applySpeed
-local addWaypoint, removeWaypoint, tpToWaypoint, refreshWaypointList
-local tpToPart
 local filterResults
 local runScan, clearResults, createResultCard
 local refreshPlayerList
 local updateServerInfo
+local playEmote, stopEmote
+local startShadow, stopShadow, refreshShadowPlayerList
 
 --==================================================
 -- UI HELPERS
@@ -756,11 +768,18 @@ local tabDefs = {
     { id = "esp",      icon = "👁",  label = "ESP" },
     { id = "player",   icon = "👤", label = "Players" },
     { id = "movement", icon = "🏃", label = "Move" },
-    { id = "teleport", icon = "📍", label = "TP" },
+    { id = "emote",    icon = "💃", label = "Emote" },
     { id = "settings", icon = "⚙",  label = "Config" },
 }
 
-local tabBarLayout = Instance.new("UIListLayout", TabBar)
+-- Container para os botoes (UIListLayout aqui dentro, sem afetar o accent line)
+local TabBtnContainer = Instance.new("Frame")
+TabBtnContainer.Size = UDim2.new(1, 0, 1, 0)
+TabBtnContainer.BackgroundTransparency = 1
+TabBtnContainer.BorderSizePixel = 0
+TabBtnContainer.Parent = TabBar
+
+local tabBarLayout = Instance.new("UIListLayout", TabBtnContainer)
 tabBarLayout.FillDirection = Enum.FillDirection.Horizontal
 tabBarLayout.SortOrder = Enum.SortOrder.LayoutOrder
 tabBarLayout.Padding = UDim.new(0, 0)
@@ -778,7 +797,7 @@ for i, def in ipairs(tabDefs) do
     tabBtn.Font = Enum.Font.GothamBold
     tabBtn.AutoButtonColor = false
     tabBtn.BorderSizePixel = 0
-    tabBtn.Parent = TabBar
+    tabBtn.Parent = TabBtnContainer
 
     -- Active indicator line (bottom of tab)
     local indicator = Instance.new("Frame")
@@ -1093,6 +1112,22 @@ playerPad.PaddingTop = UDim.new(0, 4)
 playerPad.PaddingLeft = UDim.new(0, 4)
 playerPad.PaddingRight = UDim.new(0, 4)
 
+-- Unspectate button (hidden by default)
+local PlayerUnspectateBtn = Instance.new("TextButton")
+PlayerUnspectateBtn.Size = UDim2.new(1, 0, 0, 26)
+PlayerUnspectateBtn.Position = UDim2.new(0, 0, 1, -98)
+PlayerUnspectateBtn.BackgroundColor3 = Colors.blood
+PlayerUnspectateBtn.Text = "🦇 UNSPECTATE"
+PlayerUnspectateBtn.TextColor3 = Colors.text
+PlayerUnspectateBtn.TextSize = 11
+PlayerUnspectateBtn.Font = Enum.Font.GothamBold
+PlayerUnspectateBtn.AutoButtonColor = false
+PlayerUnspectateBtn.Visible = false
+PlayerUnspectateBtn.Parent = PlayerContent
+Instance.new("UICorner", PlayerUnspectateBtn).CornerRadius = UDim.new(0, 6)
+addBtnGradient(PlayerUnspectateBtn)
+makeHoverable(PlayerUnspectateBtn, Colors.blood, Colors.glowRed)
+
 -- Refresh button
 local RefreshPlayersBtn = Instance.new("TextButton")
 RefreshPlayersBtn.Size = UDim2.new(1, 0, 0, 26)
@@ -1201,155 +1236,243 @@ addBtnGradient(ResetMoveBtn)
 makeHoverable(ResetMoveBtn, Colors.bloodDark, Colors.blood)
 
 
---[[ ═══════ MODULE: 09_tab_teleport.luau ═══════ ]]
+--[[ ═══════ MODULE: 09_tab_emote.luau ═══════ ]]
 
 --==================================================
--- TAB: TELEPORT
+-- TAB: EMOTE + SHADOW
 --==================================================
 
-local TeleportContent = Instance.new("Frame")
-TeleportContent.Name = "TeleportContent"
-TeleportContent.Size = UDim2.new(1, 0, 1, 0)
-TeleportContent.BackgroundTransparency = 1
-TeleportContent.Visible = false
-TeleportContent.Parent = TabContent
-tabContents["teleport"] = TeleportContent
+local EmoteContent = Instance.new("Frame")
+EmoteContent.Name = "EmoteContent"
+EmoteContent.Size = UDim2.new(1, 0, 1, 0)
+EmoteContent.BackgroundTransparency = 1
+EmoteContent.Visible = false
+EmoteContent.Parent = TabContent
+tabContents["emote"] = EmoteContent
 
--- Scroll container
-local TPScroll = Instance.new("ScrollingFrame")
-TPScroll.Size = UDim2.new(1, 0, 1, 0)
-TPScroll.BackgroundTransparency = 1
-TPScroll.ScrollBarThickness = 3
-TPScroll.ScrollBarImageColor3 = Colors.blood
-TPScroll.CanvasSize = UDim2.new(0, 0, 0, 600)
-TPScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-TPScroll.BorderSizePixel = 0
-TPScroll.Parent = TeleportContent
-
-createSectionHeader(TPScroll, "TP to Part / Model", 0)
-
-local TPInput = Instance.new("TextBox")
-TPInput.Size = UDim2.new(1, -80, 0, 28)
-TPInput.Position = UDim2.new(0, 0, 0, 26)
-TPInput.BackgroundColor3 = Colors.inputBg
-TPInput.Text = ""
-TPInput.PlaceholderText = "Part name..."
-TPInput.TextColor3 = Colors.text
-TPInput.PlaceholderColor3 = Colors.textDim
-TPInput.TextSize = 11
-TPInput.Font = Enum.Font.Code
-TPInput.ClearTextOnFocus = false
-TPInput.Parent = TPScroll
-Instance.new("UICorner", TPInput).CornerRadius = UDim.new(0, 6)
-local tpInputStroke = Instance.new("UIStroke", TPInput)
-tpInputStroke.Color = Colors.inputBorder
-tpInputStroke.Thickness = 1
-
-TPInput.Focused:Connect(function()
-    TweenService:Create(tpInputStroke, TweenInfo.new(0.2), { Color = Colors.bloodLight, Thickness = 1.5 }):Play()
-end)
-TPInput.FocusLost:Connect(function()
-    TweenService:Create(tpInputStroke, TweenInfo.new(0.3), { Color = Colors.inputBorder, Thickness = 1 }):Play()
-end)
-
-local TPSearchBtn = Instance.new("TextButton")
-TPSearchBtn.Size = UDim2.new(0, 72, 0, 28)
-TPSearchBtn.Position = UDim2.new(1, -72, 0, 26)
-TPSearchBtn.BackgroundColor3 = Colors.blood
-TPSearchBtn.Text = "📍 GO"
-TPSearchBtn.TextColor3 = Colors.text
-TPSearchBtn.TextSize = 11
-TPSearchBtn.Font = Enum.Font.GothamBold
-TPSearchBtn.AutoButtonColor = false
-TPSearchBtn.Parent = TPScroll
-Instance.new("UICorner", TPSearchBtn).CornerRadius = UDim.new(0, 6)
-addBtnGradient(TPSearchBtn)
-makeHoverable(TPSearchBtn, Colors.blood, Colors.glowRed)
+local EmoteScroll = Instance.new("ScrollingFrame")
+EmoteScroll.Size = UDim2.new(1, 0, 1, 0)
+EmoteScroll.BackgroundTransparency = 1
+EmoteScroll.ScrollBarThickness = 3
+EmoteScroll.ScrollBarImageColor3 = Colors.blood
+EmoteScroll.CanvasSize = UDim2.new(0, 0, 0, 700)
+EmoteScroll.BorderSizePixel = 0
+EmoteScroll.Parent = EmoteContent
 
 --==================================================
--- WAYPOINTS
+-- EMOTE LIST
 --==================================================
 
-createSectionHeader(TPScroll, "Waypoints", 62)
+createSectionHeader(EmoteScroll, "Emotes", 0)
 
-local WPNameInput = Instance.new("TextBox")
-WPNameInput.Size = UDim2.new(1, -80, 0, 28)
-WPNameInput.Position = UDim2.new(0, 0, 0, 88)
-WPNameInput.BackgroundColor3 = Colors.inputBg
-WPNameInput.Text = ""
-WPNameInput.PlaceholderText = "Waypoint name..."
-WPNameInput.TextColor3 = Colors.text
-WPNameInput.PlaceholderColor3 = Colors.textDim
-WPNameInput.TextSize = 11
-WPNameInput.Font = Enum.Font.Code
-WPNameInput.ClearTextOnFocus = false
-WPNameInput.Parent = TPScroll
-Instance.new("UICorner", WPNameInput).CornerRadius = UDim.new(0, 6)
-local wpStroke = Instance.new("UIStroke", WPNameInput)
-wpStroke.Color = Colors.inputBorder
-wpStroke.Thickness = 1
+local emoteList = {
+    { name = "Wave",      id = 507770239 },
+    { name = "Point",     id = 507770453 },
+    { name = "Laugh",     id = 507770818 },
+    { name = "Cheer",     id = 507770677 },
+    { name = "Dance 1",   id = 507771019 },
+    { name = "Dance 2",   id = 507776043 },
+    { name = "Dance 3",   id = 507777268 },
+}
 
-WPNameInput.Focused:Connect(function()
-    TweenService:Create(wpStroke, TweenInfo.new(0.2), { Color = Colors.green, Thickness = 1.5 }):Play()
+-- Grid: 2 columns
+local emoteY = 26
+local emoteButtons = {}
+for i, emote in ipairs(emoteList) do
+    local col = (i - 1) % 2
+    local row = math.floor((i - 1) / 2)
+
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0.5, -3, 0, 28)
+    btn.Position = UDim2.new(col * 0.5, col == 0 and 0 or 3, 0, emoteY + row * 32)
+    btn.BackgroundColor3 = Colors.purple
+    btn.Text = "💃 " .. emote.name
+    btn.TextColor3 = Colors.text
+    btn.TextSize = 10
+    btn.Font = Enum.Font.GothamBold
+    btn.AutoButtonColor = false
+    btn.Parent = EmoteScroll
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+    makeHoverable(btn, Colors.purple, Colors.purpleLight)
+
+    emoteButtons[i] = { btn = btn, emote = emote }
+end
+
+local emoteGridHeight = math.ceil(#emoteList / 2) * 32
+
+-- Custom animation ID input
+local customEmoteY = emoteY + emoteGridHeight + 8
+
+local CustomIDLabel = Instance.new("TextLabel")
+CustomIDLabel.Size = UDim2.new(1, 0, 0, 14)
+CustomIDLabel.Position = UDim2.new(0, 0, 0, customEmoteY)
+CustomIDLabel.BackgroundTransparency = 1
+CustomIDLabel.Text = "Custom Animation ID:"
+CustomIDLabel.TextColor3 = Colors.textDim
+CustomIDLabel.TextSize = 10
+CustomIDLabel.Font = Enum.Font.GothamBold
+CustomIDLabel.TextXAlignment = Enum.TextXAlignment.Left
+CustomIDLabel.Parent = EmoteScroll
+
+local CustomIDInput = Instance.new("TextBox")
+CustomIDInput.Size = UDim2.new(1, -70, 0, 26)
+CustomIDInput.Position = UDim2.new(0, 0, 0, customEmoteY + 16)
+CustomIDInput.BackgroundColor3 = Colors.inputBg
+CustomIDInput.Text = ""
+CustomIDInput.PlaceholderText = "Animation ID..."
+CustomIDInput.TextColor3 = Colors.text
+CustomIDInput.PlaceholderColor3 = Colors.textDim
+CustomIDInput.TextSize = 11
+CustomIDInput.Font = Enum.Font.Code
+CustomIDInput.ClearTextOnFocus = false
+CustomIDInput.Parent = EmoteScroll
+Instance.new("UICorner", CustomIDInput).CornerRadius = UDim.new(0, 6)
+local customStroke = Instance.new("UIStroke", CustomIDInput)
+customStroke.Color = Colors.inputBorder
+customStroke.Thickness = 1
+
+CustomIDInput.Focused:Connect(function()
+    TweenService:Create(customStroke, TweenInfo.new(0.2), { Color = Colors.purpleLight, Thickness = 1.5 }):Play()
 end)
-WPNameInput.FocusLost:Connect(function()
-    TweenService:Create(wpStroke, TweenInfo.new(0.3), { Color = Colors.inputBorder, Thickness = 1 }):Play()
+CustomIDInput.FocusLost:Connect(function()
+    TweenService:Create(customStroke, TweenInfo.new(0.3), { Color = Colors.inputBorder, Thickness = 1 }):Play()
 end)
 
-local SaveWPBtn = Instance.new("TextButton")
-SaveWPBtn.Size = UDim2.new(0, 72, 0, 28)
-SaveWPBtn.Position = UDim2.new(1, -72, 0, 88)
-SaveWPBtn.BackgroundColor3 = Colors.green
-SaveWPBtn.Text = "💾 SAVE"
-SaveWPBtn.TextColor3 = Colors.text
-SaveWPBtn.TextSize = 11
-SaveWPBtn.Font = Enum.Font.GothamBold
-SaveWPBtn.AutoButtonColor = false
-SaveWPBtn.Parent = TPScroll
-Instance.new("UICorner", SaveWPBtn).CornerRadius = UDim.new(0, 6)
-addBtnGradient(SaveWPBtn)
-makeHoverable(SaveWPBtn, Colors.green, Colors.greenLight)
+local PlayCustomBtn = Instance.new("TextButton")
+PlayCustomBtn.Size = UDim2.new(0, 62, 0, 26)
+PlayCustomBtn.Position = UDim2.new(1, -62, 0, customEmoteY + 16)
+PlayCustomBtn.BackgroundColor3 = Colors.green
+PlayCustomBtn.Text = "▶ PLAY"
+PlayCustomBtn.TextColor3 = Colors.text
+PlayCustomBtn.TextSize = 10
+PlayCustomBtn.Font = Enum.Font.GothamBold
+PlayCustomBtn.AutoButtonColor = false
+PlayCustomBtn.Parent = EmoteScroll
+Instance.new("UICorner", PlayCustomBtn).CornerRadius = UDim.new(0, 6)
+makeHoverable(PlayCustomBtn, Colors.green, Colors.greenLight)
 
--- Waypoint list frame
-local WaypointList = Instance.new("Frame")
-WaypointList.Name = "WaypointList"
-WaypointList.Size = UDim2.new(1, 0, 0, 10)
-WaypointList.Position = UDim2.new(0, 0, 0, 122)
-WaypointList.BackgroundTransparency = 1
-WaypointList.AutomaticSize = Enum.AutomaticSize.Y
-WaypointList.Parent = TPScroll
+-- Stop emote button
+local StopEmoteBtn = Instance.new("TextButton")
+StopEmoteBtn.Size = UDim2.new(1, 0, 0, 26)
+StopEmoteBtn.Position = UDim2.new(0, 0, 0, customEmoteY + 48)
+StopEmoteBtn.BackgroundColor3 = Colors.bloodDark
+StopEmoteBtn.Text = "⏹ STOP EMOTE"
+StopEmoteBtn.TextColor3 = Colors.text
+StopEmoteBtn.TextSize = 10
+StopEmoteBtn.Font = Enum.Font.GothamBold
+StopEmoteBtn.AutoButtonColor = false
+StopEmoteBtn.Parent = EmoteScroll
+Instance.new("UICorner", StopEmoteBtn).CornerRadius = UDim.new(0, 6)
+makeHoverable(StopEmoteBtn, Colors.bloodDark, Colors.blood)
 
-local wpLayout = Instance.new("UIListLayout", WaypointList)
-wpLayout.Padding = UDim.new(0, 4)
+--==================================================
+-- SHADOW MODE
+--==================================================
 
--- Quick TP to Players header (will be positioned dynamically after waypoints)
-local QuickTPHeader = Instance.new("Frame")
-QuickTPHeader.Name = "QuickTPHeader"
-QuickTPHeader.Size = UDim2.new(1, 0, 0, 22)
-QuickTPHeader.BackgroundTransparency = 1
-QuickTPHeader.Parent = TPScroll
+local shadowSectionY = customEmoteY + 86
 
-local quickTPLabel = Instance.new("TextLabel")
-quickTPLabel.Size = UDim2.new(1, 0, 1, 0)
-quickTPLabel.BackgroundTransparency = 1
-quickTPLabel.Text = "Quick TP to Players"
-quickTPLabel.TextColor3 = Colors.bloodLight
-quickTPLabel.TextSize = 11
-quickTPLabel.Font = Enum.Font.GothamBold
-quickTPLabel.TextXAlignment = Enum.TextXAlignment.Left
-quickTPLabel.Parent = QuickTPHeader
-addAccentLine(QuickTPHeader, UDim2.new(0, 0, 1, -1), Colors.blood, UDim2.new(1, 0, 0, 1))
+createSectionHeader(EmoteScroll, "Shadow Mode", shadowSectionY)
 
--- Player TP list
-local PlayerTPList = Instance.new("Frame")
-PlayerTPList.Name = "PlayerTPList"
-PlayerTPList.Size = UDim2.new(1, 0, 0, 10)
-PlayerTPList.BackgroundTransparency = 1
-PlayerTPList.AutomaticSize = Enum.AutomaticSize.Y
-PlayerTPList.Parent = TPScroll
+-- Shadow target display
+local ShadowTargetLabel = Instance.new("TextLabel")
+ShadowTargetLabel.Size = UDim2.new(1, 0, 0, 18)
+ShadowTargetLabel.Position = UDim2.new(0, 0, 0, shadowSectionY + 26)
+ShadowTargetLabel.BackgroundTransparency = 1
+ShadowTargetLabel.Text = "Target: none"
+ShadowTargetLabel.TextColor3 = Colors.textDim
+ShadowTargetLabel.TextSize = 10
+ShadowTargetLabel.Font = Enum.Font.GothamBold
+ShadowTargetLabel.TextXAlignment = Enum.TextXAlignment.Left
+ShadowTargetLabel.Parent = EmoteScroll
 
-local ptpLayout = Instance.new("UIListLayout", PlayerTPList)
-ptpLayout.Padding = UDim.new(0, 3)
+-- Shadow player list (select target)
+local ShadowPlayerScroll = Instance.new("ScrollingFrame")
+ShadowPlayerScroll.Size = UDim2.new(1, 0, 0, 80)
+ShadowPlayerScroll.Position = UDim2.new(0, 0, 0, shadowSectionY + 46)
+ShadowPlayerScroll.BackgroundColor3 = Colors.content
+ShadowPlayerScroll.BorderSizePixel = 0
+ShadowPlayerScroll.ScrollBarThickness = 3
+ShadowPlayerScroll.ScrollBarImageColor3 = Colors.blood
+ShadowPlayerScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+ShadowPlayerScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+ShadowPlayerScroll.Parent = EmoteScroll
+Instance.new("UICorner", ShadowPlayerScroll).CornerRadius = UDim.new(0, 6)
+local spStroke = Instance.new("UIStroke", ShadowPlayerScroll)
+spStroke.Color = Colors.separator
+spStroke.Thickness = 0.5
+
+local ShadowPlayerLayout = Instance.new("UIListLayout", ShadowPlayerScroll)
+ShadowPlayerLayout.Padding = UDim.new(0, 3)
+local spPad = Instance.new("UIPadding", ShadowPlayerScroll)
+spPad.PaddingTop = UDim.new(0, 3)
+spPad.PaddingLeft = UDim.new(0, 3)
+spPad.PaddingRight = UDim.new(0, 3)
+
+-- Shadow mode buttons
+local shadowModeY = shadowSectionY + 132
+
+local shadowModeToggles = {}
+
+local shadowModeDefs = {
+    { name = "Follow Behind",     mode = "follow", color = Colors.green },
+    { name = "Sit on Head",       mode = "head",   color = Colors.warning },
+    { name = "Shadow Box (Mirror)", mode = "mirror", color = Colors.glowPurple },
+}
+
+for i, def in ipairs(shadowModeDefs) do
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, 0, 0, 26)
+    btn.Position = UDim2.new(0, 0, 0, shadowModeY + (i - 1) * 30)
+    btn.BackgroundColor3 = Color3.fromRGB(40, 20, 20)
+    btn.Text = def.name
+    btn.TextColor3 = Colors.textDim
+    btn.TextSize = 10
+    btn.Font = Enum.Font.GothamBold
+    btn.AutoButtonColor = false
+    btn.Parent = EmoteScroll
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+
+    shadowModeToggles[def.mode] = { btn = btn, def = def }
+end
+
+-- Function to refresh shadow mode button highlights
+local function refreshShadowModeButtons()
+    for mode, data in pairs(shadowModeToggles) do
+        local isActive = shadowState.active and shadowState.mode == mode
+        data.btn.BackgroundColor3 = isActive and data.def.color or Color3.fromRGB(40, 20, 20)
+        data.btn.TextColor3 = isActive and Colors.text or Colors.textDim
+    end
+end
+
+-- Distance slider
+local shadowDistY = shadowModeY + #shadowModeDefs * 30 + 6
+local shadowDistSlider = createSliderRow(EmoteScroll, "Distance (studs)", 1, 15, 4, shadowDistY, function(val)
+    shadowState.distance = val
+end)
+
+-- Delay slider
+local shadowDelayY = shadowDistY + 32
+local shadowDelaySlider = createSliderRow(EmoteScroll, "Delay (sec)", 0, 5, 0, shadowDelayY, function(val)
+    shadowState.delay = val
+end)
+
+-- Stop shadow button
+local StopShadowBtn = Instance.new("TextButton")
+StopShadowBtn.Size = UDim2.new(1, 0, 0, 28)
+StopShadowBtn.Position = UDim2.new(0, 0, 0, shadowDelayY + 38)
+StopShadowBtn.BackgroundColor3 = Colors.bloodDark
+StopShadowBtn.Text = "🔴 STOP SHADOW"
+StopShadowBtn.TextColor3 = Colors.text
+StopShadowBtn.TextSize = 11
+StopShadowBtn.Font = Enum.Font.GothamBold
+StopShadowBtn.AutoButtonColor = false
+StopShadowBtn.Parent = EmoteScroll
+Instance.new("UICorner", StopShadowBtn).CornerRadius = UDim.new(0, 6)
+addBtnGradient(StopShadowBtn)
+makeHoverable(StopShadowBtn, Colors.bloodDark, Colors.blood)
+
+-- Update canvas size
+EmoteScroll.CanvasSize = UDim2.new(0, 0, 0, shadowDelayY + 76)
 
 
 --[[ ═══════ MODULE: 10_tab_settings.luau ═══════ ]]
@@ -1372,7 +1495,7 @@ SettingsScroll.Size = UDim2.new(1, 0, 1, 0)
 SettingsScroll.BackgroundTransparency = 1
 SettingsScroll.ScrollBarThickness = 3
 SettingsScroll.ScrollBarImageColor3 = Colors.blood
-SettingsScroll.CanvasSize = UDim2.new(0, 0, 0, 540)
+SettingsScroll.CanvasSize = UDim2.new(0, 0, 0, 600)
 SettingsScroll.BorderSizePixel = 0
 SettingsScroll.Parent = SettingsContent
 
@@ -1406,14 +1529,22 @@ hotkeyLabel.TextXAlignment = Enum.TextXAlignment.Left
 hotkeyLabel.Parent = SettingsScroll
 
 --==================================================
+-- SPECTATE SETTINGS
+--==================================================
+
+createSectionHeader(SettingsScroll, "Spectate", 144)
+
+local spectateHLToggle = createVampToggle(SettingsScroll, "Spectate Highlight", "showHighlight", spectateConfig, 170, Colors.bloodLight)
+
+--==================================================
 -- SAVE INSTANCE
 --==================================================
 
-createSectionHeader(SettingsScroll, "Save Instance", 144)
+createSectionHeader(SettingsScroll, "Save Instance", 200)
 
 local FileNameLabel = Instance.new("TextLabel")
 FileNameLabel.Size = UDim2.new(1, 0, 0, 16)
-FileNameLabel.Position = UDim2.new(0, 0, 0, 170)
+FileNameLabel.Position = UDim2.new(0, 0, 0, 226)
 FileNameLabel.BackgroundTransparency = 1
 FileNameLabel.Text = "File name:"
 FileNameLabel.TextColor3 = Colors.textDim
@@ -1424,7 +1555,7 @@ FileNameLabel.Parent = SettingsScroll
 
 local FileNameBox = Instance.new("TextBox")
 FileNameBox.Size = UDim2.new(1, 0, 0, 28)
-FileNameBox.Position = UDim2.new(0, 0, 0, 188)
+FileNameBox.Position = UDim2.new(0, 0, 0, 244)
 FileNameBox.BackgroundColor3 = Colors.inputBg
 FileNameBox.Text = ""
 FileNameBox.PlaceholderText = "auto: PlaceId_Date"
@@ -1447,7 +1578,7 @@ FileNameBox.FocusLost:Connect(function()
 end)
 
 -- Save toggles
-local saveY = 224
+local saveY = 280
 local saveToggles = {}
 
 local saveToggleDefs = {
@@ -1517,72 +1648,115 @@ aboutLabel.Parent = SettingsScroll
 --[[ ═══════ MODULE: 11_preview_ui.luau ═══════ ]]
 
 --==================================================
--- PREVIEW WINDOW
+-- PREVIEW WINDOW — BOLA DE CRISTAL
 --==================================================
 
 local PreviewFrame = Instance.new("Frame")
 PreviewFrame.Name = "Preview"
-PreviewFrame.Size = UDim2.new(0, 320, 0, 550)
-PreviewFrame.Position = UDim2.new(0.3, 430, 0.5, -275)
+PreviewFrame.Size = UDim2.new(0, 320, 0, 500)
+PreviewFrame.Position = UDim2.new(0.3, 430, 0.5, -250)
 PreviewFrame.BackgroundColor3 = Colors.bg
 PreviewFrame.BorderSizePixel = 0
 PreviewFrame.Visible = false
 PreviewFrame.Parent = ScreenGui
 
 local previewStroke = Instance.new("UIStroke", PreviewFrame)
-previewStroke.Color = Colors.blood
-previewStroke.Thickness = 1.2
+previewStroke.Color = Colors.glowPurple
+previewStroke.Thickness = 1.5
 Instance.new("UICorner", PreviewFrame).CornerRadius = UDim.new(0, 10)
 addGradient(PreviewFrame, Colors.surfaceLight, Color3.fromRGB(8, 8, 10), 90)
 
+-- Top bar
 local PreviewTopBar = Instance.new("Frame")
-PreviewTopBar.Size = UDim2.new(1, 0, 0, 40)
+PreviewTopBar.Size = UDim2.new(1, 0, 0, 35)
 PreviewTopBar.BackgroundColor3 = Colors.topbar
 PreviewTopBar.BorderSizePixel = 0
 PreviewTopBar.Parent = PreviewFrame
 Instance.new("UICorner", PreviewTopBar).CornerRadius = UDim.new(0, 10)
-addGradient(PreviewTopBar, Color3.fromRGB(40, 8, 8), Colors.topbar, 0)
-addAccentLine(PreviewTopBar, UDim2.new(0, 0, 1, -1), Colors.blood)
+addGradient(PreviewTopBar, Color3.fromRGB(30, 10, 40), Colors.topbar, 0)
+
+local topBarFix = Instance.new("Frame")
+topBarFix.Size = UDim2.new(1, 0, 0, 10)
+topBarFix.Position = UDim2.new(0, 0, 1, -10)
+topBarFix.BackgroundColor3 = Colors.topbar
+topBarFix.BorderSizePixel = 0
+topBarFix.Parent = PreviewTopBar
+
+addAccentLine(PreviewTopBar, UDim2.new(0, 0, 1, -1), Colors.glowPurple)
 
 local PreviewTitle = Instance.new("TextLabel")
-PreviewTitle.Size = UDim2.new(1, -80, 1, 0)
+PreviewTitle.Size = UDim2.new(1, -50, 1, 0)
 PreviewTitle.Position = UDim2.new(0, 10, 0, 0)
 PreviewTitle.BackgroundTransparency = 1
-PreviewTitle.Text = "Preview"
-PreviewTitle.TextColor3 = Colors.bloodLight
-PreviewTitle.TextSize = 14
+PreviewTitle.Text = "🔮 Crystal Ball"
+PreviewTitle.TextColor3 = Colors.purpleLight
+PreviewTitle.TextSize = 13
 PreviewTitle.Font = Enum.Font.GothamBold
 PreviewTitle.TextXAlignment = Enum.TextXAlignment.Left
 PreviewTitle.Parent = PreviewTopBar
 
 local PreviewClose = Instance.new("TextButton")
-PreviewClose.Size = UDim2.new(0, 25, 0, 25)
-PreviewClose.Position = UDim2.new(1, -32, 0, 7)
+PreviewClose.Size = UDim2.new(0, 22, 0, 22)
+PreviewClose.Position = UDim2.new(1, -28, 0, 6)
 PreviewClose.BackgroundColor3 = Colors.blood
 PreviewClose.Text = "X"
 PreviewClose.TextColor3 = Colors.text
-PreviewClose.TextSize = 14
+PreviewClose.TextSize = 12
 PreviewClose.Font = Enum.Font.GothamBold
 PreviewClose.AutoButtonColor = false
 PreviewClose.Parent = PreviewTopBar
 Instance.new("UICorner", PreviewClose).CornerRadius = UDim.new(0, 6)
 makeHoverable(PreviewClose, Colors.blood, Colors.glowRed)
 
+--==================================================
+-- VIEWPORT (Crystal Ball)
+--==================================================
+
 local Viewport = Instance.new("ViewportFrame")
-Viewport.Size = UDim2.new(1, -20, 0, 200)
-Viewport.Position = UDim2.new(0, 10, 0, 50)
-Viewport.BackgroundColor3 = Color3.fromRGB(5, 5, 5)
+Viewport.Size = UDim2.new(1, -20, 0, 220)
+Viewport.Position = UDim2.new(0, 10, 0, 42)
+Viewport.BackgroundColor3 = Color3.fromRGB(5, 3, 8)
 Viewport.BorderSizePixel = 0
-Viewport.Ambient = Color3.fromRGB(200, 200, 200)
-Viewport.LightColor = Color3.fromRGB(255, 255, 255)
+Viewport.Ambient = Color3.fromRGB(180, 160, 200)
+Viewport.LightColor = Color3.fromRGB(255, 240, 255)
 Viewport.LightDirection = Vector3.new(-1, -1, -1)
 Viewport.Parent = PreviewFrame
-Instance.new("UICorner", Viewport).CornerRadius = UDim.new(0, 8)
+Instance.new("UICorner", Viewport).CornerRadius = UDim.new(0, 12)
 local vpStroke = Instance.new("UIStroke", Viewport)
-vpStroke.Color = Colors.glowRed
-vpStroke.Thickness = 1.5
-vpStroke.Transparency = 0.3
+vpStroke.Color = Colors.glowPurple
+vpStroke.Thickness = 2
+vpStroke.Transparency = 0.2
 
+-- "LIVE" badge overlay
+local LiveBadge = Instance.new("TextLabel")
+LiveBadge.Size = UDim2.new(0, 48, 0, 16)
+LiveBadge.Position = UDim2.new(0, 6, 0, 6)
+LiveBadge.BackgroundColor3 = Color3.fromRGB(180, 15, 15)
+LiveBadge.Text = "● LIVE"
+LiveBadge.TextColor3 = Colors.text
+LiveBadge.TextSize = 9
+LiveBadge.Font = Enum.Font.GothamBold
+LiveBadge.Visible = false
+LiveBadge.ZIndex = 10
+LiveBadge.Parent = Viewport
+Instance.new("UICorner", LiveBadge).CornerRadius = UDim.new(0, 4)
+
+-- Distance overlay (top-right)
+local DistLabel = Instance.new("TextLabel")
+DistLabel.Size = UDim2.new(0, 60, 0, 16)
+DistLabel.Position = UDim2.new(1, -66, 0, 6)
+DistLabel.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+DistLabel.BackgroundTransparency = 0.3
+DistLabel.Text = ""
+DistLabel.TextColor3 = Colors.textDim
+DistLabel.TextSize = 9
+DistLabel.Font = Enum.Font.Code
+DistLabel.Visible = false
+DistLabel.ZIndex = 10
+DistLabel.Parent = Viewport
+Instance.new("UICorner", DistLabel).CornerRadius = UDim.new(0, 4)
+
+-- Status text (center, for loading/errors)
 local ViewportStatus = Instance.new("TextLabel")
 ViewportStatus.Size = UDim2.new(1, 0, 1, 0)
 ViewportStatus.BackgroundTransparency = 1
@@ -1591,23 +1765,99 @@ ViewportStatus.TextColor3 = Colors.textLoading
 ViewportStatus.TextSize = 12
 ViewportStatus.Font = Enum.Font.GothamBold
 ViewportStatus.TextWrapped = true
+ViewportStatus.ZIndex = 5
 ViewportStatus.Parent = Viewport
 
+--==================================================
+-- INFO BAR (name, type, HP)
+--==================================================
+
+local InfoBar = Instance.new("Frame")
+InfoBar.Size = UDim2.new(1, -20, 0, 42)
+InfoBar.Position = UDim2.new(0, 10, 0, 268)
+InfoBar.BackgroundColor3 = Colors.card
+InfoBar.BorderSizePixel = 0
+InfoBar.Parent = PreviewFrame
+Instance.new("UICorner", InfoBar).CornerRadius = UDim.new(0, 6)
+addGradient(InfoBar, Colors.surfaceLight, Colors.card, 0)
+
+local PreviewNameLabel = Instance.new("TextLabel")
+PreviewNameLabel.Size = UDim2.new(1, -60, 0, 18)
+PreviewNameLabel.Position = UDim2.new(0, 8, 0, 3)
+PreviewNameLabel.BackgroundTransparency = 1
+PreviewNameLabel.Text = ""
+PreviewNameLabel.TextColor3 = Colors.purpleLight
+PreviewNameLabel.TextSize = 12
+PreviewNameLabel.Font = Enum.Font.GothamBold
+PreviewNameLabel.TextXAlignment = Enum.TextXAlignment.Left
+PreviewNameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+PreviewNameLabel.Parent = InfoBar
+
+local PreviewTypeBadge = Instance.new("Frame")
+PreviewTypeBadge.Size = UDim2.new(0, 50, 0, 14)
+PreviewTypeBadge.Position = UDim2.new(1, -56, 0, 5)
+PreviewTypeBadge.BackgroundColor3 = Colors.blood
+PreviewTypeBadge.Parent = InfoBar
+Instance.new("UICorner", PreviewTypeBadge).CornerRadius = UDim.new(0, 4)
+
+local PreviewTypeLabel = Instance.new("TextLabel")
+PreviewTypeLabel.Size = UDim2.new(1, 0, 1, 0)
+PreviewTypeLabel.BackgroundTransparency = 1
+PreviewTypeLabel.Text = "PLAYER"
+PreviewTypeLabel.TextColor3 = Colors.text
+PreviewTypeLabel.TextSize = 8
+PreviewTypeLabel.Font = Enum.Font.GothamBold
+PreviewTypeLabel.Parent = PreviewTypeBadge
+
+-- HP bar
+local PreviewHPBg = Instance.new("Frame")
+PreviewHPBg.Size = UDim2.new(1, -16, 0, 6)
+PreviewHPBg.Position = UDim2.new(0, 8, 0, 26)
+PreviewHPBg.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+PreviewHPBg.BorderSizePixel = 0
+PreviewHPBg.Parent = InfoBar
+Instance.new("UICorner", PreviewHPBg).CornerRadius = UDim.new(0, 3)
+
+local PreviewHPFill = Instance.new("Frame")
+PreviewHPFill.Size = UDim2.new(1, 0, 1, 0)
+PreviewHPFill.BackgroundColor3 = Colors.green
+PreviewHPFill.BorderSizePixel = 0
+PreviewHPFill.Parent = PreviewHPBg
+Instance.new("UICorner", PreviewHPFill).CornerRadius = UDim.new(0, 3)
+
+local PreviewHPLabel = Instance.new("TextLabel")
+PreviewHPLabel.Size = UDim2.new(1, 0, 0, 8)
+PreviewHPLabel.Position = UDim2.new(0, 0, 0, 34)
+PreviewHPLabel.BackgroundTransparency = 1
+PreviewHPLabel.Text = ""
+PreviewHPLabel.TextColor3 = Colors.textDim
+PreviewHPLabel.TextSize = 8
+PreviewHPLabel.Font = Enum.Font.Code
+PreviewHPLabel.Parent = InfoBar
+
+--==================================================
+-- INFO SCROLL (accessories, scales, etc)
+--==================================================
+
 local InfoScroll = Instance.new("ScrollingFrame")
-InfoScroll.Size = UDim2.new(1, -20, 0, 200)
-InfoScroll.Position = UDim2.new(0, 10, 0, 260)
+InfoScroll.Size = UDim2.new(1, -20, 0, 115)
+InfoScroll.Position = UDim2.new(0, 10, 0, 316)
 InfoScroll.BackgroundColor3 = Colors.content
 InfoScroll.BorderSizePixel = 0
 InfoScroll.ScrollBarThickness = 3
-InfoScroll.ScrollBarImageColor3 = Colors.blood
+InfoScroll.ScrollBarImageColor3 = Colors.glowPurple
 InfoScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
 InfoScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 InfoScroll.Parent = PreviewFrame
 Instance.new("UICorner", InfoScroll).CornerRadius = UDim.new(0, 6)
+local infoScrollStroke = Instance.new("UIStroke", InfoScroll)
+infoScrollStroke.Color = Colors.separator
+infoScrollStroke.Thickness = 0.5
+infoScrollStroke.Transparency = 0.5
 
 local InfoLabel = Instance.new("TextLabel")
 InfoLabel.Size = UDim2.new(1, -16, 0, 0)
-InfoLabel.Position = UDim2.new(0, 8, 0, 8)
+InfoLabel.Position = UDim2.new(0, 8, 0, 4)
 InfoLabel.BackgroundTransparency = 1
 InfoLabel.TextColor3 = Colors.textDim
 InfoLabel.TextSize = 9
@@ -1619,19 +1869,27 @@ InfoLabel.AutomaticSize = Enum.AutomaticSize.Y
 InfoLabel.Text = ""
 InfoLabel.Parent = InfoScroll
 
+--==================================================
+-- COPY JSON BUTTON
+--==================================================
+
 local CopyBtn = Instance.new("TextButton")
-CopyBtn.Size = UDim2.new(1, -20, 0, 35)
-CopyBtn.Position = UDim2.new(0, 10, 1, -80)
-CopyBtn.BackgroundColor3 = Colors.blood
+CopyBtn.Size = UDim2.new(1, -20, 0, 30)
+CopyBtn.Position = UDim2.new(0, 10, 1, -60)
+CopyBtn.BackgroundColor3 = Colors.purple
 CopyBtn.Text = "🩸 COPY JSON"
 CopyBtn.TextColor3 = Colors.text
-CopyBtn.TextSize = 14
+CopyBtn.TextSize = 12
 CopyBtn.Font = Enum.Font.GothamBold
 CopyBtn.AutoButtonColor = false
 CopyBtn.Parent = PreviewFrame
 Instance.new("UICorner", CopyBtn).CornerRadius = UDim.new(0, 6)
 addBtnGradient(CopyBtn)
-makeHoverable(CopyBtn, Colors.blood, Colors.glowRed)
+makeHoverable(CopyBtn, Colors.purple, Colors.purpleLight)
+
+--==================================================
+-- FOOTER
+--==================================================
 
 local PreviewFooter = Instance.new("Frame")
 PreviewFooter.Size = UDim2.new(1, 0, 0, 25)
@@ -1640,14 +1898,14 @@ PreviewFooter.BackgroundColor3 = Colors.topbar
 PreviewFooter.BorderSizePixel = 0
 PreviewFooter.Parent = PreviewFrame
 Instance.new("UICorner", PreviewFooter).CornerRadius = UDim.new(0, 10)
-addAccentLine(PreviewFooter, UDim2.new(0, 0, 0, 0), Colors.blood)
+addAccentLine(PreviewFooter, UDim2.new(0, 0, 0, 0), Colors.glowPurple)
 
 local PreviewCredits = Instance.new("TextLabel")
 PreviewCredits.Size = UDim2.new(1, 0, 1, 0)
 PreviewCredits.BackgroundTransparency = 1
-PreviewCredits.Text = "🦇 Create By VampireSonata 🦇"
+PreviewCredits.Text = "🔮 Crystal Ball — VampireSonata"
 PreviewCredits.TextColor3 = Colors.textBlood
-PreviewCredits.TextSize = 11
+PreviewCredits.TextSize = 10
 PreviewCredits.Font = Enum.Font.GothamBold
 PreviewCredits.Parent = PreviewFooter
 
@@ -2244,7 +2502,7 @@ MiniBar.MouseButton1Click:Connect(toggleScanner)
 --[[ ═══════ MODULE: 16_preview.luau ═══════ ]]
 
 --==================================================
--- PREVIEW
+-- PREVIEW — BOLA DE CRISTAL (Live CFrame Sync)
 --==================================================
 
 local function clearPreview()
@@ -2253,110 +2511,207 @@ local function clearPreview()
         previewConnection = nil
     end
     for _, child in pairs(Viewport:GetChildren()) do
-        if child ~= ViewportStatus and not child:IsA("UICorner") and not child:IsA("UIStroke") then
+        if not child:IsA("UICorner") and not child:IsA("UIStroke")
+            and child ~= ViewportStatus and child ~= LiveBadge and child ~= DistLabel then
             child:Destroy()
         end
     end
     ViewportStatus.Text = ""
+    LiveBadge.Visible = false
+    DistLabel.Visible = false
+    PreviewHPFill.Size = UDim2.new(1, 0, 1, 0)
+    PreviewHPFill.BackgroundColor3 = Colors.green
+    PreviewHPLabel.Text = ""
+    currentPreviewData = nil
 end
 
-local function showPreview(info)
-    log("showPreview:", info.name)
-    clearPreview()
-
-    currentPreviewData = info
-    PreviewTitle.Text = "🦇 " .. info.name
-    PreviewFrame.Visible = true
-
-    ViewportStatus.Text = "Carregando..."
-    InfoLabel.Text = "Carregando dados..."
-
-    if not info.loaded then
-        log("  Carregando dados...")
-        task.spawn(function()
-            local success = loadRigData(info)
-
-            if success then
-                if info.cardFrame then
-                    info.cardFrame.BackgroundColor3 = Colors.cardLoaded
-                end
-                if info.statusLabel and info.fullDescription then
-                    local accCount = info.fullDescription.Accessories and #info.fullDescription.Accessories or 0
-                    info.statusLabel.Text = (info.fullDescription.RigType or "?") .. " | " .. accCount .. " acc"
-                    info.statusLabel.TextColor3 = Colors.greenLight
-                end
-                showPreview(info)
-            else
-                ViewportStatus.Text = "ERRO ao carregar"
-                InfoLabel.Text = "Nao foi possivel carregar.\nO character pode ter saido."
-            end
-        end)
+local function displayPreviewInfo(info)
+    local desc = info.fullDescription
+    if not desc then
+        InfoLabel.Text = "No data available"
         return
     end
 
-    log("  Gerando preview...")
-    ViewportStatus.Text = "Gerando rig..."
+    local txt = ""
+    txt = txt .. "RigType: " .. tostring(desc.RigType or "?") .. "\n\n"
 
-    task.spawn(function()
-        local previewModel = generatePreviewRig(info)
+    txt = txt .. "-- CLOTHES --\n"
+    txt = txt .. "Shirt: " .. tostring(desc.Shirt or 0) .. "\n"
+    txt = txt .. "Pants: " .. tostring(desc.Pants or 0) .. "\n"
+    txt = txt .. "Face: " .. tostring(desc.Face or 0) .. "\n\n"
 
-        if previewModel then
-            local camera = Instance.new("Camera")
-            camera.FieldOfView = 50
-            camera.Parent = Viewport
-            Viewport.CurrentCamera = camera
-
-            local worldModel = Instance.new("WorldModel")
-            worldModel.Parent = Viewport
-            previewModel.Parent = worldModel
-
-            previewModel:PivotTo(CFrame.new(0, 0, 0))
-
-            local angle = 0
-            previewConnection = RunService.RenderStepped:Connect(function(dt)
-                angle = angle + dt * 0.8
-                camera.CFrame = CFrame.new(
-                    Vector3.new(math.sin(angle) * 12, 2, math.cos(angle) * 12),
-                    Vector3.new(0, 0, 0)
-                )
-            end)
-
-            ViewportStatus.Text = ""
-            log("  Preview criado!")
-        else
-            ViewportStatus.Text = "Erro ao gerar rig"
+    local accCount = desc.Accessories and #desc.Accessories or 0
+    txt = txt .. "-- ACCESSORIES (" .. accCount .. ") --\n"
+    if desc.Accessories then
+        for i, acc in ipairs(desc.Accessories) do
+            txt = txt .. i .. ". " .. acc.AccessoryType
+            if acc.IsLayered then txt = txt .. " [L]" end
+            txt = txt .. " - " .. acc.AssetId .. "\n"
         end
+    end
+
+    txt = txt .. "\n-- SCALES --\n"
+    txt = txt .. "Height: " .. string.format("%.2f", desc.HeightScale or 1) .. "\n"
+    txt = txt .. "Width: " .. string.format("%.2f", desc.WidthScale or 1) .. "\n"
+    txt = txt .. "BodyType: " .. string.format("%.2f", desc.BodyTypeScale or 0) .. "\n"
+
+    InfoLabel.Text = txt
+end
+
+local function showPreview(info)
+    clearPreview()
+    currentPreviewData = info
+    PreviewTitle.Text = "🔮 " .. info.name
+    PreviewFrame.Visible = true
+    ViewportStatus.Text = "Connecting..."
+
+    -- Info bar
+    PreviewNameLabel.Text = info.name
+    PreviewTypeLabel.Text = info.type
+    PreviewTypeBadge.BackgroundColor3 = info.type == "PLAYER" and Colors.blood or Colors.green
+
+    -- Get real character
+    local realChar = info.character
+    if info.player and info.player.Character then
+        realChar = info.player.Character
+    end
+
+    if not realChar or not realChar.Parent then
+        ViewportStatus.Text = "Character not found"
+        InfoLabel.Text = ""
+        return
+    end
+
+    -- Clone character for viewport
+    local cloneOk, cloneModel = pcall(function()
+        return realChar:Clone()
     end)
 
-    local desc = info.fullDescription
-    if desc then
-        local txt = "=== " .. info.name .. " ===\n"
-        txt = txt .. "Tipo: " .. info.type .. "\n"
-        txt = txt .. "RigType: " .. tostring(desc.RigType or "?") .. "\n\n"
+    if not cloneOk or not cloneModel then
+        ViewportStatus.Text = "Failed to clone"
+        InfoLabel.Text = ""
+        return
+    end
 
-        txt = txt .. "-- ROUPAS --\n"
-        txt = txt .. "Shirt: " .. tostring(desc.Shirt or 0) .. "\n"
-        txt = txt .. "Pants: " .. tostring(desc.Pants or 0) .. "\n"
-        txt = txt .. "Face: " .. tostring(desc.Face or 0) .. "\n\n"
+    -- Build part mapping (Clone preserves descendant order)
+    local partMap = {}
+    local realDescs = realChar:GetDescendants()
+    local cloneDescs = cloneModel:GetDescendants()
+    for i = 1, math.min(#realDescs, #cloneDescs) do
+        if realDescs[i]:IsA("BasePart") and cloneDescs[i]:IsA("BasePart") then
+            partMap[realDescs[i]] = cloneDescs[i]
+        end
+    end
 
-        local accCount = desc.Accessories and #desc.Accessories or 0
-        txt = txt .. "-- ACESSORIOS (" .. accCount .. ") --\n"
-        if desc.Accessories then
-            for i, acc in ipairs(desc.Accessories) do
-                txt = txt .. i .. ". " .. acc.AccessoryType
-                if acc.IsLayered then txt = txt .. " [L]" end
-                txt = txt .. " - " .. acc.AssetId .. "\n"
+    -- Camera
+    local camera = Instance.new("Camera")
+    camera.FieldOfView = 50
+    camera.Parent = Viewport
+    Viewport.CurrentCamera = camera
+
+    -- WorldModel container
+    local worldModel = Instance.new("WorldModel")
+    worldModel.Parent = Viewport
+
+    -- Floor plane for visual grounding
+    local floor = Instance.new("Part")
+    floor.Size = Vector3.new(40, 0.1, 40)
+    floor.Position = Vector3.new(0, -3.5, 0)
+    floor.Color = Color3.fromRGB(12, 10, 18)
+    floor.Material = Enum.Material.SmoothPlastic
+    floor.Anchored = true
+    floor.CanCollide = false
+    floor.Parent = worldModel
+
+    cloneModel.Parent = worldModel
+
+    ViewportStatus.Text = ""
+    LiveBadge.Visible = true
+    DistLabel.Visible = true
+
+    -- Live sync loop
+    local angle = 0
+    local livePulse = 0
+    previewConnection = RunService.RenderStepped:Connect(function(dt)
+        -- Check if real character still exists
+        if not realChar or not realChar.Parent then
+            ViewportStatus.Text = "Left the game"
+            LiveBadge.Text = "● OFF"
+            LiveBadge.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+            return
+        end
+
+        local realHRP = realChar:FindFirstChild("HumanoidRootPart")
+        if not realHRP then return end
+
+        -- Sync all part CFrames (centered at origin)
+        local rootCF = realHRP.CFrame
+        for realPart, clonePart in pairs(partMap) do
+            if realPart.Parent and clonePart.Parent then
+                pcall(function()
+                    clonePart.CFrame = rootCF:Inverse() * realPart.CFrame
+                end)
             end
         end
 
-        txt = txt .. "\n-- ESCALAS --\n"
-        txt = txt .. "Height: " .. string.format("%.2f", desc.HeightScale or 1) .. "\n"
-        txt = txt .. "Width: " .. string.format("%.2f", desc.WidthScale or 1) .. "\n"
-        txt = txt .. "BodyType: " .. string.format("%.2f", desc.BodyTypeScale or 0) .. "\n"
+        -- Camera orbit
+        angle = angle + dt * 0.4
+        local camDist = 10
+        local camHeight = 2.5
+        camera.CFrame = CFrame.new(
+            Vector3.new(math.sin(angle) * camDist, camHeight, math.cos(angle) * camDist),
+            Vector3.new(0, 0.5, 0)
+        )
 
-        InfoLabel.Text = txt
+        -- Update distance from local player
+        local myHRP = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+        if myHRP then
+            local dist = math.floor((myHRP.Position - realHRP.Position).Magnitude)
+            DistLabel.Text = dist .. "m"
+        end
+
+        -- Update HP bar
+        local hum = realChar:FindFirstChildOfClass("Humanoid")
+        if hum then
+            local pct = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
+            PreviewHPFill.Size = UDim2.new(pct, 0, 1, 0)
+            if pct > 0.5 then
+                PreviewHPFill.BackgroundColor3 = Colors.green
+            elseif pct > 0.25 then
+                PreviewHPFill.BackgroundColor3 = Colors.warning
+            else
+                PreviewHPFill.BackgroundColor3 = Colors.glowRed
+            end
+            PreviewHPLabel.Text = math.floor(hum.Health) .. "/" .. math.floor(hum.MaxHealth)
+        end
+
+        -- Pulse LIVE badge
+        livePulse = livePulse + dt * 2
+        local alpha = (math.sin(livePulse) + 1) / 2
+        LiveBadge.BackgroundColor3 = Color3.fromRGB(
+            math.floor(140 + alpha * 60),
+            math.floor(10 + alpha * 10),
+            math.floor(10 + alpha * 10)
+        )
+    end)
+
+    -- Load rig data and display info
+    if not info.loaded then
+        InfoLabel.Text = "Loading data..."
+        task.spawn(function()
+            loadRigData(info)
+            if info.cardFrame then
+                info.cardFrame.BackgroundColor3 = Colors.cardLoaded
+            end
+            if info.statusLabel and info.fullDescription then
+                local accCount = info.fullDescription.Accessories and #info.fullDescription.Accessories or 0
+                info.statusLabel.Text = (info.fullDescription.RigType or "?") .. " | " .. accCount .. " acc"
+                info.statusLabel.TextColor3 = Colors.greenLight
+            end
+            displayPreviewInfo(info)
+        end)
     else
-        InfoLabel.Text = "Sem dados"
+        displayPreviewInfo(info)
     end
 end
 
@@ -2542,6 +2897,35 @@ createResultCard = function(info)
 
     info.cardFrame = Card
 
+    -- Thumbnail (players only)
+    local contentOffsetX = 12
+    if info.type == "PLAYER" and info.userId then
+        contentOffsetX = 46
+
+        local thumbFrame = Instance.new("Frame")
+        thumbFrame.Size = UDim2.new(0, 30, 0, 30)
+        thumbFrame.Position = UDim2.new(0, 8, 0, 6)
+        thumbFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        thumbFrame.Parent = Card
+        Instance.new("UICorner", thumbFrame).CornerRadius = UDim.new(1, 0)
+        local tStroke = Instance.new("UIStroke", thumbFrame)
+        tStroke.Color = Colors.blood
+        tStroke.Thickness = 1
+
+        local thumbImg = Instance.new("ImageLabel")
+        thumbImg.Size = UDim2.new(1, 0, 1, 0)
+        thumbImg.BackgroundTransparency = 1
+        thumbImg.Parent = thumbFrame
+        Instance.new("UICorner", thumbImg).CornerRadius = UDim.new(1, 0)
+
+        task.spawn(function()
+            local ok, thumb = pcall(function()
+                return Players:GetUserThumbnailAsync(info.userId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size48x48)
+            end)
+            if ok and thumb then thumbImg.Image = thumb end
+        end)
+    end
+
     local TypeBadge = Instance.new("Frame")
     TypeBadge.Size = UDim2.new(0, 50, 0, 16)
     TypeBadge.Position = UDim2.new(1, -58, 0, 5)
@@ -2560,7 +2944,7 @@ createResultCard = function(info)
 
     local NameLabel = Instance.new("TextLabel")
     NameLabel.Size = UDim2.new(1, -65, 0, 18)
-    NameLabel.Position = UDim2.new(0, 12, 0, 5)
+    NameLabel.Position = UDim2.new(0, contentOffsetX, 0, 5)
     NameLabel.BackgroundTransparency = 1
     NameLabel.Text = info.name
     NameLabel.TextColor3 = Colors.bloodLight
@@ -2572,7 +2956,7 @@ createResultCard = function(info)
 
     local StatusLabel = Instance.new("TextLabel")
     StatusLabel.Size = UDim2.new(1, -10, 0, 14)
-    StatusLabel.Position = UDim2.new(0, 12, 0, 22)
+    StatusLabel.Position = UDim2.new(0, contentOffsetX, 0, 22)
     StatusLabel.BackgroundTransparency = 1
     StatusLabel.Text = "Click VIEW"
     StatusLabel.TextColor3 = Colors.textDim
@@ -3058,20 +3442,27 @@ startSpectate = function(info)
     camera.CameraSubject = humanoid
     spectatingInfo = info
 
+    -- Highlight (respects config)
     if spectateHighlight then
         spectateHighlight:Destroy()
+        spectateHighlight = nil
     end
-    spectateHighlight = Instance.new("Highlight")
-    spectateHighlight.Name = "VampSpectateHL"
-    spectateHighlight.FillColor = Colors.blood
-    spectateHighlight.FillTransparency = 0.7
-    spectateHighlight.OutlineColor = Colors.bloodLight
-    spectateHighlight.OutlineTransparency = 0
-    spectateHighlight.Adornee = targetChar
-    spectateHighlight.Parent = targetChar
+    if spectateConfig.showHighlight then
+        spectateHighlight = Instance.new("Highlight")
+        spectateHighlight.Name = "VampSpectateHL"
+        spectateHighlight.FillColor = Colors.blood
+        spectateHighlight.FillTransparency = 0.7
+        spectateHighlight.OutlineColor = Colors.bloodLight
+        spectateHighlight.OutlineTransparency = 0
+        spectateHighlight.Adornee = targetChar
+        spectateHighlight.Parent = targetChar
+    end
 
+    local specLabel = "🦇 UNSPECTATE (" .. info.name .. ")"
     UnspectateBtn.Visible = true
-    UnspectateBtn.Text = "🦇 UNSPECTATE (" .. info.name .. ")"
+    UnspectateBtn.Text = specLabel
+    PlayerUnspectateBtn.Visible = true
+    PlayerUnspectateBtn.Text = specLabel
 
     notify("Spectating: " .. info.name, "info")
     log("Spectating:", info.name)
@@ -3101,6 +3492,7 @@ stopSpectate = function()
 
     spectatingInfo = nil
     UnspectateBtn.Visible = false
+    PlayerUnspectateBtn.Visible = false
 
     notify("Spectate stopped", "info")
     log("Spectate stopped")
@@ -3386,6 +3778,7 @@ applySpeed = function()
     local hum = char and char:FindFirstChildOfClass("Humanoid")
     if hum then
         hum.WalkSpeed = movementState.speed
+        hum.UseJumpPower = true
         hum.JumpPower = movementState.jumpPower
     end
 end
@@ -3516,6 +3909,13 @@ startFreecam = function()
     }
     cam.CameraType = Enum.CameraType.Scriptable
 
+    -- Anchor character so it doesn't move while in freecam
+    local char = LP.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        hrp.Anchored = true
+    end
+
     freecamConnection = RunService.RenderStepped:Connect(function(dt)
         local speed = movementState.speed * 2
         local move = Vector3.zero
@@ -3540,6 +3940,14 @@ stopFreecam = function()
         freecamConnection:Disconnect()
         freecamConnection = nil
     end
+
+    -- Unanchor character
+    local char = LP.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        hrp.Anchored = false
+    end
+
     local cam = workspace.CurrentCamera
     if savedCameraState then
         cam.CameraType = savedCameraState.ctype
@@ -3551,224 +3959,240 @@ stopFreecam = function()
 end
 
 
---[[ ═══════ MODULE: 21_teleport.luau ═══════ ]]
+--[[ ═══════ MODULE: 21_emote_shadow.luau ═══════ ]]
 
 --==================================================
--- TELEPORT LOGIC
+-- EMOTE LOGIC
 --==================================================
 
--- TP to Part by name
-tpToPart = function(name)
-    if not name or name == "" then
-        notify("Enter a part name", "warning")
-        return
-    end
-
-    local lowerName = name:lower()
-    for _, obj in pairs(workspace:GetDescendants()) do
-        if (obj:IsA("BasePart") or obj:IsA("Model")) and obj.Name:lower():find(lowerName, 1, true) then
-            local hrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-            if hrp then
-                local target
-                if obj:IsA("Model") then
-                    target = obj.PrimaryPart or obj:FindFirstChild("HumanoidRootPart") or obj:FindFirstChildWhichIsA("BasePart")
-                else
-                    target = obj
-                end
-                if target then
-                    hrp.CFrame = target.CFrame + Vector3.new(0, 5, 0)
-                    notify("TP to: " .. obj.Name, "success")
-                    return
-                end
-            end
-        end
-    end
-    notify("Not found: " .. name, "error")
-end
-
---==================================================
--- WAYPOINTS
---==================================================
-
-addWaypoint = function(name)
-    if not name or name == "" then
-        name = "WP " .. (#waypoints + 1)
-    end
-
-    local hrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-    if not hrp then
+playEmote = function(animId)
+    local char = LP.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if not hum then
         notify("No character", "error")
         return
     end
 
-    table.insert(waypoints, {
-        name = name,
-        cframe = hrp.CFrame,
-    })
+    local animator = hum:FindFirstChildOfClass("Animator")
+    if not animator then
+        animator = Instance.new("Animator", hum)
+    end
 
-    notify("Waypoint saved: " .. name, "success")
-    refreshWaypointList()
+    -- Stop current emote
+    if currentEmoteTrack then
+        pcall(function() currentEmoteTrack:Stop() end)
+        pcall(function() currentEmoteTrack:Destroy() end)
+        currentEmoteTrack = nil
+    end
+
+    local anim = Instance.new("Animation")
+    anim.AnimationId = "rbxassetid://" .. tostring(animId)
+
+    local ok, track = pcall(function()
+        return animator:LoadAnimation(anim)
+    end)
+
+    if ok and track then
+        track.Priority = Enum.AnimationPriority.Action
+        track:Play()
+        currentEmoteTrack = track
+        notify("Playing emote", "success")
+        log("Emote playing:", animId)
+    else
+        notify("Failed to load animation", "error")
+        log("Emote error:", tostring(track))
+    end
+
+    anim:Destroy()
 end
 
-tpToWaypoint = function(index)
-    local wp = waypoints[index]
-    if not wp then return end
-    local hrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-    if hrp then
-        hrp.CFrame = wp.cframe
-        notify("TP to: " .. wp.name, "success")
+stopEmote = function()
+    if currentEmoteTrack then
+        pcall(function() currentEmoteTrack:Stop() end)
+        pcall(function() currentEmoteTrack:Destroy() end)
+        currentEmoteTrack = nil
+        notify("Emote stopped", "info")
     end
 end
 
-removeWaypoint = function(index)
-    local wp = waypoints[index]
-    if wp then
-        notify("Removed: " .. wp.name, "info")
-        table.remove(waypoints, index)
-        refreshWaypointList()
-    end
-end
+--==================================================
+-- SHADOW LOGIC
+--==================================================
 
-refreshWaypointList = function()
-    -- Clear existing
-    for _, child in pairs(WaypointList:GetChildren()) do
-        if child:IsA("Frame") then child:Destroy() end
+startShadow = function(mode)
+    if shadowConnection then
+        shadowConnection:Disconnect()
+        shadowConnection = nil
     end
 
-    local myHRP = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+    local target = shadowState.target
+    if not target or not target.Character then
+        notify("Select a shadow target first", "error")
+        return
+    end
 
-    for i, wp in ipairs(waypoints) do
-        local row = Instance.new("Frame")
-        row.Size = UDim2.new(1, 0, 0, 30)
-        row.BackgroundColor3 = Colors.card
-        row.BorderSizePixel = 0
-        row.Parent = WaypointList
-        Instance.new("UICorner", row).CornerRadius = UDim.new(0, 6)
-        addGradient(row, Colors.surfaceLight, Colors.card, 0)
+    shadowState.active = true
+    shadowState.mode = mode
+    shadowHistory = {}
+    refreshShadowModeButtons()
 
-        -- Left accent
-        local bar = Instance.new("Frame")
-        bar.Size = UDim2.new(0, 3, 1, -6)
-        bar.Position = UDim2.new(0, 0, 0, 3)
-        bar.BackgroundColor3 = Colors.green
-        bar.BorderSizePixel = 0
-        bar.Parent = row
-        Instance.new("UICorner", bar).CornerRadius = UDim.new(0, 2)
-
-        -- Name
-        local nameLabel = Instance.new("TextLabel")
-        nameLabel.Size = UDim2.new(1, -110, 1, 0)
-        nameLabel.Position = UDim2.new(0, 10, 0, 0)
-        nameLabel.BackgroundTransparency = 1
-        nameLabel.Text = wp.name
-        nameLabel.TextColor3 = Colors.text
-        nameLabel.TextSize = 11
-        nameLabel.Font = Enum.Font.GothamBold
-        nameLabel.TextXAlignment = Enum.TextXAlignment.Left
-        nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
-        nameLabel.Parent = row
-
-        -- Distance
-        if myHRP then
-            local dist = math.floor((myHRP.Position - wp.cframe.Position).Magnitude)
-            local distLabel = Instance.new("TextLabel")
-            distLabel.Size = UDim2.new(0, 50, 1, 0)
-            distLabel.Position = UDim2.new(1, -108, 0, 0)
-            distLabel.BackgroundTransparency = 1
-            distLabel.Text = dist .. "m"
-            distLabel.TextColor3 = Colors.textDim
-            distLabel.TextSize = 9
-            distLabel.Font = Enum.Font.Gotham
-            distLabel.Parent = row
+    shadowConnection = RunService.Heartbeat:Connect(function()
+        local targetChar = target.Character
+        if not targetChar or not targetChar.Parent then
+            stopShadow()
+            notify("Shadow target left", "error")
+            return
         end
 
-        -- TP button
-        local tpBtn = Instance.new("TextButton")
-        tpBtn.Size = UDim2.new(0, 28, 0, 20)
-        tpBtn.Position = UDim2.new(1, -58, 0, 5)
-        tpBtn.BackgroundColor3 = Colors.green
-        tpBtn.Text = "TP"
-        tpBtn.TextColor3 = Colors.text
-        tpBtn.TextSize = 9
-        tpBtn.Font = Enum.Font.GothamBold
-        tpBtn.AutoButtonColor = false
-        tpBtn.Parent = row
-        Instance.new("UICorner", tpBtn).CornerRadius = UDim.new(0, 4)
-        makeHoverable(tpBtn, Colors.green, Colors.greenLight)
+        local myChar = LP.Character
+        local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP or not targetHRP then return end
 
-        local idx = i
-        tpBtn.MouseButton1Click:Connect(function()
-            tpToWaypoint(idx)
-        end)
+        local dist = shadowState.distance
 
-        -- Delete button
-        local delBtn = Instance.new("TextButton")
-        delBtn.Size = UDim2.new(0, 22, 0, 20)
-        delBtn.Position = UDim2.new(1, -26, 0, 5)
-        delBtn.BackgroundColor3 = Colors.bloodDark
-        delBtn.Text = "X"
-        delBtn.TextColor3 = Colors.text
-        delBtn.TextSize = 9
-        delBtn.Font = Enum.Font.GothamBold
-        delBtn.AutoButtonColor = false
-        delBtn.Parent = row
-        Instance.new("UICorner", delBtn).CornerRadius = UDim.new(0, 4)
-        makeHoverable(delBtn, Colors.bloodDark, Colors.blood)
+        if shadowState.mode == "head" then
+            -- Sit on head
+            local head = targetChar:FindFirstChild("Head")
+            if head then
+                myHRP.CFrame = head.CFrame * CFrame.new(0, 1.8, 0)
+            end
 
-        delBtn.MouseButton1Click:Connect(function()
-            removeWaypoint(idx)
-        end)
+        elseif shadowState.mode == "follow" then
+            -- Follow behind
+            local targetCF = targetHRP.CFrame
+
+            if shadowState.delay > 0 then
+                -- Store history
+                table.insert(shadowHistory, { time = tick(), cf = targetCF })
+
+                -- Find position from delay seconds ago
+                local targetTime = tick() - shadowState.delay
+                local delayCF = nil
+                local cleanIdx = 0
+                for i = #shadowHistory, 1, -1 do
+                    if shadowHistory[i].time <= targetTime then
+                        delayCF = shadowHistory[i].cf
+                        cleanIdx = i
+                        break
+                    end
+                end
+
+                -- Clean old entries (keep last 300 max)
+                if cleanIdx > 1 then
+                    for _ = 1, cleanIdx - 1 do
+                        table.remove(shadowHistory, 1)
+                    end
+                elseif #shadowHistory > 300 then
+                    table.remove(shadowHistory, 1)
+                end
+
+                if delayCF then
+                    local behindCF = delayCF * CFrame.new(0, 0, dist)
+                    myHRP.CFrame = behindCF
+                end
+            else
+                -- Instant follow
+                local behindCF = targetCF * CFrame.new(0, 0, dist)
+                myHRP.CFrame = behindCF
+            end
+
+        elseif shadowState.mode == "mirror" then
+            -- Shadow box: face them, mirrored position
+            local targetCF = targetHRP.CFrame
+            local frontPos = (targetCF * CFrame.new(0, 0, -dist)).Position
+            myHRP.CFrame = CFrame.lookAt(frontPos, targetHRP.Position)
+        end
+    end)
+
+    notify("Shadow: " .. mode .. " on " .. target.Name, "success")
+    log("Shadow started:", mode, target.Name)
+end
+
+stopShadow = function()
+    shadowState.active = false
+    if shadowConnection then
+        shadowConnection:Disconnect()
+        shadowConnection = nil
     end
+    shadowHistory = {}
+    refreshShadowModeButtons()
+    notify("Shadow stopped", "info")
+    log("Shadow stopped")
+end
 
-    -- Also refresh Player TP list
-    for _, child in pairs(PlayerTPList:GetChildren()) do
+refreshShadowPlayerList = function()
+    -- Clear existing
+    for _, child in pairs(ShadowPlayerScroll:GetChildren()) do
         if child:IsA("Frame") then child:Destroy() end
     end
 
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LP then
             local row = Instance.new("Frame")
-            row.Size = UDim2.new(1, 0, 0, 26)
+            row.Size = UDim2.new(1, 0, 0, 30)
             row.BackgroundColor3 = Colors.card
             row.BorderSizePixel = 0
-            row.Parent = PlayerTPList
+            row.Parent = ShadowPlayerScroll
             Instance.new("UICorner", row).CornerRadius = UDim.new(0, 4)
 
+            local isSelected = shadowState.target == player
+
+            -- Thumbnail
+            local thumbFrame = Instance.new("Frame")
+            thumbFrame.Size = UDim2.new(0, 22, 0, 22)
+            thumbFrame.Position = UDim2.new(0, 4, 0, 4)
+            thumbFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+            thumbFrame.Parent = row
+            Instance.new("UICorner", thumbFrame).CornerRadius = UDim.new(1, 0)
+            local tStroke = Instance.new("UIStroke", thumbFrame)
+            tStroke.Color = isSelected and Colors.glowPurple or Colors.textDim
+            tStroke.Thickness = 1
+
+            local thumbImg = Instance.new("ImageLabel")
+            thumbImg.Size = UDim2.new(1, 0, 1, 0)
+            thumbImg.BackgroundTransparency = 1
+            thumbImg.Parent = thumbFrame
+            Instance.new("UICorner", thumbImg).CornerRadius = UDim.new(1, 0)
+
+            task.spawn(function()
+                local ok, thumb = pcall(function()
+                    return Players:GetUserThumbnailAsync(player.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size48x48)
+                end)
+                if ok and thumb then thumbImg.Image = thumb end
+            end)
+
             local pName = Instance.new("TextLabel")
-            pName.Size = UDim2.new(1, -40, 1, 0)
-            pName.Position = UDim2.new(0, 6, 0, 0)
+            pName.Size = UDim2.new(1, -82, 1, 0)
+            pName.Position = UDim2.new(0, 30, 0, 0)
             pName.BackgroundTransparency = 1
             pName.Text = player.DisplayName
-            pName.TextColor3 = Colors.bloodLight
+            pName.TextColor3 = isSelected and Colors.purpleLight or Colors.bloodLight
             pName.TextSize = 10
             pName.Font = Enum.Font.GothamBold
             pName.TextXAlignment = Enum.TextXAlignment.Left
             pName.TextTruncate = Enum.TextTruncate.AtEnd
             pName.Parent = row
 
-            local tpBtn2 = Instance.new("TextButton")
-            tpBtn2.Size = UDim2.new(0, 28, 0, 18)
-            tpBtn2.Position = UDim2.new(1, -32, 0, 4)
-            tpBtn2.BackgroundColor3 = Colors.green
-            tpBtn2.Text = "TP"
-            tpBtn2.TextColor3 = Colors.text
-            tpBtn2.TextSize = 9
-            tpBtn2.Font = Enum.Font.GothamBold
-            tpBtn2.AutoButtonColor = false
-            tpBtn2.Parent = row
-            Instance.new("UICorner", tpBtn2).CornerRadius = UDim.new(0, 4)
-            makeHoverable(tpBtn2, Colors.green, Colors.greenLight)
+            local selectBtn = Instance.new("TextButton")
+            selectBtn.Size = UDim2.new(0, 48, 0, 22)
+            selectBtn.Position = UDim2.new(1, -52, 0, 4)
+            selectBtn.BackgroundColor3 = isSelected and Colors.glowPurple or Colors.surfaceLight
+            selectBtn.Text = isSelected and "ACTIVE" or "SELECT"
+            selectBtn.TextColor3 = Colors.text
+            selectBtn.TextSize = 8
+            selectBtn.Font = Enum.Font.GothamBold
+            selectBtn.AutoButtonColor = false
+            selectBtn.Parent = row
+            Instance.new("UICorner", selectBtn).CornerRadius = UDim.new(0, 4)
+            makeHoverable(selectBtn, isSelected and Colors.glowPurple or Colors.surfaceLight, Colors.purpleLight)
 
-            tpBtn2.MouseButton1Click:Connect(function()
-                local myHRP2 = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-                local c = player.Character
-                if myHRP2 and c then
-                    local hrp = c:FindFirstChild("HumanoidRootPart")
-                    if hrp then
-                        myHRP2.CFrame = hrp.CFrame
-                        notify("TP to " .. player.Name, "success")
-                    end
-                end
+            selectBtn.MouseButton1Click:Connect(function()
+                shadowState.target = player
+                ShadowTargetLabel.Text = "Target: " .. player.DisplayName
+                ShadowTargetLabel.TextColor3 = Colors.purpleLight
+                refreshShadowPlayerList()
+                notify("Shadow target: " .. player.Name, "info")
             end)
         end
     end
@@ -3812,8 +4236,12 @@ AutoScanToggle.btn.MouseButton1Click:Connect(function()
     end
 end)
 
--- Unspectate
+-- Unspectate (scanner + player tabs)
 UnspectateBtn.MouseButton1Click:Connect(function()
+    stopSpectate()
+end)
+
+PlayerUnspectateBtn.MouseButton1Click:Connect(function()
     stopSpectate()
 end)
 
@@ -3925,34 +4353,84 @@ LP.CharacterAdded:Connect(function()
 end)
 
 --==================================================
--- TELEPORT TAB EVENTS
+-- EMOTE TAB EVENTS
 --==================================================
 
-TPSearchBtn.MouseButton1Click:Connect(function()
-    tpToPart(TPInput.Text)
+-- Preset emote buttons
+for _, data in pairs(emoteButtons) do
+    data.btn.MouseButton1Click:Connect(function()
+        playEmote(data.emote.id)
+    end)
+end
+
+-- Custom animation ID
+PlayCustomBtn.MouseButton1Click:Connect(function()
+    local id = tonumber(CustomIDInput.Text)
+    if id then
+        playEmote(id)
+    else
+        notify("Enter a valid animation ID", "warning")
+    end
 end)
 
-TPInput.FocusLost:Connect(function(enterPressed)
+CustomIDInput.FocusLost:Connect(function(enterPressed)
     if enterPressed then
-        tpToPart(TPInput.Text)
+        local id = tonumber(CustomIDInput.Text)
+        if id then playEmote(id) end
     end
 end)
 
-SaveWPBtn.MouseButton1Click:Connect(function()
-    addWaypoint(WPNameInput.Text)
-    WPNameInput.Text = ""
+StopEmoteBtn.MouseButton1Click:Connect(function()
+    stopEmote()
 end)
 
-WPNameInput.FocusLost:Connect(function(enterPressed)
-    if enterPressed and WPNameInput.Text ~= "" then
-        addWaypoint(WPNameInput.Text)
-        WPNameInput.Text = ""
-    end
+-- Shadow mode buttons
+for mode, data in pairs(shadowModeToggles) do
+    data.btn.MouseButton1Click:Connect(function()
+        if shadowState.active and shadowState.mode == mode then
+            stopShadow()
+        else
+            startShadow(mode)
+        end
+    end)
+end
+
+StopShadowBtn.MouseButton1Click:Connect(function()
+    stopShadow()
 end)
 
 --==================================================
 -- SETTINGS TAB EVENTS
 --==================================================
+
+spectateHLToggle.btn.MouseButton1Click:Connect(function()
+    spectateConfig.showHighlight = not spectateConfig.showHighlight
+    spectateHLToggle.refresh()
+    -- Apply immediately if spectating
+    if spectatingInfo then
+        if spectateConfig.showHighlight then
+            local targetChar = spectatingInfo.character
+            if spectatingInfo.player and spectatingInfo.player.Character then
+                targetChar = spectatingInfo.player.Character
+            end
+            if targetChar and not spectateHighlight then
+                spectateHighlight = Instance.new("Highlight")
+                spectateHighlight.Name = "VampSpectateHL"
+                spectateHighlight.FillColor = Colors.blood
+                spectateHighlight.FillTransparency = 0.7
+                spectateHighlight.OutlineColor = Colors.bloodLight
+                spectateHighlight.OutlineTransparency = 0
+                spectateHighlight.Adornee = targetChar
+                spectateHighlight.Parent = targetChar
+            end
+        else
+            if spectateHighlight then
+                spectateHighlight:Destroy()
+                spectateHighlight = nil
+            end
+        end
+    end
+end)
 
 autoScanSettingToggle.btn.MouseButton1Click:Connect(function()
     autoScanConfig.enabled = not autoScanConfig.enabled
@@ -4051,6 +4529,8 @@ end)
 -- X fecha tudo (destroy)
 CloseBtn.MouseButton1Click:Connect(function()
     stopSpectate()
+    stopEmote()
+    stopShadow()
     clearESP()
     clearPreview()
     clearResults()
@@ -4104,11 +4584,85 @@ switchTab = function(tabId)
         updateServerInfo()
     end
 
-    -- Refresh TP player list
-    if tabId == "teleport" then
-        refreshWaypointList()
+    -- Refresh shadow player list when switching to emote tab
+    if tabId == "emote" then
+        refreshShadowPlayerList()
     end
 end
+
+--==================================================
+-- VAMPIRE NAMETAG
+--==================================================
+
+local function createVampireNametag(char)
+    if not char then return end
+    local head = char:WaitForChild("Head", 5)
+    if not head then return end
+
+    -- Remove existing
+    local existing = head:FindFirstChild("VampNametag")
+    if existing then existing:Destroy() end
+
+    local bb = Instance.new("BillboardGui")
+    bb.Name = "VampNametag"
+    bb.Size = UDim2.new(0, 180, 0, 40)
+    bb.StudsOffset = Vector3.new(0, 2.2, 0)
+    bb.AlwaysOnTop = false
+    bb.Adornee = head
+    bb.Parent = head
+
+    -- Background card
+    local bg = Instance.new("Frame")
+    bg.Size = UDim2.new(1, 0, 0, 24)
+    bg.Position = UDim2.new(0, 0, 0.5, -12)
+    bg.BackgroundColor3 = Color3.fromRGB(15, 8, 12)
+    bg.BackgroundTransparency = 0.2
+    bg.BorderSizePixel = 0
+    bg.Parent = bb
+    Instance.new("UICorner", bg).CornerRadius = UDim.new(0, 8)
+
+    local bgStroke = Instance.new("UIStroke", bg)
+    bgStroke.Color = Colors.blood
+    bgStroke.Thickness = 1.2
+    bgStroke.Transparency = 0.3
+
+    local grad = Instance.new("UIGradient")
+    grad.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Colors.bloodDark),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(15, 8, 12)),
+        ColorSequenceKeypoint.new(1, Colors.bloodDark),
+    })
+    grad.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 0.4),
+        NumberSequenceKeypoint.new(0.5, 0.15),
+        NumberSequenceKeypoint.new(1, 0.4),
+    })
+    grad.Parent = bg
+
+    -- Nametag text
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.Text = "🦇 Vampire Tester ❤"
+    label.TextColor3 = Colors.bloodLight
+    label.TextStrokeColor3 = Color3.fromRGB(40, 0, 0)
+    label.TextStrokeTransparency = 0.4
+    label.TextSize = 13
+    label.Font = Enum.Font.GothamBold
+    label.Parent = bg
+end
+
+-- Apply nametag on current + future characters
+if LP.Character then
+    task.spawn(function()
+        createVampireNametag(LP.Character)
+    end)
+end
+LP.CharacterAdded:Connect(function(char)
+    task.spawn(function()
+        createVampireNametag(char)
+    end)
+end)
 
 --==================================================
 -- INIT

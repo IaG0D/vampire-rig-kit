@@ -16,7 +16,7 @@ SettingsScroll.Size = UDim2.new(1, 0, 1, 0)
 SettingsScroll.BackgroundTransparency = 1
 SettingsScroll.ScrollBarThickness = 3
 SettingsScroll.ScrollBarImageColor3 = Colors.blood
-SettingsScroll.CanvasSize = UDim2.new(0, 0, 0, 540)
+SettingsScroll.CanvasSize = UDim2.new(0, 0, 0, 600)
 SettingsScroll.BorderSizePixel = 0
 SettingsScroll.Parent = SettingsContent
 
@@ -50,14 +50,22 @@ hotkeyLabel.TextXAlignment = Enum.TextXAlignment.Left
 hotkeyLabel.Parent = SettingsScroll
 
 --==================================================
+-- SPECTATE SETTINGS
+--==================================================
+
+createSectionHeader(SettingsScroll, "Spectate", 144)
+
+local spectateHLToggle = createVampToggle(SettingsScroll, "Spectate Highlight", "showHighlight", spectateConfig, 170, Colors.bloodLight)
+
+--==================================================
 -- SAVE INSTANCE
 --==================================================
 
-createSectionHeader(SettingsScroll, "Save Instance", 144)
+createSectionHeader(SettingsScroll, "Save Instance", 200)
 
 local FileNameLabel = Instance.new("TextLabel")
 FileNameLabel.Size = UDim2.new(1, 0, 0, 16)
-FileNameLabel.Position = UDim2.new(0, 0, 0, 170)
+FileNameLabel.Position = UDim2.new(0, 0, 0, 226)
 FileNameLabel.BackgroundTransparency = 1
 FileNameLabel.Text = "File name:"
 FileNameLabel.TextColor3 = Colors.textDim
@@ -68,7 +76,7 @@ FileNameLabel.Parent = SettingsScroll
 
 local FileNameBox = Instance.new("TextBox")
 FileNameBox.Size = UDim2.new(1, 0, 0, 28)
-FileNameBox.Position = UDim2.new(0, 0, 0, 188)
+FileNameBox.Position = UDim2.new(0, 0, 0, 244)
 FileNameBox.BackgroundColor3 = Colors.inputBg
 FileNameBox.Text = ""
 FileNameBox.PlaceholderText = "auto: PlaceId_Date"
@@ -91,7 +99,7 @@ FileNameBox.FocusLost:Connect(function()
 end)
 
 -- Save toggles
-local saveY = 224
+local saveY = 280
 local saveToggles = {}
 
 local saveToggleDefs = {

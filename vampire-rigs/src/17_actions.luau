@@ -177,6 +177,35 @@ createResultCard = function(info)
 
     info.cardFrame = Card
 
+    -- Thumbnail (players only)
+    local contentOffsetX = 12
+    if info.type == "PLAYER" and info.userId then
+        contentOffsetX = 46
+
+        local thumbFrame = Instance.new("Frame")
+        thumbFrame.Size = UDim2.new(0, 30, 0, 30)
+        thumbFrame.Position = UDim2.new(0, 8, 0, 6)
+        thumbFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        thumbFrame.Parent = Card
+        Instance.new("UICorner", thumbFrame).CornerRadius = UDim.new(1, 0)
+        local tStroke = Instance.new("UIStroke", thumbFrame)
+        tStroke.Color = Colors.blood
+        tStroke.Thickness = 1
+
+        local thumbImg = Instance.new("ImageLabel")
+        thumbImg.Size = UDim2.new(1, 0, 1, 0)
+        thumbImg.BackgroundTransparency = 1
+        thumbImg.Parent = thumbFrame
+        Instance.new("UICorner", thumbImg).CornerRadius = UDim.new(1, 0)
+
+        task.spawn(function()
+            local ok, thumb = pcall(function()
+                return Players:GetUserThumbnailAsync(info.userId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size48x48)
+            end)
+            if ok and thumb then thumbImg.Image = thumb end
+        end)
+    end
+
     local TypeBadge = Instance.new("Frame")
     TypeBadge.Size = UDim2.new(0, 50, 0, 16)
     TypeBadge.Position = UDim2.new(1, -58, 0, 5)
@@ -195,7 +224,7 @@ createResultCard = function(info)
 
     local NameLabel = Instance.new("TextLabel")
     NameLabel.Size = UDim2.new(1, -65, 0, 18)
-    NameLabel.Position = UDim2.new(0, 12, 0, 5)
+    NameLabel.Position = UDim2.new(0, contentOffsetX, 0, 5)
     NameLabel.BackgroundTransparency = 1
     NameLabel.Text = info.name
     NameLabel.TextColor3 = Colors.bloodLight
@@ -207,7 +236,7 @@ createResultCard = function(info)
 
     local StatusLabel = Instance.new("TextLabel")
     StatusLabel.Size = UDim2.new(1, -10, 0, 14)
-    StatusLabel.Position = UDim2.new(0, 12, 0, 22)
+    StatusLabel.Position = UDim2.new(0, contentOffsetX, 0, 22)
     StatusLabel.BackgroundTransparency = 1
     StatusLabel.Text = "Click VIEW"
     StatusLabel.TextColor3 = Colors.textDim

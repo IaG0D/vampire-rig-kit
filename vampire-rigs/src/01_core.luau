@@ -98,6 +98,7 @@ local scannedNPCSet = {}
 local spectatingInfo = nil
 local spectateHighlight = nil
 local savedCameraSubject = nil
+local spectateConfig = { showHighlight = true }
 
 -- ESP state
 local espState = {
@@ -129,8 +130,19 @@ local freecamConnection = nil
 local savedCameraState = nil
 local speedConnection = nil
 
--- Teleport state
-local waypoints = {}
+-- Emote state
+local currentEmoteTrack = nil
+
+-- Shadow state
+local shadowState = {
+    active = false,
+    mode = "follow", -- "follow" | "head" | "mirror"
+    target = nil,
+    delay = 0,
+    distance = 4,
+}
+local shadowConnection = nil
+local shadowHistory = {}
 
 -- Notification state
 local notifContainer = nil
@@ -161,12 +173,12 @@ local startFly, stopFly
 local toggleNoclip, toggleInfiniteJump
 local startFreecam, stopFreecam
 local applySpeed
-local addWaypoint, removeWaypoint, tpToWaypoint, refreshWaypointList
-local tpToPart
 local filterResults
 local runScan, clearResults, createResultCard
 local refreshPlayerList
 local updateServerInfo
+local playEmote, stopEmote
+local startShadow, stopShadow, refreshShadowPlayerList
 
 --==================================================
 -- UI HELPERS

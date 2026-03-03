@@ -8,6 +8,7 @@ applySpeed = function()
     local hum = char and char:FindFirstChildOfClass("Humanoid")
     if hum then
         hum.WalkSpeed = movementState.speed
+        hum.UseJumpPower = true
         hum.JumpPower = movementState.jumpPower
     end
 end
@@ -138,6 +139,13 @@ startFreecam = function()
     }
     cam.CameraType = Enum.CameraType.Scriptable
 
+    -- Anchor character so it doesn't move while in freecam
+    local char = LP.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        hrp.Anchored = true
+    end
+
     freecamConnection = RunService.RenderStepped:Connect(function(dt)
         local speed = movementState.speed * 2
         local move = Vector3.zero
@@ -162,6 +170,14 @@ stopFreecam = function()
         freecamConnection:Disconnect()
         freecamConnection = nil
     end
+
+    -- Unanchor character
+    local char = LP.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        hrp.Anchored = false
+    end
+
     local cam = workspace.CurrentCamera
     if savedCameraState then
         cam.CameraType = savedCameraState.ctype

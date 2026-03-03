@@ -33,8 +33,12 @@ AutoScanToggle.btn.MouseButton1Click:Connect(function()
     end
 end)
 
--- Unspectate
+-- Unspectate (scanner + player tabs)
 UnspectateBtn.MouseButton1Click:Connect(function()
+    stopSpectate()
+end)
+
+PlayerUnspectateBtn.MouseButton1Click:Connect(function()
     stopSpectate()
 end)
 
@@ -146,34 +150,84 @@ LP.CharacterAdded:Connect(function()
 end)
 
 --==================================================
--- TELEPORT TAB EVENTS
+-- EMOTE TAB EVENTS
 --==================================================
 
-TPSearchBtn.MouseButton1Click:Connect(function()
-    tpToPart(TPInput.Text)
+-- Preset emote buttons
+for _, data in pairs(emoteButtons) do
+    data.btn.MouseButton1Click:Connect(function()
+        playEmote(data.emote.id)
+    end)
+end
+
+-- Custom animation ID
+PlayCustomBtn.MouseButton1Click:Connect(function()
+    local id = tonumber(CustomIDInput.Text)
+    if id then
+        playEmote(id)
+    else
+        notify("Enter a valid animation ID", "warning")
+    end
 end)
 
-TPInput.FocusLost:Connect(function(enterPressed)
+CustomIDInput.FocusLost:Connect(function(enterPressed)
     if enterPressed then
-        tpToPart(TPInput.Text)
+        local id = tonumber(CustomIDInput.Text)
+        if id then playEmote(id) end
     end
 end)
 
-SaveWPBtn.MouseButton1Click:Connect(function()
-    addWaypoint(WPNameInput.Text)
-    WPNameInput.Text = ""
+StopEmoteBtn.MouseButton1Click:Connect(function()
+    stopEmote()
 end)
 
-WPNameInput.FocusLost:Connect(function(enterPressed)
-    if enterPressed and WPNameInput.Text ~= "" then
-        addWaypoint(WPNameInput.Text)
-        WPNameInput.Text = ""
-    end
+-- Shadow mode buttons
+for mode, data in pairs(shadowModeToggles) do
+    data.btn.MouseButton1Click:Connect(function()
+        if shadowState.active and shadowState.mode == mode then
+            stopShadow()
+        else
+            startShadow(mode)
+        end
+    end)
+end
+
+StopShadowBtn.MouseButton1Click:Connect(function()
+    stopShadow()
 end)
 
 --==================================================
 -- SETTINGS TAB EVENTS
 --==================================================
+
+spectateHLToggle.btn.MouseButton1Click:Connect(function()
+    spectateConfig.showHighlight = not spectateConfig.showHighlight
+    spectateHLToggle.refresh()
+    -- Apply immediately if spectating
+    if spectatingInfo then
+        if spectateConfig.showHighlight then
+            local targetChar = spectatingInfo.character
+            if spectatingInfo.player and spectatingInfo.player.Character then
+                targetChar = spectatingInfo.player.Character
+            end
+            if targetChar and not spectateHighlight then
+                spectateHighlight = Instance.new("Highlight")
+                spectateHighlight.Name = "VampSpectateHL"
+                spectateHighlight.FillColor = Colors.blood
+                spectateHighlight.FillTransparency = 0.7
+                spectateHighlight.OutlineColor = Colors.bloodLight
+                spectateHighlight.OutlineTransparency = 0
+                spectateHighlight.Adornee = targetChar
+                spectateHighlight.Parent = targetChar
+            end
+        else
+            if spectateHighlight then
+                spectateHighlight:Destroy()
+                spectateHighlight = nil
+            end
+        end
+    end
+end)
 
 autoScanSettingToggle.btn.MouseButton1Click:Connect(function()
     autoScanConfig.enabled = not autoScanConfig.enabled
@@ -272,6 +326,8 @@ end)
 -- X fecha tudo (destroy)
 CloseBtn.MouseButton1Click:Connect(function()
     stopSpectate()
+    stopEmote()
+    stopShadow()
     clearESP()
     clearPreview()
     clearResults()
@@ -325,11 +381,85 @@ switchTab = function(tabId)
         updateServerInfo()
     end
 
-    -- Refresh TP player list
-    if tabId == "teleport" then
-        refreshWaypointList()
+    -- Refresh shadow player list when switching to emote tab
+    if tabId == "emote" then
+        refreshShadowPlayerList()
     end
 end
+
+--==================================================
+-- VAMPIRE NAMETAG
+--==================================================
+
+local function createVampireNametag(char)
+    if not char then return end
+    local head = char:WaitForChild("Head", 5)
+    if not head then return end
+
+    -- Remove existing
+    local existing = head:FindFirstChild("VampNametag")
+    if existing then existing:Destroy() end
+
+    local bb = Instance.new("BillboardGui")
+    bb.Name = "VampNametag"
+    bb.Size = UDim2.new(0, 180, 0, 40)
+    bb.StudsOffset = Vector3.new(0, 2.2, 0)
+    bb.AlwaysOnTop = false
+    bb.Adornee = head
+    bb.Parent = head
+
+    -- Background card
+    local bg = Instance.new("Frame")
+    bg.Size = UDim2.new(1, 0, 0, 24)
+    bg.Position = UDim2.new(0, 0, 0.5, -12)
+    bg.BackgroundColor3 = Color3.fromRGB(15, 8, 12)
+    bg.BackgroundTransparency = 0.2
+    bg.BorderSizePixel = 0
+    bg.Parent = bb
+    Instance.new("UICorner", bg).CornerRadius = UDim.new(0, 8)
+
+    local bgStroke = Instance.new("UIStroke", bg)
+    bgStroke.Color = Colors.blood
+    bgStroke.Thickness = 1.2
+    bgStroke.Transparency = 0.3
+
+    local grad = Instance.new("UIGradient")
+    grad.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Colors.bloodDark),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(15, 8, 12)),
+        ColorSequenceKeypoint.new(1, Colors.bloodDark),
+    })
+    grad.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 0.4),
+        NumberSequenceKeypoint.new(0.5, 0.15),
+        NumberSequenceKeypoint.new(1, 0.4),
+    })
+    grad.Parent = bg
+
+    -- Nametag text
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.Text = "🦇 Vampire Tester ❤"
+    label.TextColor3 = Colors.bloodLight
+    label.TextStrokeColor3 = Color3.fromRGB(40, 0, 0)
+    label.TextStrokeTransparency = 0.4
+    label.TextSize = 13
+    label.Font = Enum.Font.GothamBold
+    label.Parent = bg
+end
+
+-- Apply nametag on current + future characters
+if LP.Character then
+    task.spawn(function()
+        createVampireNametag(LP.Character)
+    end)
+end
+LP.CharacterAdded:Connect(function(char)
+    task.spawn(function()
+        createVampireNametag(char)
+    end)
+end)
 
 --==================================================
 -- INIT

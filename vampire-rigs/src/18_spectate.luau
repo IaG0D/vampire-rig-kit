@@ -36,20 +36,27 @@ startSpectate = function(info)
     camera.CameraSubject = humanoid
     spectatingInfo = info
 
+    -- Highlight (respects config)
     if spectateHighlight then
         spectateHighlight:Destroy()
+        spectateHighlight = nil
     end
-    spectateHighlight = Instance.new("Highlight")
-    spectateHighlight.Name = "VampSpectateHL"
-    spectateHighlight.FillColor = Colors.blood
-    spectateHighlight.FillTransparency = 0.7
-    spectateHighlight.OutlineColor = Colors.bloodLight
-    spectateHighlight.OutlineTransparency = 0
-    spectateHighlight.Adornee = targetChar
-    spectateHighlight.Parent = targetChar
+    if spectateConfig.showHighlight then
+        spectateHighlight = Instance.new("Highlight")
+        spectateHighlight.Name = "VampSpectateHL"
+        spectateHighlight.FillColor = Colors.blood
+        spectateHighlight.FillTransparency = 0.7
+        spectateHighlight.OutlineColor = Colors.bloodLight
+        spectateHighlight.OutlineTransparency = 0
+        spectateHighlight.Adornee = targetChar
+        spectateHighlight.Parent = targetChar
+    end
 
+    local specLabel = "🦇 UNSPECTATE (" .. info.name .. ")"
     UnspectateBtn.Visible = true
-    UnspectateBtn.Text = "🦇 UNSPECTATE (" .. info.name .. ")"
+    UnspectateBtn.Text = specLabel
+    PlayerUnspectateBtn.Visible = true
+    PlayerUnspectateBtn.Text = specLabel
 
     notify("Spectating: " .. info.name, "info")
     log("Spectating:", info.name)
@@ -79,6 +86,7 @@ stopSpectate = function()
 
     spectatingInfo = nil
     UnspectateBtn.Visible = false
+    PlayerUnspectateBtn.Visible = false
 
     notify("Spectate stopped", "info")
     log("Spectate stopped")

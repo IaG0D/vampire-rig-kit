@@ -37,6 +37,22 @@ playerPad.PaddingTop = UDim.new(0, 4)
 playerPad.PaddingLeft = UDim.new(0, 4)
 playerPad.PaddingRight = UDim.new(0, 4)
 
+-- Unspectate button (hidden by default)
+local PlayerUnspectateBtn = Instance.new("TextButton")
+PlayerUnspectateBtn.Size = UDim2.new(1, 0, 0, 26)
+PlayerUnspectateBtn.Position = UDim2.new(0, 0, 1, -98)
+PlayerUnspectateBtn.BackgroundColor3 = Colors.blood
+PlayerUnspectateBtn.Text = "🦇 UNSPECTATE"
+PlayerUnspectateBtn.TextColor3 = Colors.text
+PlayerUnspectateBtn.TextSize = 11
+PlayerUnspectateBtn.Font = Enum.Font.GothamBold
+PlayerUnspectateBtn.AutoButtonColor = false
+PlayerUnspectateBtn.Visible = false
+PlayerUnspectateBtn.Parent = PlayerContent
+Instance.new("UICorner", PlayerUnspectateBtn).CornerRadius = UDim.new(0, 6)
+addBtnGradient(PlayerUnspectateBtn)
+makeHoverable(PlayerUnspectateBtn, Colors.blood, Colors.glowRed)
+
 -- Refresh button
 local RefreshPlayersBtn = Instance.new("TextButton")
 RefreshPlayersBtn.Size = UDim2.new(1, 0, 0, 26)
