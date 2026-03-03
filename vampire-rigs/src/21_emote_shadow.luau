@@ -1022,6 +1022,120 @@ dizzyPlayer = function(player)
 end
 
 --==================================================
+-- REMOTE SPY FUNCTIONS
+--==================================================
+
+scanRemotes = function()
+    scannedRemotes = {}
+    pcall(function()
+        for _, obj in pairs(game:GetDescendants()) do
+            if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
+                table.insert(scannedRemotes, {
+                    instance = obj,
+                    name = obj.Name,
+                    path = obj:GetFullName(),
+                    class = obj.ClassName,
+                })
+            end
+        end
+    end)
+    table.sort(scannedRemotes, function(a, b)
+        return a.name < b.name
+    end)
+    log("Scanned remotes:", #scannedRemotes)
+end
+
+startRemoteSpy = function()
+    if remoteSpyActive then return end
+
+    -- Checa se executor suporta hookmetamethod
+    if not hookmetamethod then
+        notify("hookmetamethod not supported", "error")
+        return false
+    end
+    if not getnamecallmethod then
+        notify("getnamecallmethod not supported", "error")
+        return false
+    end
+    if not newcclosure then
+        notify("newcclosure not supported", "error")
+        return false
+    end
+
+    remoteSpyActive = true
+    remoteSpyLog = {}
+
+    pcall(function()
+        remoteSpyHook = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+            local method = getnamecallmethod()
+            if remoteSpyActive and (method == "FireServer" or method == "InvokeServer") then
+                local isRemote = false
+                pcall(function()
+                    isRemote = self:IsA("RemoteEvent") or self:IsA("RemoteFunction")
+                end)
+                if isRemote then
+                    local entry = {
+                        time = os.clock(),
+                        name = "?",
+                        path = "?",
+                        method = method,
+                        args = {...},
+                    }
+                    pcall(function() entry.name = self.Name end)
+                    pcall(function() entry.path = self:GetFullName() end)
+                    table.insert(remoteSpyLog, entry)
+                    if #remoteSpyLog > 200 then
+                        table.remove(remoteSpyLog, 1)
+                    end
+                    -- Refresh UI (safe)
+                    pcall(function() refreshRemoteSpyLog() end)
+                end
+            end
+            return remoteSpyHook(self, ...)
+        end))
+    end)
+
+    if remoteSpyHook then
+        notify("Remote Spy ON — logging calls", "success")
+        RemoteSpyStatusLabel.Text = "Spy: ON (logging...)"
+        RemoteSpyStatusLabel.TextColor3 = Color3.fromRGB(100, 220, 200)
+        RemoteSpyToggleBtn.Text = "⏹ STOP SPY"
+        RemoteSpyToggleBtn.BackgroundColor3 = Color3.fromRGB(180, 60, 30)
+        return true
+    else
+        remoteSpyActive = false
+        notify("Failed to hook __namecall", "error")
+        return false
+    end
+end
+
+stopRemoteSpy = function()
+    remoteSpyActive = false
+    RemoteSpyStatusLabel.Text = "Spy: OFF"
+    RemoteSpyStatusLabel.TextColor3 = Colors.textDim
+    RemoteSpyToggleBtn.Text = "🕵 START SPY"
+    RemoteSpyToggleBtn.BackgroundColor3 = Color3.fromRGB(40, 80, 70)
+    notify("Remote Spy OFF", "info")
+end
+
+fireTestRemote = function(remote)
+    if not remote or not remote.Parent then
+        notify("Remote no longer exists", "error")
+        return
+    end
+    pcall(function()
+        if remote:IsA("RemoteEvent") then
+            remote:FireServer()
+            notify("Fired: " .. remote.Name, "success")
+        elseif remote:IsA("RemoteFunction") then
+            local result = remote:InvokeServer()
+            notify("Invoked: " .. remote.Name .. " → " .. tostring(result), "success")
+        end
+    end)
+    log("Test fire:", remote:GetFullName())
+end
+
+--==================================================
 -- COSMETICS
 --==================================================
 

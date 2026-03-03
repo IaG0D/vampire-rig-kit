@@ -196,6 +196,12 @@ trollConnection = nil
 trollTarget = nil
 trollSpeedMul = 1
 
+-- Remote spy state
+remoteSpyActive = false
+remoteSpyLog = {}
+remoteSpyHook = nil
+scannedRemotes = {}
+
 -- Forward-declared functions are assigned as globals by later modules
 -- (removed local forward declarations to stay under Lua's 200 local limit)
 

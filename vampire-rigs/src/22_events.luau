@@ -534,6 +534,56 @@ CosmeticResetBtn.MouseButton1Click:Connect(function()
     cosmeticGhostToggle.refresh()
 end)
 
+--==================================================
+-- REMOTE SPY EVENTS
+--==================================================
+
+RemoteSpyOpenBtn.MouseButton1Click:Connect(function()
+    openRemoteSpyPanel()
+end)
+
+RemoteSpyScanBtn.MouseButton1Click:Connect(function()
+    scanRemotes()
+    refreshRemoteList(RemoteSpyFilterBox.Text)
+    notify("Scanned: " .. #scannedRemotes .. " remotes", "success")
+end)
+
+RemoteSpyToggleBtn.MouseButton1Click:Connect(function()
+    if remoteSpyActive then
+        stopRemoteSpy()
+    else
+        startRemoteSpy()
+    end
+end)
+
+RemoteSpyClearBtn.MouseButton1Click:Connect(function()
+    remoteSpyLog = {}
+    refreshRemoteSpyLog()
+    notify("Spy log cleared", "info")
+end)
+
+RemoteSpyCloseBtn.MouseButton1Click:Connect(function()
+    RemoteSpyPanel.Visible = false
+end)
+
+RemoteSpyCloseBottomBtn.MouseButton1Click:Connect(function()
+    RemoteSpyPanel.Visible = false
+end)
+
+-- Filter debounce
+do
+    local remoteFilterTimer = nil
+    RemoteSpyFilterBox:GetPropertyChangedSignal("Text"):Connect(function()
+        if remoteFilterTimer then
+            task.cancel(remoteFilterTimer)
+        end
+        remoteFilterTimer = task.delay(0.3, function()
+            remoteFilterTimer = nil
+            refreshRemoteList(RemoteSpyFilterBox.Text)
+        end)
+    end)
+end
+
 -- Helper: carrega SynSaveInstance
 local function loadSSI()
     local Params = {
@@ -627,6 +677,8 @@ CloseBtn.MouseButton1Click:Connect(function()
     stopShadow()
     ShadowPanel.Visible = false
     TrollPanel.Visible = false
+    stopRemoteSpy()
+    RemoteSpyPanel.Visible = false
     clearESP()
     clearPreview()
     clearResults()

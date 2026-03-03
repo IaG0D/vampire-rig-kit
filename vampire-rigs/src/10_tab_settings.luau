@@ -188,4 +188,24 @@ CosmeticResetBtn.Parent = SettingsScroll
 Instance.new("UICorner", CosmeticResetBtn).CornerRadius = UDim.new(0, 6)
 makeHoverable(CosmeticResetBtn, Colors.warning, Color3.fromRGB(230, 180, 60))
 
-SettingsScroll.CanvasSize = UDim2.new(0, 0, 0, saveBtnY + 270)
+--==================================================
+-- SECURITY TOOLS
+--==================================================
+
+createSectionHeader(SettingsScroll, "Security Tools", saveBtnY + 268)
+
+RemoteSpyOpenBtn = Instance.new("TextButton")
+RemoteSpyOpenBtn.Size = UDim2.new(1, 0, 0, 28)
+RemoteSpyOpenBtn.Position = UDim2.new(0, 0, 0, saveBtnY + 294)
+RemoteSpyOpenBtn.BackgroundColor3 = Color3.fromRGB(0, 140, 120)
+RemoteSpyOpenBtn.Text = "🕵 OPEN REMOTE SPY"
+RemoteSpyOpenBtn.TextColor3 = Colors.text
+RemoteSpyOpenBtn.TextSize = 11
+RemoteSpyOpenBtn.Font = Enum.Font.GothamBold
+RemoteSpyOpenBtn.AutoButtonColor = false
+RemoteSpyOpenBtn.Parent = SettingsScroll
+Instance.new("UICorner", RemoteSpyOpenBtn).CornerRadius = UDim.new(0, 6)
+addBtnGradient(RemoteSpyOpenBtn)
+makeHoverable(RemoteSpyOpenBtn, Color3.fromRGB(0, 140, 120), Color3.fromRGB(0, 180, 160))
+
+SettingsScroll.CanvasSize = UDim2.new(0, 0, 0, saveBtnY + 340)
