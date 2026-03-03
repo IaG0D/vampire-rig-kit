@@ -565,6 +565,272 @@ headsitPlayer = function(player)
 end
 
 --==================================================
+-- MORE TROLLS
+--==================================================
+
+stopTroll = function()
+    if trollConnection then
+        pcall(function()
+            if typeof(trollConnection) == "RBXScriptConnection" then
+                trollConnection:Disconnect()
+            else
+                task.cancel(trollConnection)
+            end
+        end)
+        trollConnection = nil
+    end
+    local char = LP.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if hum then
+        hum:SetStateEnabled(Enum.HumanoidStateType.Freefall, true)
+        hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true)
+    end
+end
+
+bangPlayer = function(player)
+    stopTroll()
+    local targetChar = player.Character
+    if not targetChar then notify("No character", "error") return end
+    local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not targetHRP or not myHRP or not myHum then return end
+
+    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+
+    local t = 0
+    trollConnection = RunService.Heartbeat:Connect(function()
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            stopTroll()
+            return
+        end
+        myChar = LP.Character
+        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+
+        targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+        t = t + 1
+        -- Pump motion: oscillate forward/backward in front of target
+        local offset = math.sin(t * 0.3) * 1.5
+        local frontCF = targetHRP.CFrame * CFrame.new(0, 0, -2 - offset)
+        myHRP.CFrame = CFrame.lookAt(frontCF.Position, targetHRP.Position)
+    end)
+    notify("Bang: " .. player.DisplayName, "success")
+end
+
+orbitTrollPlayer = function(player)
+    stopTroll()
+    local targetChar = player.Character
+    if not targetChar then notify("No character", "error") return end
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not myHRP or not myHum then return end
+
+    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+
+    local angle = 0
+    trollConnection = RunService.Heartbeat:Connect(function()
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            stopTroll()
+            return
+        end
+        myChar = LP.Character
+        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+
+        local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+        angle = (angle + 15) % 360
+        local rad = math.rad(angle)
+        local pos = targetHRP.CFrame * CFrame.new(math.sin(rad) * 3, 0, math.cos(rad) * 3)
+        myHRP.CFrame = CFrame.lookAt(pos.Position, targetHRP.Position)
+    end)
+    notify("Orbit troll: " .. player.DisplayName, "success")
+end
+
+backpackPlayer = function(player)
+    stopTroll()
+    local targetChar = player.Character
+    if not targetChar then notify("No character", "error") return end
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not myHRP or not myHum then return end
+
+    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+
+    trollConnection = RunService.Heartbeat:Connect(function()
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            stopTroll()
+            return
+        end
+        myChar = LP.Character
+        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+
+        local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+        myHRP.CFrame = targetHRP.CFrame * CFrame.new(0, 1.5, 1)
+    end)
+    notify("Backpack: " .. player.DisplayName, "success")
+end
+
+flingAllPlayers = function()
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    if not myHRP then return end
+
+    local savedCF = myHRP.CFrame
+    local count = 0
+
+    task.spawn(function()
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LP and player.Character then
+                local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+                if targetHRP then
+                    myHRP.CFrame = targetHRP.CFrame * CFrame.new(0, 0, -2)
+                    task.wait(0.15)
+                    local bv = Instance.new("BodyVelocity")
+                    bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+                    bv.Velocity = Vector3.new(math.random(-200, 200), 300, math.random(-200, 200))
+                    bv.Parent = targetHRP
+                    task.delay(0.3, function()
+                        pcall(function() bv:Destroy() end)
+                    end)
+                    count = count + 1
+                    task.wait(0.3)
+                end
+            end
+        end
+        task.wait(0.2)
+        if myHRP and myHRP.Parent then
+            myHRP.CFrame = savedCF
+        end
+        notify("Flung " .. count .. " players!", "success")
+    end)
+end
+
+--==================================================
+-- COSMETICS
+--==================================================
+
+applyCosmeticHeadless = function()
+    local char = LP.Character
+    if not char then return end
+    local head = char:FindFirstChild("Head")
+    if head then
+        head.Transparency = 1
+        local face = head:FindFirstChildOfClass("Decal") or head:FindFirstChild("face") or head:FindFirstChild("Face")
+        if face then face.Transparency = 1 end
+        for _, child in ipairs(head:GetChildren()) do
+            if child:IsA("SpecialMesh") then
+                child.Scale = Vector3.new(0, 0, 0)
+            end
+        end
+    end
+    -- Hide hat/hair accessories
+    for _, acc in ipairs(char:GetChildren()) do
+        if acc:IsA("Accessory") then
+            local handle = acc:FindFirstChild("Handle")
+            if handle then
+                local att = handle:FindFirstChildOfClass("Attachment")
+                if att and (att.Name:find("Hat") or att.Name:find("Hair") or att.Name:find("Face")) then
+                    handle.Transparency = 1
+                end
+            end
+        end
+    end
+    cosmeticState.headless = true
+    notify("Headless applied", "success")
+end
+
+removeCosmeticHeadless = function()
+    local char = LP.Character
+    if not char then return end
+    local head = char:FindFirstChild("Head")
+    if head then
+        head.Transparency = 0
+        local face = head:FindFirstChildOfClass("Decal") or head:FindFirstChild("face") or head:FindFirstChild("Face")
+        if face then face.Transparency = 0 end
+        for _, child in ipairs(head:GetChildren()) do
+            if child:IsA("SpecialMesh") then
+                child.Scale = Vector3.new(1, 1, 1)
+            end
+        end
+    end
+    for _, acc in ipairs(char:GetChildren()) do
+        if acc:IsA("Accessory") then
+            local handle = acc:FindFirstChild("Handle")
+            if handle then handle.Transparency = 0 end
+        end
+    end
+    cosmeticState.headless = false
+    notify("Headless removed", "info")
+end
+
+applyCosmeticInvisible = function()
+    local char = LP.Character
+    if not char then return end
+    for _, part in ipairs(char:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.Transparency = 1
+        elseif part:IsA("Decal") or part:IsA("Texture") then
+            part.Transparency = 1
+        end
+    end
+    cosmeticState.invisible = true
+    notify("Invisible applied", "success")
+end
+
+removeCosmeticInvisible = function()
+    local char = LP.Character
+    if not char then return end
+    for _, part in ipairs(char:GetDescendants()) do
+        if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+            part.Transparency = 0
+        elseif part:IsA("Decal") then
+            part.Transparency = 0
+        end
+    end
+    cosmeticState.invisible = false
+    notify("Visible again", "info")
+end
+
+applyCosmeticGhost = function()
+    local char = LP.Character
+    if not char then return end
+    for _, part in ipairs(char:GetDescendants()) do
+        if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+            part.Transparency = 0.7
+        end
+    end
+    cosmeticState.ghost = true
+    notify("Ghost mode applied", "success")
+end
+
+removeCosmeticGhost = function()
+    local char = LP.Character
+    if not char then return end
+    for _, part in ipairs(char:GetDescendants()) do
+        if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+            part.Transparency = 0
+        end
+    end
+    cosmeticState.ghost = false
+    notify("Ghost removed", "info")
+end
+
+resetAllCosmetics = function()
+    if cosmeticState.headless then removeCosmeticHeadless() end
+    if cosmeticState.invisible then removeCosmeticInvisible() end
+    if cosmeticState.ghost then removeCosmeticGhost() end
+    notify("All cosmetics reset", "info")
+end
+
+--==================================================
 -- EMOTE CATALOG SEARCH
 --==================================================
 

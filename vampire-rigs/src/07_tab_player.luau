@@ -15,7 +15,7 @@ createSectionHeader(PlayerContent, "Online Players", 0)
 -- Player list scroll
 local PlayerScroll = Instance.new("ScrollingFrame")
 PlayerScroll.Name = "PlayerScroll"
-PlayerScroll.Size = UDim2.new(1, 0, 1, -100)
+PlayerScroll.Size = UDim2.new(1, 0, 1, -132)
 PlayerScroll.Position = UDim2.new(0, 0, 0, 26)
 PlayerScroll.BackgroundColor3 = Colors.content
 PlayerScroll.BorderSizePixel = 0
@@ -40,7 +40,7 @@ playerPad.PaddingRight = UDim.new(0, 4)
 -- Unspectate button (hidden by default)
 local PlayerUnspectateBtn = Instance.new("TextButton")
 PlayerUnspectateBtn.Size = UDim2.new(1, 0, 0, 26)
-PlayerUnspectateBtn.Position = UDim2.new(0, 0, 1, -98)
+PlayerUnspectateBtn.Position = UDim2.new(0, 0, 1, -130)
 PlayerUnspectateBtn.BackgroundColor3 = Colors.blood
 PlayerUnspectateBtn.Text = "🦇 UNSPECTATE"
 PlayerUnspectateBtn.TextColor3 = Colors.text
@@ -56,7 +56,7 @@ makeHoverable(PlayerUnspectateBtn, Colors.blood, Colors.glowRed)
 -- Refresh button
 local RefreshPlayersBtn = Instance.new("TextButton")
 RefreshPlayersBtn.Size = UDim2.new(1, 0, 0, 26)
-RefreshPlayersBtn.Position = UDim2.new(0, 0, 1, -70)
+RefreshPlayersBtn.Position = UDim2.new(0, 0, 1, -100)
 RefreshPlayersBtn.BackgroundColor3 = Colors.blood
 RefreshPlayersBtn.Text = "🔄 REFRESH PLAYERS"
 RefreshPlayersBtn.TextColor3 = Colors.text
@@ -67,6 +67,35 @@ RefreshPlayersBtn.Parent = PlayerContent
 Instance.new("UICorner", RefreshPlayersBtn).CornerRadius = UDim.new(0, 6)
 addBtnGradient(RefreshPlayersBtn)
 makeHoverable(RefreshPlayersBtn, Colors.blood, Colors.glowRed)
+
+-- Stop Troll button
+StopTrollBtn = Instance.new("TextButton")
+StopTrollBtn.Size = UDim2.new(0.5, -3, 0, 26)
+StopTrollBtn.Position = UDim2.new(0, 0, 1, -70)
+StopTrollBtn.BackgroundColor3 = Colors.warning
+StopTrollBtn.Text = "⛔ STOP TROLL"
+StopTrollBtn.TextColor3 = Colors.bg
+StopTrollBtn.TextSize = 10
+StopTrollBtn.Font = Enum.Font.GothamBold
+StopTrollBtn.AutoButtonColor = false
+StopTrollBtn.Parent = PlayerContent
+Instance.new("UICorner", StopTrollBtn).CornerRadius = UDim.new(0, 6)
+makeHoverable(StopTrollBtn, Colors.warning, Color3.fromRGB(230, 180, 60))
+
+-- Fling All button
+FlingAllBtn = Instance.new("TextButton")
+FlingAllBtn.Size = UDim2.new(0.5, -3, 0, 26)
+FlingAllBtn.Position = UDim2.new(0.5, 3, 1, -70)
+FlingAllBtn.BackgroundColor3 = Colors.glowRed
+FlingAllBtn.Text = "💥 FLING ALL"
+FlingAllBtn.TextColor3 = Colors.text
+FlingAllBtn.TextSize = 10
+FlingAllBtn.Font = Enum.Font.GothamBold
+FlingAllBtn.AutoButtonColor = false
+FlingAllBtn.Parent = PlayerContent
+Instance.new("UICorner", FlingAllBtn).CornerRadius = UDim.new(0, 6)
+addBtnGradient(FlingAllBtn)
+makeHoverable(FlingAllBtn, Colors.glowRed, Color3.fromRGB(255, 80, 80))
 
 --==================================================
 -- SERVER INFO

@@ -164,3 +164,28 @@ aboutLabel.Font = Enum.Font.GothamBold
 aboutLabel.TextXAlignment = Enum.TextXAlignment.Left
 aboutLabel.TextWrapped = true
 aboutLabel.Parent = SettingsScroll
+
+--==================================================
+-- COSMETICS
+--==================================================
+
+createSectionHeader(SettingsScroll, "Cosmetics", saveBtnY + 116)
+
+cosmeticHeadlessToggle = createVampToggle(SettingsScroll, "Headless", "headless", cosmeticState, saveBtnY + 142, Colors.glowPurple)
+cosmeticInvisibleToggle = createVampToggle(SettingsScroll, "Invisible", "invisible", cosmeticState, saveBtnY + 170, Colors.glowPurple)
+cosmeticGhostToggle = createVampToggle(SettingsScroll, "Ghost (Semi-Transparent)", "ghost", cosmeticState, saveBtnY + 198, Colors.glowPurple)
+
+CosmeticResetBtn = Instance.new("TextButton")
+CosmeticResetBtn.Size = UDim2.new(1, 0, 0, 26)
+CosmeticResetBtn.Position = UDim2.new(0, 0, 0, saveBtnY + 232)
+CosmeticResetBtn.BackgroundColor3 = Colors.warning
+CosmeticResetBtn.Text = "↺ RESET COSMETICS"
+CosmeticResetBtn.TextColor3 = Colors.bg
+CosmeticResetBtn.TextSize = 11
+CosmeticResetBtn.Font = Enum.Font.GothamBold
+CosmeticResetBtn.AutoButtonColor = false
+CosmeticResetBtn.Parent = SettingsScroll
+Instance.new("UICorner", CosmeticResetBtn).CornerRadius = UDim.new(0, 6)
+makeHoverable(CosmeticResetBtn, Colors.warning, Color3.fromRGB(230, 180, 60))
+
+SettingsScroll.CanvasSize = UDim2.new(0, 0, 0, saveBtnY + 270)

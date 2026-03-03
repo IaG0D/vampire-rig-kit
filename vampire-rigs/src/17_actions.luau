@@ -548,7 +548,7 @@ refreshPlayerList = function()
 
     for _, player in pairs(Players:GetPlayers()) do
         local card = Instance.new("Frame")
-        card.Size = UDim2.new(1, -10, 0, 72)
+        card.Size = UDim2.new(1, -10, 0, 94)
         card.BackgroundColor3 = Colors.card
         card.BorderSizePixel = 0
         card.Parent = PlayerScroll
@@ -727,6 +727,42 @@ refreshPlayerList = function()
 
         headsitBtn.MouseButton1Click:Connect(function()
             headsitPlayer(player)
+        end)
+
+        -- Bang button
+        local bangBtn = Instance.new("TextButton")
+        bangBtn.Size = UDim2.new(0, 36, 0, 18)
+        bangBtn.Position = UDim2.new(1, -80, 0, 70)
+        bangBtn.BackgroundColor3 = Colors.purple
+        bangBtn.Text = "BANG"
+        bangBtn.TextColor3 = Colors.text
+        bangBtn.TextSize = 8
+        bangBtn.Font = Enum.Font.GothamBold
+        bangBtn.AutoButtonColor = false
+        bangBtn.Parent = card
+        Instance.new("UICorner", bangBtn).CornerRadius = UDim.new(0, 4)
+        makeHoverable(bangBtn, Colors.purple, Colors.purpleLight)
+
+        bangBtn.MouseButton1Click:Connect(function()
+            bangPlayer(player)
+        end)
+
+        -- Backpack button
+        local backBtn = Instance.new("TextButton")
+        backBtn.Size = UDim2.new(0, 36, 0, 18)
+        backBtn.Position = UDim2.new(1, -40, 0, 70)
+        backBtn.BackgroundColor3 = Color3.fromRGB(40, 100, 120)
+        backBtn.Text = "BACK"
+        backBtn.TextColor3 = Colors.text
+        backBtn.TextSize = 8
+        backBtn.Font = Enum.Font.GothamBold
+        backBtn.AutoButtonColor = false
+        backBtn.Parent = card
+        Instance.new("UICorner", backBtn).CornerRadius = UDim.new(0, 4)
+        makeHoverable(backBtn, Color3.fromRGB(40, 100, 120), Color3.fromRGB(60, 130, 150))
+
+        backBtn.MouseButton1Click:Connect(function()
+            backpackPlayer(player)
         end)
     end
 

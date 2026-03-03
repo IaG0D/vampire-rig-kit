@@ -184,6 +184,16 @@ isLoadingMoreEmotes = false
 favoriteEmotes = {}         -- Array of { id, name, isBundle }
 emoteTabPreloaded = false   -- Whether trending emotes have been loaded
 
+-- Cosmetic state
+cosmeticState = {
+    headless = false,
+    invisible = false,
+    ghost = false,
+}
+
+-- Active troll connection
+trollConnection = nil
+
 -- Forward-declared functions are assigned as globals by later modules
 -- (removed local forward declarations to stay under Lua's 200 local limit)
 

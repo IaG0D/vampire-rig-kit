@@ -367,6 +367,19 @@ ShadowPanelClose.MouseButton1Click:Connect(function()
 end)
 
 --==================================================
+-- PLAYER TAB TROLL EVENTS
+--==================================================
+
+StopTrollBtn.MouseButton1Click:Connect(function()
+    stopTroll()
+    notify("Troll stopped", "info")
+end)
+
+FlingAllBtn.MouseButton1Click:Connect(function()
+    flingAllPlayers()
+end)
+
+--==================================================
 -- SETTINGS TAB EVENTS
 --==================================================
 
@@ -409,6 +422,54 @@ autoScanSettingToggle.btn.MouseButton1Click:Connect(function()
     else
         stopAutoScan()
     end
+end)
+
+--==================================================
+-- COSMETIC EVENTS
+--==================================================
+
+cosmeticHeadlessToggle.btn.MouseButton1Click:Connect(function()
+    if cosmeticState.headless then
+        removeCosmeticHeadless()
+    else
+        applyCosmeticHeadless()
+    end
+    cosmeticHeadlessToggle.refresh()
+end)
+
+cosmeticInvisibleToggle.btn.MouseButton1Click:Connect(function()
+    if cosmeticState.invisible then
+        removeCosmeticInvisible()
+    else
+        -- Turn off ghost if going invisible
+        if cosmeticState.ghost then
+            removeCosmeticGhost()
+            cosmeticGhostToggle.refresh()
+        end
+        applyCosmeticInvisible()
+    end
+    cosmeticInvisibleToggle.refresh()
+end)
+
+cosmeticGhostToggle.btn.MouseButton1Click:Connect(function()
+    if cosmeticState.ghost then
+        removeCosmeticGhost()
+    else
+        -- Turn off invisible if going ghost
+        if cosmeticState.invisible then
+            removeCosmeticInvisible()
+            cosmeticInvisibleToggle.refresh()
+        end
+        applyCosmeticGhost()
+    end
+    cosmeticGhostToggle.refresh()
+end)
+
+CosmeticResetBtn.MouseButton1Click:Connect(function()
+    resetAllCosmetics()
+    cosmeticHeadlessToggle.refresh()
+    cosmeticInvisibleToggle.refresh()
+    cosmeticGhostToggle.refresh()
 end)
 
 -- Helper: carrega SynSaveInstance
@@ -497,6 +558,8 @@ end)
 CloseBtn.MouseButton1Click:Connect(function()
     stopSpectate()
     stopEmote()
+    stopTroll()
+    resetAllCosmetics()
     if shadowRecording then stopShadowRecording() end
     if shadowReplaying then stopShadowReplay() end
     stopShadow()

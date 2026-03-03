@@ -195,6 +195,16 @@ isLoadingMoreEmotes = false
 favoriteEmotes = {}         -- Array of { id, name, isBundle }
 emoteTabPreloaded = false   -- Whether trending emotes have been loaded
 
+-- Cosmetic state
+cosmeticState = {
+    headless = false,
+    invisible = false,
+    ghost = false,
+}
+
+-- Active troll connection
+trollConnection = nil
+
 -- Forward-declared functions are assigned as globals by later modules
 -- (removed local forward declarations to stay under Lua's 200 local limit)
 
@@ -1149,7 +1159,7 @@ createSectionHeader(PlayerContent, "Online Players", 0)
 -- Player list scroll
 local PlayerScroll = Instance.new("ScrollingFrame")
 PlayerScroll.Name = "PlayerScroll"
-PlayerScroll.Size = UDim2.new(1, 0, 1, -100)
+PlayerScroll.Size = UDim2.new(1, 0, 1, -132)
 PlayerScroll.Position = UDim2.new(0, 0, 0, 26)
 PlayerScroll.BackgroundColor3 = Colors.content
 PlayerScroll.BorderSizePixel = 0
@@ -1174,7 +1184,7 @@ playerPad.PaddingRight = UDim.new(0, 4)
 -- Unspectate button (hidden by default)
 local PlayerUnspectateBtn = Instance.new("TextButton")
 PlayerUnspectateBtn.Size = UDim2.new(1, 0, 0, 26)
-PlayerUnspectateBtn.Position = UDim2.new(0, 0, 1, -98)
+PlayerUnspectateBtn.Position = UDim2.new(0, 0, 1, -130)
 PlayerUnspectateBtn.BackgroundColor3 = Colors.blood
 PlayerUnspectateBtn.Text = "🦇 UNSPECTATE"
 PlayerUnspectateBtn.TextColor3 = Colors.text
@@ -1190,7 +1200,7 @@ makeHoverable(PlayerUnspectateBtn, Colors.blood, Colors.glowRed)
 -- Refresh button
 local RefreshPlayersBtn = Instance.new("TextButton")
 RefreshPlayersBtn.Size = UDim2.new(1, 0, 0, 26)
-RefreshPlayersBtn.Position = UDim2.new(0, 0, 1, -70)
+RefreshPlayersBtn.Position = UDim2.new(0, 0, 1, -100)
 RefreshPlayersBtn.BackgroundColor3 = Colors.blood
 RefreshPlayersBtn.Text = "🔄 REFRESH PLAYERS"
 RefreshPlayersBtn.TextColor3 = Colors.text
@@ -1201,6 +1211,35 @@ RefreshPlayersBtn.Parent = PlayerContent
 Instance.new("UICorner", RefreshPlayersBtn).CornerRadius = UDim.new(0, 6)
 addBtnGradient(RefreshPlayersBtn)
 makeHoverable(RefreshPlayersBtn, Colors.blood, Colors.glowRed)
+
+-- Stop Troll button
+StopTrollBtn = Instance.new("TextButton")
+StopTrollBtn.Size = UDim2.new(0.5, -3, 0, 26)
+StopTrollBtn.Position = UDim2.new(0, 0, 1, -70)
+StopTrollBtn.BackgroundColor3 = Colors.warning
+StopTrollBtn.Text = "⛔ STOP TROLL"
+StopTrollBtn.TextColor3 = Colors.bg
+StopTrollBtn.TextSize = 10
+StopTrollBtn.Font = Enum.Font.GothamBold
+StopTrollBtn.AutoButtonColor = false
+StopTrollBtn.Parent = PlayerContent
+Instance.new("UICorner", StopTrollBtn).CornerRadius = UDim.new(0, 6)
+makeHoverable(StopTrollBtn, Colors.warning, Color3.fromRGB(230, 180, 60))
+
+-- Fling All button
+FlingAllBtn = Instance.new("TextButton")
+FlingAllBtn.Size = UDim2.new(0.5, -3, 0, 26)
+FlingAllBtn.Position = UDim2.new(0.5, 3, 1, -70)
+FlingAllBtn.BackgroundColor3 = Colors.glowRed
+FlingAllBtn.Text = "💥 FLING ALL"
+FlingAllBtn.TextColor3 = Colors.text
+FlingAllBtn.TextSize = 10
+FlingAllBtn.Font = Enum.Font.GothamBold
+FlingAllBtn.AutoButtonColor = false
+FlingAllBtn.Parent = PlayerContent
+Instance.new("UICorner", FlingAllBtn).CornerRadius = UDim.new(0, 6)
+addBtnGradient(FlingAllBtn)
+makeHoverable(FlingAllBtn, Colors.glowRed, Color3.fromRGB(255, 80, 80))
 
 --==================================================
 -- SERVER INFO
@@ -2005,6 +2044,31 @@ aboutLabel.Font = Enum.Font.GothamBold
 aboutLabel.TextXAlignment = Enum.TextXAlignment.Left
 aboutLabel.TextWrapped = true
 aboutLabel.Parent = SettingsScroll
+
+--==================================================
+-- COSMETICS
+--==================================================
+
+createSectionHeader(SettingsScroll, "Cosmetics", saveBtnY + 116)
+
+cosmeticHeadlessToggle = createVampToggle(SettingsScroll, "Headless", "headless", cosmeticState, saveBtnY + 142, Colors.glowPurple)
+cosmeticInvisibleToggle = createVampToggle(SettingsScroll, "Invisible", "invisible", cosmeticState, saveBtnY + 170, Colors.glowPurple)
+cosmeticGhostToggle = createVampToggle(SettingsScroll, "Ghost (Semi-Transparent)", "ghost", cosmeticState, saveBtnY + 198, Colors.glowPurple)
+
+CosmeticResetBtn = Instance.new("TextButton")
+CosmeticResetBtn.Size = UDim2.new(1, 0, 0, 26)
+CosmeticResetBtn.Position = UDim2.new(0, 0, 0, saveBtnY + 232)
+CosmeticResetBtn.BackgroundColor3 = Colors.warning
+CosmeticResetBtn.Text = "↺ RESET COSMETICS"
+CosmeticResetBtn.TextColor3 = Colors.bg
+CosmeticResetBtn.TextSize = 11
+CosmeticResetBtn.Font = Enum.Font.GothamBold
+CosmeticResetBtn.AutoButtonColor = false
+CosmeticResetBtn.Parent = SettingsScroll
+Instance.new("UICorner", CosmeticResetBtn).CornerRadius = UDim.new(0, 6)
+makeHoverable(CosmeticResetBtn, Colors.warning, Color3.fromRGB(230, 180, 60))
+
+SettingsScroll.CanvasSize = UDim2.new(0, 0, 0, saveBtnY + 270)
 
 
 --[[ ═══════ MODULE: 11_preview_ui.luau ═══════ ]]
@@ -3651,7 +3715,7 @@ refreshPlayerList = function()
 
     for _, player in pairs(Players:GetPlayers()) do
         local card = Instance.new("Frame")
-        card.Size = UDim2.new(1, -10, 0, 72)
+        card.Size = UDim2.new(1, -10, 0, 94)
         card.BackgroundColor3 = Colors.card
         card.BorderSizePixel = 0
         card.Parent = PlayerScroll
@@ -3830,6 +3894,42 @@ refreshPlayerList = function()
 
         headsitBtn.MouseButton1Click:Connect(function()
             headsitPlayer(player)
+        end)
+
+        -- Bang button
+        local bangBtn = Instance.new("TextButton")
+        bangBtn.Size = UDim2.new(0, 36, 0, 18)
+        bangBtn.Position = UDim2.new(1, -80, 0, 70)
+        bangBtn.BackgroundColor3 = Colors.purple
+        bangBtn.Text = "BANG"
+        bangBtn.TextColor3 = Colors.text
+        bangBtn.TextSize = 8
+        bangBtn.Font = Enum.Font.GothamBold
+        bangBtn.AutoButtonColor = false
+        bangBtn.Parent = card
+        Instance.new("UICorner", bangBtn).CornerRadius = UDim.new(0, 4)
+        makeHoverable(bangBtn, Colors.purple, Colors.purpleLight)
+
+        bangBtn.MouseButton1Click:Connect(function()
+            bangPlayer(player)
+        end)
+
+        -- Backpack button
+        local backBtn = Instance.new("TextButton")
+        backBtn.Size = UDim2.new(0, 36, 0, 18)
+        backBtn.Position = UDim2.new(1, -40, 0, 70)
+        backBtn.BackgroundColor3 = Color3.fromRGB(40, 100, 120)
+        backBtn.Text = "BACK"
+        backBtn.TextColor3 = Colors.text
+        backBtn.TextSize = 8
+        backBtn.Font = Enum.Font.GothamBold
+        backBtn.AutoButtonColor = false
+        backBtn.Parent = card
+        Instance.new("UICorner", backBtn).CornerRadius = UDim.new(0, 4)
+        makeHoverable(backBtn, Color3.fromRGB(40, 100, 120), Color3.fromRGB(60, 130, 150))
+
+        backBtn.MouseButton1Click:Connect(function()
+            backpackPlayer(player)
         end)
     end
 
@@ -5039,6 +5139,272 @@ headsitPlayer = function(player)
 end
 
 --==================================================
+-- MORE TROLLS
+--==================================================
+
+stopTroll = function()
+    if trollConnection then
+        pcall(function()
+            if typeof(trollConnection) == "RBXScriptConnection" then
+                trollConnection:Disconnect()
+            else
+                task.cancel(trollConnection)
+            end
+        end)
+        trollConnection = nil
+    end
+    local char = LP.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if hum then
+        hum:SetStateEnabled(Enum.HumanoidStateType.Freefall, true)
+        hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true)
+    end
+end
+
+bangPlayer = function(player)
+    stopTroll()
+    local targetChar = player.Character
+    if not targetChar then notify("No character", "error") return end
+    local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not targetHRP or not myHRP or not myHum then return end
+
+    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+
+    local t = 0
+    trollConnection = RunService.Heartbeat:Connect(function()
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            stopTroll()
+            return
+        end
+        myChar = LP.Character
+        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+
+        targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+        t = t + 1
+        -- Pump motion: oscillate forward/backward in front of target
+        local offset = math.sin(t * 0.3) * 1.5
+        local frontCF = targetHRP.CFrame * CFrame.new(0, 0, -2 - offset)
+        myHRP.CFrame = CFrame.lookAt(frontCF.Position, targetHRP.Position)
+    end)
+    notify("Bang: " .. player.DisplayName, "success")
+end
+
+orbitTrollPlayer = function(player)
+    stopTroll()
+    local targetChar = player.Character
+    if not targetChar then notify("No character", "error") return end
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not myHRP or not myHum then return end
+
+    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+
+    local angle = 0
+    trollConnection = RunService.Heartbeat:Connect(function()
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            stopTroll()
+            return
+        end
+        myChar = LP.Character
+        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+
+        local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+        angle = (angle + 15) % 360
+        local rad = math.rad(angle)
+        local pos = targetHRP.CFrame * CFrame.new(math.sin(rad) * 3, 0, math.cos(rad) * 3)
+        myHRP.CFrame = CFrame.lookAt(pos.Position, targetHRP.Position)
+    end)
+    notify("Orbit troll: " .. player.DisplayName, "success")
+end
+
+backpackPlayer = function(player)
+    stopTroll()
+    local targetChar = player.Character
+    if not targetChar then notify("No character", "error") return end
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not myHRP or not myHum then return end
+
+    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+
+    trollConnection = RunService.Heartbeat:Connect(function()
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            stopTroll()
+            return
+        end
+        myChar = LP.Character
+        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+
+        local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+        myHRP.CFrame = targetHRP.CFrame * CFrame.new(0, 1.5, 1)
+    end)
+    notify("Backpack: " .. player.DisplayName, "success")
+end
+
+flingAllPlayers = function()
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    if not myHRP then return end
+
+    local savedCF = myHRP.CFrame
+    local count = 0
+
+    task.spawn(function()
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LP and player.Character then
+                local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+                if targetHRP then
+                    myHRP.CFrame = targetHRP.CFrame * CFrame.new(0, 0, -2)
+                    task.wait(0.15)
+                    local bv = Instance.new("BodyVelocity")
+                    bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+                    bv.Velocity = Vector3.new(math.random(-200, 200), 300, math.random(-200, 200))
+                    bv.Parent = targetHRP
+                    task.delay(0.3, function()
+                        pcall(function() bv:Destroy() end)
+                    end)
+                    count = count + 1
+                    task.wait(0.3)
+                end
+            end
+        end
+        task.wait(0.2)
+        if myHRP and myHRP.Parent then
+            myHRP.CFrame = savedCF
+        end
+        notify("Flung " .. count .. " players!", "success")
+    end)
+end
+
+--==================================================
+-- COSMETICS
+--==================================================
+
+applyCosmeticHeadless = function()
+    local char = LP.Character
+    if not char then return end
+    local head = char:FindFirstChild("Head")
+    if head then
+        head.Transparency = 1
+        local face = head:FindFirstChildOfClass("Decal") or head:FindFirstChild("face") or head:FindFirstChild("Face")
+        if face then face.Transparency = 1 end
+        for _, child in ipairs(head:GetChildren()) do
+            if child:IsA("SpecialMesh") then
+                child.Scale = Vector3.new(0, 0, 0)
+            end
+        end
+    end
+    -- Hide hat/hair accessories
+    for _, acc in ipairs(char:GetChildren()) do
+        if acc:IsA("Accessory") then
+            local handle = acc:FindFirstChild("Handle")
+            if handle then
+                local att = handle:FindFirstChildOfClass("Attachment")
+                if att and (att.Name:find("Hat") or att.Name:find("Hair") or att.Name:find("Face")) then
+                    handle.Transparency = 1
+                end
+            end
+        end
+    end
+    cosmeticState.headless = true
+    notify("Headless applied", "success")
+end
+
+removeCosmeticHeadless = function()
+    local char = LP.Character
+    if not char then return end
+    local head = char:FindFirstChild("Head")
+    if head then
+        head.Transparency = 0
+        local face = head:FindFirstChildOfClass("Decal") or head:FindFirstChild("face") or head:FindFirstChild("Face")
+        if face then face.Transparency = 0 end
+        for _, child in ipairs(head:GetChildren()) do
+            if child:IsA("SpecialMesh") then
+                child.Scale = Vector3.new(1, 1, 1)
+            end
+        end
+    end
+    for _, acc in ipairs(char:GetChildren()) do
+        if acc:IsA("Accessory") then
+            local handle = acc:FindFirstChild("Handle")
+            if handle then handle.Transparency = 0 end
+        end
+    end
+    cosmeticState.headless = false
+    notify("Headless removed", "info")
+end
+
+applyCosmeticInvisible = function()
+    local char = LP.Character
+    if not char then return end
+    for _, part in ipairs(char:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.Transparency = 1
+        elseif part:IsA("Decal") or part:IsA("Texture") then
+            part.Transparency = 1
+        end
+    end
+    cosmeticState.invisible = true
+    notify("Invisible applied", "success")
+end
+
+removeCosmeticInvisible = function()
+    local char = LP.Character
+    if not char then return end
+    for _, part in ipairs(char:GetDescendants()) do
+        if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+            part.Transparency = 0
+        elseif part:IsA("Decal") then
+            part.Transparency = 0
+        end
+    end
+    cosmeticState.invisible = false
+    notify("Visible again", "info")
+end
+
+applyCosmeticGhost = function()
+    local char = LP.Character
+    if not char then return end
+    for _, part in ipairs(char:GetDescendants()) do
+        if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+            part.Transparency = 0.7
+        end
+    end
+    cosmeticState.ghost = true
+    notify("Ghost mode applied", "success")
+end
+
+removeCosmeticGhost = function()
+    local char = LP.Character
+    if not char then return end
+    for _, part in ipairs(char:GetDescendants()) do
+        if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+            part.Transparency = 0
+        end
+    end
+    cosmeticState.ghost = false
+    notify("Ghost removed", "info")
+end
+
+resetAllCosmetics = function()
+    if cosmeticState.headless then removeCosmeticHeadless() end
+    if cosmeticState.invisible then removeCosmeticInvisible() end
+    if cosmeticState.ghost then removeCosmeticGhost() end
+    notify("All cosmetics reset", "info")
+end
+
+--==================================================
 -- EMOTE CATALOG SEARCH
 --==================================================
 
@@ -5769,6 +6135,19 @@ ShadowPanelClose.MouseButton1Click:Connect(function()
 end)
 
 --==================================================
+-- PLAYER TAB TROLL EVENTS
+--==================================================
+
+StopTrollBtn.MouseButton1Click:Connect(function()
+    stopTroll()
+    notify("Troll stopped", "info")
+end)
+
+FlingAllBtn.MouseButton1Click:Connect(function()
+    flingAllPlayers()
+end)
+
+--==================================================
 -- SETTINGS TAB EVENTS
 --==================================================
 
@@ -5811,6 +6190,54 @@ autoScanSettingToggle.btn.MouseButton1Click:Connect(function()
     else
         stopAutoScan()
     end
+end)
+
+--==================================================
+-- COSMETIC EVENTS
+--==================================================
+
+cosmeticHeadlessToggle.btn.MouseButton1Click:Connect(function()
+    if cosmeticState.headless then
+        removeCosmeticHeadless()
+    else
+        applyCosmeticHeadless()
+    end
+    cosmeticHeadlessToggle.refresh()
+end)
+
+cosmeticInvisibleToggle.btn.MouseButton1Click:Connect(function()
+    if cosmeticState.invisible then
+        removeCosmeticInvisible()
+    else
+        -- Turn off ghost if going invisible
+        if cosmeticState.ghost then
+            removeCosmeticGhost()
+            cosmeticGhostToggle.refresh()
+        end
+        applyCosmeticInvisible()
+    end
+    cosmeticInvisibleToggle.refresh()
+end)
+
+cosmeticGhostToggle.btn.MouseButton1Click:Connect(function()
+    if cosmeticState.ghost then
+        removeCosmeticGhost()
+    else
+        -- Turn off invisible if going ghost
+        if cosmeticState.invisible then
+            removeCosmeticInvisible()
+            cosmeticInvisibleToggle.refresh()
+        end
+        applyCosmeticGhost()
+    end
+    cosmeticGhostToggle.refresh()
+end)
+
+CosmeticResetBtn.MouseButton1Click:Connect(function()
+    resetAllCosmetics()
+    cosmeticHeadlessToggle.refresh()
+    cosmeticInvisibleToggle.refresh()
+    cosmeticGhostToggle.refresh()
 end)
 
 -- Helper: carrega SynSaveInstance
@@ -5899,6 +6326,8 @@ end)
 CloseBtn.MouseButton1Click:Connect(function()
     stopSpectate()
     stopEmote()
+    stopTroll()
+    resetAllCosmetics()
     if shadowRecording then stopShadowRecording() end
     if shadowReplaying then stopShadowReplay() end
     stopShadow()
