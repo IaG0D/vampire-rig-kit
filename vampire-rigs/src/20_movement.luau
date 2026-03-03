@@ -20,7 +20,8 @@ end
 startFly = function()
     local char = LP.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
-    if not hrp then
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if not hrp or not hum then
         notify("No character found", "error")
         return
     end
@@ -28,6 +29,11 @@ startFly = function()
     -- Clean up old
     if flyBG then pcall(function() flyBG:Destroy() end) end
     if flyBV then pcall(function() flyBV:Destroy() end) end
+
+    -- Disable falling animation
+    hum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+    hum:ChangeState(Enum.HumanoidStateType.Physics)
 
     flyBG = Instance.new("BodyGyro")
     flyBG.MaxTorque = Vector3.new(4e5, 4e5, 4e5)
@@ -41,6 +47,11 @@ startFly = function()
     flyBV.Parent = hrp
 
     flyConnection = RunService.RenderStepped:Connect(function()
+        -- Keep humanoid from falling state
+        if hum:GetState() == Enum.HumanoidStateType.Freefall then
+            hum:ChangeState(Enum.HumanoidStateType.Physics)
+        end
+
         local cam = workspace.CurrentCamera
         local dir = Vector3.zero
         if UIS:IsKeyDown(Enum.KeyCode.W) then dir = dir + cam.CFrame.LookVector end
@@ -69,6 +80,15 @@ stopFly = function()
     end
     if flyBG then pcall(function() flyBG:Destroy() end) flyBG = nil end
     if flyBV then pcall(function() flyBV:Destroy() end) flyBV = nil end
+
+    -- Re-enable falling states
+    local char = LP.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if hum then
+        hum:SetStateEnabled(Enum.HumanoidStateType.Freefall, true)
+        hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true)
+        hum:ChangeState(Enum.HumanoidStateType.GettingUp)
+    end
 
     notify("Fly OFF", "info")
     log("Fly OFF")
@@ -136,8 +156,20 @@ startFreecam = function()
     savedCameraState = {
         subject = cam.CameraSubject,
         ctype = cam.CameraType,
+        mouseBehavior = UIS.MouseBehavior,
+        mouseIcon = UIS.MouseIconEnabled,
     }
     cam.CameraType = Enum.CameraType.Scriptable
+
+    -- Extract initial yaw/pitch from current camera
+    local rx, ry, _ = cam.CFrame:ToEulerAnglesYXZ()
+    local yaw = ry
+    local pitch = rx
+    local sensitivity = 0.003
+
+    -- Lock mouse to center + hide cursor
+    UIS.MouseBehavior = Enum.MouseBehavior.LockCenter
+    UIS.MouseIconEnabled = false
 
     -- Anchor character so it doesn't move while in freecam
     local char = LP.Character
@@ -147,21 +179,32 @@ startFreecam = function()
     end
 
     freecamConnection = RunService.RenderStepped:Connect(function(dt)
+        -- Mouse rotation
+        local delta = UIS:GetMouseDelta()
+        yaw = yaw - delta.X * sensitivity
+        pitch = math.clamp(pitch - delta.Y * sensitivity, -math.rad(89), math.rad(89))
+
+        local rotation = CFrame.fromEulerAnglesYXZ(pitch, yaw, 0)
+
+        -- Movement
         local speed = movementState.speed * 2
         local move = Vector3.zero
-        if UIS:IsKeyDown(Enum.KeyCode.W) then move = move + cam.CFrame.LookVector end
-        if UIS:IsKeyDown(Enum.KeyCode.S) then move = move - cam.CFrame.LookVector end
-        if UIS:IsKeyDown(Enum.KeyCode.A) then move = move - cam.CFrame.RightVector end
-        if UIS:IsKeyDown(Enum.KeyCode.D) then move = move + cam.CFrame.RightVector end
+        if UIS:IsKeyDown(Enum.KeyCode.W) then move = move + rotation.LookVector end
+        if UIS:IsKeyDown(Enum.KeyCode.S) then move = move - rotation.LookVector end
+        if UIS:IsKeyDown(Enum.KeyCode.A) then move = move - rotation.RightVector end
+        if UIS:IsKeyDown(Enum.KeyCode.D) then move = move + rotation.RightVector end
         if UIS:IsKeyDown(Enum.KeyCode.Space) then move = move + Vector3.yAxis end
         if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then move = move - Vector3.yAxis end
 
+        local pos = cam.CFrame.Position
         if move.Magnitude > 0 then
-            cam.CFrame = cam.CFrame + move.Unit * speed * dt
+            pos = pos + move.Unit * speed * dt
         end
+
+        cam.CFrame = CFrame.new(pos) * rotation
     end)
 
-    notify("Freecam ON", "success")
+    notify("Freecam ON (mouse to look)", "success")
     log("Freecam ON")
 end
 
@@ -182,6 +225,8 @@ stopFreecam = function()
     if savedCameraState then
         cam.CameraType = savedCameraState.ctype
         cam.CameraSubject = savedCameraState.subject
+        UIS.MouseBehavior = savedCameraState.mouseBehavior
+        UIS.MouseIconEnabled = savedCameraState.mouseIcon
         savedCameraState = nil
     end
     notify("Freecam OFF", "info")

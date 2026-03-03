@@ -3775,7 +3775,8 @@ end
 startFly = function()
     local char = LP.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
-    if not hrp then
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if not hrp or not hum then
         notify("No character found", "error")
         return
     end
@@ -3783,6 +3784,11 @@ startFly = function()
     -- Clean up old
     if flyBG then pcall(function() flyBG:Destroy() end) end
     if flyBV then pcall(function() flyBV:Destroy() end) end
+
+    -- Disable falling animation
+    hum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+    hum:ChangeState(Enum.HumanoidStateType.Physics)
 
     flyBG = Instance.new("BodyGyro")
     flyBG.MaxTorque = Vector3.new(4e5, 4e5, 4e5)
@@ -3796,6 +3802,11 @@ startFly = function()
     flyBV.Parent = hrp
 
     flyConnection = RunService.RenderStepped:Connect(function()
+        -- Keep humanoid from falling state
+        if hum:GetState() == Enum.HumanoidStateType.Freefall then
+            hum:ChangeState(Enum.HumanoidStateType.Physics)
+        end
+
         local cam = workspace.CurrentCamera
         local dir = Vector3.zero
         if UIS:IsKeyDown(Enum.KeyCode.W) then dir = dir + cam.CFrame.LookVector end
@@ -3824,6 +3835,15 @@ stopFly = function()
     end
     if flyBG then pcall(function() flyBG:Destroy() end) flyBG = nil end
     if flyBV then pcall(function() flyBV:Destroy() end) flyBV = nil end
+
+    -- Re-enable falling states
+    local char = LP.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if hum then
+        hum:SetStateEnabled(Enum.HumanoidStateType.Freefall, true)
+        hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true)
+        hum:ChangeState(Enum.HumanoidStateType.GettingUp)
+    end
 
     notify("Fly OFF", "info")
     log("Fly OFF")
@@ -3891,8 +3911,20 @@ startFreecam = function()
     savedCameraState = {
         subject = cam.CameraSubject,
         ctype = cam.CameraType,
+        mouseBehavior = UIS.MouseBehavior,
+        mouseIcon = UIS.MouseIconEnabled,
     }
     cam.CameraType = Enum.CameraType.Scriptable
+
+    -- Extract initial yaw/pitch from current camera
+    local rx, ry, _ = cam.CFrame:ToEulerAnglesYXZ()
+    local yaw = ry
+    local pitch = rx
+    local sensitivity = 0.003
+
+    -- Lock mouse to center + hide cursor
+    UIS.MouseBehavior = Enum.MouseBehavior.LockCenter
+    UIS.MouseIconEnabled = false
 
     -- Anchor character so it doesn't move while in freecam
     local char = LP.Character
@@ -3902,21 +3934,32 @@ startFreecam = function()
     end
 
     freecamConnection = RunService.RenderStepped:Connect(function(dt)
+        -- Mouse rotation
+        local delta = UIS:GetMouseDelta()
+        yaw = yaw - delta.X * sensitivity
+        pitch = math.clamp(pitch - delta.Y * sensitivity, -math.rad(89), math.rad(89))
+
+        local rotation = CFrame.fromEulerAnglesYXZ(pitch, yaw, 0)
+
+        -- Movement
         local speed = movementState.speed * 2
         local move = Vector3.zero
-        if UIS:IsKeyDown(Enum.KeyCode.W) then move = move + cam.CFrame.LookVector end
-        if UIS:IsKeyDown(Enum.KeyCode.S) then move = move - cam.CFrame.LookVector end
-        if UIS:IsKeyDown(Enum.KeyCode.A) then move = move - cam.CFrame.RightVector end
-        if UIS:IsKeyDown(Enum.KeyCode.D) then move = move + cam.CFrame.RightVector end
+        if UIS:IsKeyDown(Enum.KeyCode.W) then move = move + rotation.LookVector end
+        if UIS:IsKeyDown(Enum.KeyCode.S) then move = move - rotation.LookVector end
+        if UIS:IsKeyDown(Enum.KeyCode.A) then move = move - rotation.RightVector end
+        if UIS:IsKeyDown(Enum.KeyCode.D) then move = move + rotation.RightVector end
         if UIS:IsKeyDown(Enum.KeyCode.Space) then move = move + Vector3.yAxis end
         if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then move = move - Vector3.yAxis end
 
+        local pos = cam.CFrame.Position
         if move.Magnitude > 0 then
-            cam.CFrame = cam.CFrame + move.Unit * speed * dt
+            pos = pos + move.Unit * speed * dt
         end
+
+        cam.CFrame = CFrame.new(pos) * rotation
     end)
 
-    notify("Freecam ON", "success")
+    notify("Freecam ON (mouse to look)", "success")
     log("Freecam ON")
 end
 
@@ -3937,6 +3980,8 @@ stopFreecam = function()
     if savedCameraState then
         cam.CameraType = savedCameraState.ctype
         cam.CameraSubject = savedCameraState.subject
+        UIS.MouseBehavior = savedCameraState.mouseBehavior
+        UIS.MouseIconEnabled = savedCameraState.mouseIcon
         savedCameraState = nil
     end
     notify("Freecam OFF", "info")
@@ -3970,8 +4015,29 @@ playEmote = function(animId)
         currentEmoteTrack = nil
     end
 
+    local animIdStr = "rbxassetid://" .. tostring(animId)
+
+    -- Try to resolve bundle/emote asset → actual animation ID
+    pcall(function()
+        local objects = game:GetObjects(animIdStr)
+        if objects and #objects > 0 then
+            local obj = objects[1]
+            if obj:IsA("Animation") then
+                animIdStr = obj.AnimationId
+            else
+                for _, desc in ipairs(obj:GetDescendants()) do
+                    if desc:IsA("Animation") then
+                        animIdStr = desc.AnimationId
+                        break
+                    end
+                end
+            end
+            pcall(function() obj:Destroy() end)
+        end
+    end)
+
     local anim = Instance.new("Animation")
-    anim.AnimationId = "rbxassetid://" .. tostring(animId)
+    anim.AnimationId = animIdStr
 
     local ok, track = pcall(function()
         return animator:LoadAnimation(anim)
@@ -3982,7 +4048,7 @@ playEmote = function(animId)
         track:Play()
         currentEmoteTrack = track
         notify("Playing emote", "success")
-        log("Emote playing:", animId)
+        log("Emote playing:", animIdStr)
     else
         notify("Failed to load animation", "error")
         log("Emote error:", tostring(track))
@@ -4021,6 +4087,18 @@ startShadow = function(mode)
     shadowHistory = {}
     refreshShadowModeButtons()
 
+    -- Disable falling on local character
+    local myChar = LP.Character
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if myHum then
+        myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+        myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+    end
+
+    -- Animation mirroring state
+    local mirroredTracks = {}
+    local lastAnimSync = 0
+
     shadowConnection = RunService.Heartbeat:Connect(function()
         local targetChar = target.Character
         if not targetChar or not targetChar.Parent then
@@ -4029,10 +4107,16 @@ startShadow = function(mode)
             return
         end
 
-        local myChar = LP.Character
+        myChar = LP.Character
         local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
         local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
         if not myHRP or not targetHRP then return end
+
+        -- Prevent falling state
+        myHum = myChar:FindFirstChildOfClass("Humanoid")
+        if myHum and myHum:GetState() == Enum.HumanoidStateType.Freefall then
+            myHum:ChangeState(Enum.HumanoidStateType.Physics)
+        end
 
         local dist = shadowState.distance
 
@@ -4072,10 +4156,10 @@ startShadow = function(mode)
                     table.remove(shadowHistory, 1)
                 end
 
-                if delayCF then
-                    local behindCF = delayCF * CFrame.new(0, 0, dist)
-                    myHRP.CFrame = behindCF
-                end
+                -- Use delayed position, or follow instantly while history builds up
+                local useCF = delayCF or targetCF
+                local behindCF = useCF * CFrame.new(0, 0, dist)
+                myHRP.CFrame = behindCF
             else
                 -- Instant follow
                 local behindCF = targetCF * CFrame.new(0, 0, dist)
@@ -4087,6 +4171,52 @@ startShadow = function(mode)
             local targetCF = targetHRP.CFrame
             local frontPos = (targetCF * CFrame.new(0, 0, -dist)).Position
             myHRP.CFrame = CFrame.lookAt(frontPos, targetHRP.Position)
+        end
+
+        -- Mirror target animations (~every 0.3s)
+        local now = tick()
+        if now - lastAnimSync > 0.3 then
+            lastAnimSync = now
+            local targetHum = targetChar:FindFirstChildOfClass("Humanoid")
+            if myHum and targetHum then
+                local myAnimator = myHum:FindFirstChildOfClass("Animator")
+                local targetAnimator = targetHum:FindFirstChildOfClass("Animator")
+                if myAnimator and targetAnimator then
+                    pcall(function()
+                        local targetTracks = targetAnimator:GetPlayingAnimationTracks()
+                        local targetIds = {}
+                        for _, t in ipairs(targetTracks) do
+                            if t.Animation then
+                                targetIds[t.Animation.AnimationId] = t.Priority
+                            end
+                        end
+                        -- Stop tracks target isn't playing
+                        for id, track in pairs(mirroredTracks) do
+                            if not targetIds[id] then
+                                pcall(function() track:Stop() end)
+                                pcall(function() track:Destroy() end)
+                                mirroredTracks[id] = nil
+                            end
+                        end
+                        -- Play tracks target IS playing
+                        for id, priority in pairs(targetIds) do
+                            if not mirroredTracks[id] then
+                                local anim = Instance.new("Animation")
+                                anim.AnimationId = id
+                                local ok2, myTrack = pcall(function()
+                                    return myAnimator:LoadAnimation(anim)
+                                end)
+                                if ok2 and myTrack then
+                                    myTrack.Priority = priority
+                                    myTrack:Play()
+                                    mirroredTracks[id] = myTrack
+                                end
+                                anim:Destroy()
+                            end
+                        end
+                    end)
+                end
+            end
         end
     end)
 
@@ -4102,6 +4232,16 @@ stopShadow = function()
     end
     shadowHistory = {}
     refreshShadowModeButtons()
+
+    -- Re-enable falling states
+    local char = LP.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if hum then
+        hum:SetStateEnabled(Enum.HumanoidStateType.Freefall, true)
+        hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true)
+        hum:ChangeState(Enum.HumanoidStateType.GettingUp)
+    end
+
     notify("Shadow stopped", "info")
     log("Shadow stopped")
 end

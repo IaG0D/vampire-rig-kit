@@ -22,8 +22,29 @@ playEmote = function(animId)
         currentEmoteTrack = nil
     end
 
+    local animIdStr = "rbxassetid://" .. tostring(animId)
+
+    -- Try to resolve bundle/emote asset → actual animation ID
+    pcall(function()
+        local objects = game:GetObjects(animIdStr)
+        if objects and #objects > 0 then
+            local obj = objects[1]
+            if obj:IsA("Animation") then
+                animIdStr = obj.AnimationId
+            else
+                for _, desc in ipairs(obj:GetDescendants()) do
+                    if desc:IsA("Animation") then
+                        animIdStr = desc.AnimationId
+                        break
+                    end
+                end
+            end
+            pcall(function() obj:Destroy() end)
+        end
+    end)
+
     local anim = Instance.new("Animation")
-    anim.AnimationId = "rbxassetid://" .. tostring(animId)
+    anim.AnimationId = animIdStr
 
     local ok, track = pcall(function()
         return animator:LoadAnimation(anim)
@@ -34,7 +55,7 @@ playEmote = function(animId)
         track:Play()
         currentEmoteTrack = track
         notify("Playing emote", "success")
-        log("Emote playing:", animId)
+        log("Emote playing:", animIdStr)
     else
         notify("Failed to load animation", "error")
         log("Emote error:", tostring(track))
@@ -73,6 +94,18 @@ startShadow = function(mode)
     shadowHistory = {}
     refreshShadowModeButtons()
 
+    -- Disable falling on local character
+    local myChar = LP.Character
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if myHum then
+        myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+        myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+    end
+
+    -- Animation mirroring state
+    local mirroredTracks = {}
+    local lastAnimSync = 0
+
     shadowConnection = RunService.Heartbeat:Connect(function()
         local targetChar = target.Character
         if not targetChar or not targetChar.Parent then
@@ -81,10 +114,16 @@ startShadow = function(mode)
             return
         end
 
-        local myChar = LP.Character
+        myChar = LP.Character
         local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
         local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
         if not myHRP or not targetHRP then return end
+
+        -- Prevent falling state
+        myHum = myChar:FindFirstChildOfClass("Humanoid")
+        if myHum and myHum:GetState() == Enum.HumanoidStateType.Freefall then
+            myHum:ChangeState(Enum.HumanoidStateType.Physics)
+        end
 
         local dist = shadowState.distance
 
@@ -124,10 +163,10 @@ startShadow = function(mode)
                     table.remove(shadowHistory, 1)
                 end
 
-                if delayCF then
-                    local behindCF = delayCF * CFrame.new(0, 0, dist)
-                    myHRP.CFrame = behindCF
-                end
+                -- Use delayed position, or follow instantly while history builds up
+                local useCF = delayCF or targetCF
+                local behindCF = useCF * CFrame.new(0, 0, dist)
+                myHRP.CFrame = behindCF
             else
                 -- Instant follow
                 local behindCF = targetCF * CFrame.new(0, 0, dist)
@@ -139,6 +178,52 @@ startShadow = function(mode)
             local targetCF = targetHRP.CFrame
             local frontPos = (targetCF * CFrame.new(0, 0, -dist)).Position
             myHRP.CFrame = CFrame.lookAt(frontPos, targetHRP.Position)
+        end
+
+        -- Mirror target animations (~every 0.3s)
+        local now = tick()
+        if now - lastAnimSync > 0.3 then
+            lastAnimSync = now
+            local targetHum = targetChar:FindFirstChildOfClass("Humanoid")
+            if myHum and targetHum then
+                local myAnimator = myHum:FindFirstChildOfClass("Animator")
+                local targetAnimator = targetHum:FindFirstChildOfClass("Animator")
+                if myAnimator and targetAnimator then
+                    pcall(function()
+                        local targetTracks = targetAnimator:GetPlayingAnimationTracks()
+                        local targetIds = {}
+                        for _, t in ipairs(targetTracks) do
+                            if t.Animation then
+                                targetIds[t.Animation.AnimationId] = t.Priority
+                            end
+                        end
+                        -- Stop tracks target isn't playing
+                        for id, track in pairs(mirroredTracks) do
+                            if not targetIds[id] then
+                                pcall(function() track:Stop() end)
+                                pcall(function() track:Destroy() end)
+                                mirroredTracks[id] = nil
+                            end
+                        end
+                        -- Play tracks target IS playing
+                        for id, priority in pairs(targetIds) do
+                            if not mirroredTracks[id] then
+                                local anim = Instance.new("Animation")
+                                anim.AnimationId = id
+                                local ok2, myTrack = pcall(function()
+                                    return myAnimator:LoadAnimation(anim)
+                                end)
+                                if ok2 and myTrack then
+                                    myTrack.Priority = priority
+                                    myTrack:Play()
+                                    mirroredTracks[id] = myTrack
+                                end
+                                anim:Destroy()
+                            end
+                        end
+                    end)
+                end
+            end
         end
     end)
 
@@ -154,6 +239,16 @@ stopShadow = function()
     end
     shadowHistory = {}
     refreshShadowModeButtons()
+
+    -- Re-enable falling states
+    local char = LP.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if hum then
+        hum:SetStateEnabled(Enum.HumanoidStateType.Freefall, true)
+        hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true)
+        hum:ChangeState(Enum.HumanoidStateType.GettingUp)
+    end
+
     notify("Shadow stopped", "info")
     log("Shadow stopped")
 end
