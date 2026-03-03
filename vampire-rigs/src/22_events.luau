@@ -428,7 +428,7 @@ end)
 
 -- CRASH TROLLS
 TrollCrashFxBtn.MouseButton1Click:Connect(function()
-    crashFxPlayer()
+    if trollTarget then crashFxPlayer(trollTarget) end
 end)
 
 TrollMegaFlingBtn.MouseButton1Click:Connect(function()

