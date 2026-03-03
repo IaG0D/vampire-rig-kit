@@ -37,11 +37,9 @@ for file in "$SRC_DIR"/*.luau; do
         echo "  + $name"
         echo "" >> "$OUT_FILE"
         echo "--[[ ═══════ MODULE: $name ═══════ ]]" >> "$OUT_FILE"
-        echo "print('[VampDBG] Loading: $name')" >> "$OUT_FILE"
         echo "" >> "$OUT_FILE"
         cat "$file" >> "$OUT_FILE"
         echo "" >> "$OUT_FILE"
-        echo "print('[VampDBG] OK: $name')" >> "$OUT_FILE"
         count=$((count + 1))
     fi
 done

@@ -8,7 +8,6 @@
 
 
 --[[ ═══════ MODULE: 01_core.luau ═══════ ]]
-print('[VampDBG] Loading: 01_core.luau')
 
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
@@ -442,10 +441,8 @@ local function createSliderRow(parent, label, min, max, default, yPos, callback)
     return { row = row, getValue = function() return currentVal end, setValue = setValue, valBox = valBox }
 end
 
-print('[VampDBG] OK: 01_core.luau')
 
 --[[ ═══════ MODULE: 02_notifications.luau ═══════ ]]
-print('[VampDBG] Loading: 02_notifications.luau')
 
 --==================================================
 -- NOTIFICATION SYSTEM
@@ -560,10 +557,8 @@ notify = function(text, notifType)
     end)
 end
 
-print('[VampDBG] OK: 02_notifications.luau')
 
 --[[ ═══════ MODULE: 03_minibar.luau ═══════ ]]
-print('[VampDBG] Loading: 03_minibar.luau')
 
 --==================================================
 -- MINI BAR (widget no canto)
@@ -667,10 +662,8 @@ MiniBat.Text = "🦇"
 MiniBat.TextSize = 16
 MiniBat.Parent = MiniBar
 
-print('[VampDBG] OK: 03_minibar.luau')
 
 --[[ ═══════ MODULE: 04_mainframe.luau ═══════ ]]
-print('[VampDBG] Loading: 04_mainframe.luau')
 
 --==================================================
 -- MAIN FRAME + TAB SYSTEM
@@ -880,10 +873,8 @@ switchTab = function(tabId)
     end
 end
 
-print('[VampDBG] OK: 04_mainframe.luau')
 
 --[[ ═══════ MODULE: 05_tab_scanner.luau ═══════ ]]
-print('[VampDBG] Loading: 05_tab_scanner.luau')
 
 --==================================================
 -- TAB: SCANNER
@@ -1012,10 +1003,8 @@ Instance.new("UICorner", UnspectateBtn).CornerRadius = UDim.new(0, 6)
 addBtnGradient(UnspectateBtn)
 makeHoverable(UnspectateBtn, Colors.blood, Colors.glowRed)
 
-print('[VampDBG] OK: 05_tab_scanner.luau')
 
 --[[ ═══════ MODULE: 06_tab_esp.luau ═══════ ]]
-print('[VampDBG] Loading: 06_tab_esp.luau')
 
 --==================================================
 -- TAB: ESP
@@ -1081,10 +1070,8 @@ Instance.new("UICorner", ESPOffBtn).CornerRadius = UDim.new(0, 6)
 addBtnGradient(ESPOffBtn)
 makeHoverable(ESPOffBtn, Colors.bloodDark, Colors.blood)
 
-print('[VampDBG] OK: 06_tab_esp.luau')
 
 --[[ ═══════ MODULE: 07_tab_player.luau ═══════ ]]
-print('[VampDBG] Loading: 07_tab_player.luau')
 
 --==================================================
 -- TAB: PLAYERS
@@ -1184,10 +1171,8 @@ ServerInfoLabel.TextXAlignment = Enum.TextXAlignment.Left
 ServerInfoLabel.TextWrapped = true
 ServerInfoLabel.Parent = ServerInfo
 
-print('[VampDBG] OK: 07_tab_player.luau')
 
 --[[ ═══════ MODULE: 08_tab_movement.luau ═══════ ]]
-print('[VampDBG] Loading: 08_tab_movement.luau')
 
 --==================================================
 -- TAB: MOVEMENT
@@ -1250,10 +1235,8 @@ Instance.new("UICorner", ResetMoveBtn).CornerRadius = UDim.new(0, 6)
 addBtnGradient(ResetMoveBtn)
 makeHoverable(ResetMoveBtn, Colors.bloodDark, Colors.blood)
 
-print('[VampDBG] OK: 08_tab_movement.luau')
 
 --[[ ═══════ MODULE: 09_tab_emote.luau ═══════ ]]
-print('[VampDBG] Loading: 09_tab_emote.luau')
 
 --==================================================
 -- TAB: EMOTE + SHADOW
@@ -1491,10 +1474,8 @@ makeHoverable(StopShadowBtn, Colors.bloodDark, Colors.blood)
 -- Update canvas size
 EmoteScroll.CanvasSize = UDim2.new(0, 0, 0, shadowDelayY + 76)
 
-print('[VampDBG] OK: 09_tab_emote.luau')
 
 --[[ ═══════ MODULE: 10_tab_settings.luau ═══════ ]]
-print('[VampDBG] Loading: 10_tab_settings.luau')
 
 --==================================================
 -- TAB: SETTINGS
@@ -1663,10 +1644,8 @@ aboutLabel.TextXAlignment = Enum.TextXAlignment.Left
 aboutLabel.TextWrapped = true
 aboutLabel.Parent = SettingsScroll
 
-print('[VampDBG] OK: 10_tab_settings.luau')
 
 --[[ ═══════ MODULE: 11_preview_ui.luau ═══════ ]]
-print('[VampDBG] Loading: 11_preview_ui.luau')
 
 --==================================================
 -- PREVIEW WINDOW — BOLA DE CRISTAL
@@ -1930,10 +1909,8 @@ PreviewCredits.TextSize = 10
 PreviewCredits.Font = Enum.Font.GothamBold
 PreviewCredits.Parent = PreviewFooter
 
-print('[VampDBG] OK: 11_preview_ui.luau')
 
 --[[ ═══════ MODULE: 12_helpers.luau ═══════ ]]
-print('[VampDBG] Loading: 12_helpers.luau')
 
 --==================================================
 -- HELPERS
@@ -1975,10 +1952,8 @@ local function accessoryTypeToString(enumValue)
     return AccessoryTypeMap[enumValue] or tostring(enumValue):match("%.(%w+)$") or "Unknown"
 end
 
-print('[VampDBG] OK: 12_helpers.luau')
 
 --[[ ═══════ MODULE: 13_scanner_logic.luau ═══════ ]]
-print('[VampDBG] Loading: 13_scanner_logic.luau')
 
 --==================================================
 -- EXTRACT DESCRIPTION (pega o objeto HumanoidDescription)
@@ -2111,7 +2086,7 @@ local function extractDescriptionData(desc, rigType)
                 local sclChanged = scl.X ~= 1 or scl.Y ~= 1 or scl.Z ~= 1
 
                 if posChanged or rotChanged or sclChanged then
-                    local entry: any = { AssetId = child.AssetId }
+                    local entry = { AssetId = child.AssetId }
                     if posChanged then entry.Position = { pos.X, pos.Y, pos.Z } end
                     if rotChanged then entry.Rotation = { rot.X, rot.Y, rot.Z } end
                     if sclChanged then entry.Scale = { scl.X, scl.Y, scl.Z } end
@@ -2320,10 +2295,8 @@ local function generatePreviewRig(info)
     end
 end
 
-print('[VampDBG] OK: 13_scanner_logic.luau')
 
 --[[ ═══════ MODULE: 14_drag.luau ═══════ ]]
-print('[VampDBG] Loading: 14_drag.luau')
 
 --==================================================
 -- DRAG
@@ -2363,10 +2336,8 @@ makeDraggable(MiniBar, MiniBar)
 makeDraggable(MainFrame, TopBar)
 makeDraggable(PreviewFrame, PreviewTopBar)
 
-print('[VampDBG] OK: 14_drag.luau')
 
 --[[ ═══════ MODULE: 15_animations.luau ═══════ ]]
-print('[VampDBG] Loading: 15_animations.luau')
 
 --==================================================
 -- ANIMACOES & TOGGLE
@@ -2527,10 +2498,8 @@ end)
 -- Click na MiniBar abre o scanner
 MiniBar.MouseButton1Click:Connect(toggleScanner)
 
-print('[VampDBG] OK: 15_animations.luau')
 
 --[[ ═══════ MODULE: 16_preview.luau ═══════ ]]
-print('[VampDBG] Loading: 16_preview.luau')
 
 --==================================================
 -- PREVIEW — BOLA DE CRISTAL (Live CFrame Sync)
@@ -2629,8 +2598,10 @@ local function showPreview(info)
     local realDescs = realChar:GetDescendants()
     local cloneDescs = cloneModel:GetDescendants()
     for i = 1, math.min(#realDescs, #cloneDescs) do
-        if realDescs[i]:IsA("BasePart") and cloneDescs[i]:IsA("BasePart") then
-            partMap[realDescs[i]] = cloneDescs[i]
+        local realPart = realDescs[i]
+        local clonePart = cloneDescs[i]
+        if realPart:IsA("BasePart") and clonePart:IsA("BasePart") then
+            partMap[realPart] = clonePart
         end
     end
 
@@ -2746,10 +2717,8 @@ local function showPreview(info)
     end
 end
 
-print('[VampDBG] OK: 16_preview.luau')
 
 --[[ ═══════ MODULE: 17_actions.luau ═══════ ]]
-print('[VampDBG] Loading: 17_actions.luau')
 
 --==================================================
 -- COPY JSON
@@ -3434,10 +3403,8 @@ updateServerInfo = function()
     end)
 end
 
-print('[VampDBG] OK: 17_actions.luau')
 
 --[[ ═══════ MODULE: 18_spectate.luau ═══════ ]]
-print('[VampDBG] Loading: 18_spectate.luau')
 
 --==================================================
 -- SPECTATE MODE
@@ -3533,10 +3500,8 @@ stopSpectate = function()
     log("Spectate stopped")
 end
 
-print('[VampDBG] OK: 18_spectate.luau')
 
 --[[ ═══════ MODULE: 19_esp_system.luau ═══════ ]]
-print('[VampDBG] Loading: 19_esp_system.luau')
 
 --==================================================
 -- ESP SYSTEM (Full)
@@ -3802,10 +3767,8 @@ toggleESPFeature = function(feature)
     end
 end
 
-print('[VampDBG] OK: 19_esp_system.luau')
 
 --[[ ═══════ MODULE: 20_movement.luau ═══════ ]]
-print('[VampDBG] Loading: 20_movement.luau')
 
 --==================================================
 -- MOVEMENT LOGIC
@@ -3997,10 +3960,8 @@ stopFreecam = function()
     log("Freecam OFF")
 end
 
-print('[VampDBG] OK: 20_movement.luau')
 
 --[[ ═══════ MODULE: 21_emote_shadow.luau ═══════ ]]
-print('[VampDBG] Loading: 21_emote_shadow.luau')
 
 --==================================================
 -- EMOTE LOGIC
@@ -4239,10 +4200,8 @@ refreshShadowPlayerList = function()
     end
 end
 
-print('[VampDBG] OK: 21_emote_shadow.luau')
 
 --[[ ═══════ MODULE: 22_events.luau ═══════ ]]
-print('[VampDBG] Loading: 22_events.luau')
 
 --==================================================
 -- EVENTS
@@ -4730,4 +4689,3 @@ log("═════════════════════════
 
 notify("🦇 Vampire Rig Scanner v13 loaded!", "success")
 
-print('[VampDBG] OK: 22_events.luau')

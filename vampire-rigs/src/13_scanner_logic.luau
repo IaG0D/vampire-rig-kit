@@ -129,7 +129,7 @@ local function extractDescriptionData(desc, rigType)
                 local sclChanged = scl.X ~= 1 or scl.Y ~= 1 or scl.Z ~= 1
 
                 if posChanged or rotChanged or sclChanged then
-                    local entry: any = { AssetId = child.AssetId }
+                    local entry = { AssetId = child.AssetId }
                     if posChanged then entry.Position = { pos.X, pos.Y, pos.Z } end
                     if rotChanged then entry.Rotation = { rot.X, rot.Y, rot.Z } end
                     if sclChanged then entry.Scale = { scl.X, scl.Y, scl.Z } end

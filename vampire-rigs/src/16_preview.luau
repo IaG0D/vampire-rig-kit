@@ -95,8 +95,10 @@ local function showPreview(info)
     local realDescs = realChar:GetDescendants()
     local cloneDescs = cloneModel:GetDescendants()
     for i = 1, math.min(#realDescs, #cloneDescs) do
-        if realDescs[i]:IsA("BasePart") and cloneDescs[i]:IsA("BasePart") then
-            partMap[realDescs[i]] = cloneDescs[i]
+        local realPart = realDescs[i]
+        local clonePart = cloneDescs[i]
+        if realPart:IsA("BasePart") and clonePart:IsA("BasePart") then
+            partMap[realPart] = clonePart
         end
     end
 
