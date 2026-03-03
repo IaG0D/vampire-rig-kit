@@ -548,6 +548,18 @@ RemoteSpyScanBtn.MouseButton1Click:Connect(function()
     notify("Scanned: " .. #scannedRemotes .. " remotes", "success")
 end)
 
+RemoteSpyVulnScanBtn.MouseButton1Click:Connect(function()
+    RemoteSpyVulnScanBtn.Text = "⚠ Scanning..."
+    task.spawn(function()
+        vulnScanRemotes()
+        RemoteSpyVulnScanBtn.Text = "⚠ VULN SCAN"
+    end)
+end)
+
+RemoteSpyMassFireBtn.MouseButton1Click:Connect(function()
+    massFireRemotes()
+end)
+
 RemoteSpyToggleBtn.MouseButton1Click:Connect(function()
     if remoteSpyActive then
         stopRemoteSpy()

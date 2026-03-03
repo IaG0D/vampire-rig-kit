@@ -555,7 +555,6 @@ headsitPlayer = function(player)
 
     myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
     myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
-    myHum.Sit = true
 
     trollConnection = RunService.Heartbeat:Connect(function()
         if not player.Character or not player.Character:FindFirstChild("Head") then
@@ -564,13 +563,10 @@ headsitPlayer = function(player)
         end
         myChar = LP.Character
         myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
-        myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
         if not myHRP then return end
 
         head = player.Character:FindFirstChild("Head")
         myHRP.CFrame = head.CFrame * CFrame.new(0, 2, 0)
-        -- Manter sentado
-        if myHum and not myHum.Sit then myHum.Sit = true end
     end)
     notify("Headsit: " .. player.DisplayName, "success")
 end
@@ -593,8 +589,33 @@ stopTroll = function()
     local char = LP.Character
     local hum = char and char:FindFirstChildOfClass("Humanoid")
     if hum then
+        hum.Sit = false
         hum:SetStateEnabled(Enum.HumanoidStateType.Freefall, true)
         hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true)
+        hum:ChangeState(Enum.HumanoidStateType.GettingUp)
+
+        -- Stop all playing animation tracks
+        local animator = hum:FindFirstChildOfClass("Animator")
+        if animator then
+            pcall(function()
+                for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+                    track:Stop(0)
+                end
+            end)
+        end
+
+        -- Reset Animate script to force idle restart
+        local animScript = char:FindFirstChild("Animate")
+        if animScript then
+            pcall(function()
+                animScript.Disabled = true
+                task.delay(0.1, function()
+                    if animScript and animScript.Parent then
+                        animScript.Disabled = false
+                    end
+                end)
+            end)
+        end
     end
 end
 
@@ -1133,6 +1154,69 @@ fireTestRemote = function(remote)
         end
     end)
     log("Test fire:", remote:GetFullName())
+end
+
+--==================================================
+-- VULNERABILITY SCAN — testa remotes com args vazios
+--==================================================
+
+vulnScanRemotes = function()
+    if #scannedRemotes == 0 then
+        scanRemotes()
+    end
+    local vulnCount = 0
+    local tested = 0
+    for _, data in ipairs(scannedRemotes) do
+        local remote = data.instance
+        if not remote or not remote.Parent then
+            data.vuln = "gone"
+        else
+            tested = tested + 1
+            local ok = pcall(function()
+                if remote:IsA("RemoteEvent") then
+                    remote:FireServer()
+                elseif remote:IsA("RemoteFunction") then
+                    remote:InvokeServer()
+                end
+            end)
+            if ok then
+                data.vuln = "vuln"
+                vulnCount = vulnCount + 1
+            else
+                data.vuln = "safe"
+            end
+        end
+    end
+    refreshRemoteList(RemoteSpyFilterBox.Text)
+    local msg = "Vuln scan: " .. vulnCount .. " vulnerable / " .. tested .. " tested"
+    notify(msg, vulnCount > 0 and "error" or "success")
+    RemoteSpyStatsLabel.Text = msg
+end
+
+--==================================================
+-- MASS FIRE — dispara todos os remotes de uma vez
+--==================================================
+
+massFireRemotes = function()
+    if #scannedRemotes == 0 then
+        notify("Scan remotes first", "error")
+        return
+    end
+    local fired = 0
+    for _, data in ipairs(scannedRemotes) do
+        local remote = data.instance
+        if remote and remote.Parent then
+            pcall(function()
+                if remote:IsA("RemoteEvent") then
+                    remote:FireServer()
+                elseif remote:IsA("RemoteFunction") then
+                    remote:InvokeServer()
+                end
+            end)
+            fired = fired + 1
+        end
+    end
+    notify("Mass fire: " .. fired .. " remotes fired", "success")
 end
 
 --==================================================
