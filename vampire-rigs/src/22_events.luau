@@ -170,8 +170,22 @@ CustomIDInput.FocusLost:Connect(function(enterPressed)
     end
 end)
 
+PauseEmoteBtn.MouseButton1Click:Connect(function()
+    if emotePaused then
+        resumeEmote()
+        PauseEmoteBtn.Text = "⏸ PAUSE"
+        PauseEmoteBtn.BackgroundColor3 = Colors.warning
+    else
+        pauseEmote()
+        PauseEmoteBtn.Text = "▶ RESUME"
+        PauseEmoteBtn.BackgroundColor3 = Colors.green
+    end
+end)
+
 StopEmoteBtn.MouseButton1Click:Connect(function()
     stopEmote()
+    PauseEmoteBtn.Text = "⏸ PAUSE"
+    PauseEmoteBtn.BackgroundColor3 = Colors.warning
 end)
 
 -- Emote catalog search (debounced 0.4s)

@@ -145,6 +145,7 @@ speedConnection = nil
 
 -- Emote state
 currentEmoteTrack = nil
+emotePaused = false
 
 -- Shadow state
 shadowState = {
@@ -1341,11 +1342,24 @@ PlayCustomBtn.Parent = EmoteScroll
 Instance.new("UICorner", PlayCustomBtn).CornerRadius = UDim.new(0, 6)
 makeHoverable(PlayCustomBtn, Colors.green, Colors.greenLight)
 
--- Stop emote button
+-- Pause/Resume button (left half)
+PauseEmoteBtn = Instance.new("TextButton")
+PauseEmoteBtn.Size = UDim2.new(0.5, -2, 0, 26)
+PauseEmoteBtn.BackgroundColor3 = Colors.warning
+PauseEmoteBtn.Text = "⏸ PAUSE"
+PauseEmoteBtn.TextColor3 = Colors.text
+PauseEmoteBtn.TextSize = 10
+PauseEmoteBtn.Font = Enum.Font.GothamBold
+PauseEmoteBtn.AutoButtonColor = false
+PauseEmoteBtn.Parent = EmoteScroll
+Instance.new("UICorner", PauseEmoteBtn).CornerRadius = UDim.new(0, 6)
+makeHoverable(PauseEmoteBtn, Colors.warning, Color3.fromRGB(230, 180, 60))
+
+-- Stop emote button (right half)
 local StopEmoteBtn = Instance.new("TextButton")
-StopEmoteBtn.Size = UDim2.new(1, 0, 0, 26)
+StopEmoteBtn.Size = UDim2.new(0.5, -2, 0, 26)
 StopEmoteBtn.BackgroundColor3 = Colors.bloodDark
-StopEmoteBtn.Text = "⏹ STOP EMOTE"
+StopEmoteBtn.Text = "⏹ STOP"
 StopEmoteBtn.TextColor3 = Colors.text
 StopEmoteBtn.TextSize = 10
 StopEmoteBtn.Font = Enum.Font.GothamBold
@@ -1423,7 +1437,8 @@ recalcEmoteLayout = function()
     CustomIDLabel.Position = UDim2.new(0, 0, 0, baseY)
     CustomIDInput.Position = UDim2.new(0, 0, 0, baseY + 16)
     PlayCustomBtn.Position = UDim2.new(1, -62, 0, baseY + 16)
-    StopEmoteBtn.Position = UDim2.new(0, 0, 0, baseY + 48)
+    PauseEmoteBtn.Position = UDim2.new(0, 0, 0, baseY + 48)
+    StopEmoteBtn.Position = UDim2.new(0.5, 2, 0, baseY + 48)
 
     -- Catalog section
     local catalogY = baseY + 86
@@ -4338,6 +4353,7 @@ playEmote = function(animId)
         track.Priority = Enum.AnimationPriority.Action
         track:Play()
         currentEmoteTrack = track
+        emotePaused = false
         notify("Playing emote", "success")
         log("Emote playing:", animIdStr)
     else
@@ -4353,7 +4369,28 @@ stopEmote = function()
         pcall(function() currentEmoteTrack:Stop() end)
         pcall(function() currentEmoteTrack:Destroy() end)
         currentEmoteTrack = nil
+        emotePaused = false
         notify("Emote stopped", "info")
+    end
+end
+
+pauseEmote = function()
+    if currentEmoteTrack and not emotePaused then
+        pcall(function()
+            currentEmoteTrack:AdjustSpeed(0)
+        end)
+        emotePaused = true
+        notify("Emote paused", "info")
+    end
+end
+
+resumeEmote = function()
+    if currentEmoteTrack and emotePaused then
+        pcall(function()
+            currentEmoteTrack:AdjustSpeed(1)
+        end)
+        emotePaused = false
+        notify("Emote resumed", "success")
     end
 end
 
@@ -5081,8 +5118,22 @@ CustomIDInput.FocusLost:Connect(function(enterPressed)
     end
 end)
 
+PauseEmoteBtn.MouseButton1Click:Connect(function()
+    if emotePaused then
+        resumeEmote()
+        PauseEmoteBtn.Text = "⏸ PAUSE"
+        PauseEmoteBtn.BackgroundColor3 = Colors.warning
+    else
+        pauseEmote()
+        PauseEmoteBtn.Text = "▶ RESUME"
+        PauseEmoteBtn.BackgroundColor3 = Colors.green
+    end
+end)
+
 StopEmoteBtn.MouseButton1Click:Connect(function()
     stopEmote()
+    PauseEmoteBtn.Text = "⏸ PAUSE"
+    PauseEmoteBtn.BackgroundColor3 = Colors.warning
 end)
 
 -- Emote catalog search (debounced 0.4s)

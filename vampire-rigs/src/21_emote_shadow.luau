@@ -54,6 +54,7 @@ playEmote = function(animId)
         track.Priority = Enum.AnimationPriority.Action
         track:Play()
         currentEmoteTrack = track
+        emotePaused = false
         notify("Playing emote", "success")
         log("Emote playing:", animIdStr)
     else
@@ -69,7 +70,28 @@ stopEmote = function()
         pcall(function() currentEmoteTrack:Stop() end)
         pcall(function() currentEmoteTrack:Destroy() end)
         currentEmoteTrack = nil
+        emotePaused = false
         notify("Emote stopped", "info")
+    end
+end
+
+pauseEmote = function()
+    if currentEmoteTrack and not emotePaused then
+        pcall(function()
+            currentEmoteTrack:AdjustSpeed(0)
+        end)
+        emotePaused = true
+        notify("Emote paused", "info")
+    end
+end
+
+resumeEmote = function()
+    if currentEmoteTrack and emotePaused then
+        pcall(function()
+            currentEmoteTrack:AdjustSpeed(1)
+        end)
+        emotePaused = false
+        notify("Emote resumed", "success")
     end
 end
 

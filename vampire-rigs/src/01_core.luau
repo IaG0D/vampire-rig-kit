@@ -134,6 +134,7 @@ speedConnection = nil
 
 -- Emote state
 currentEmoteTrack = nil
+emotePaused = false
 
 -- Shadow state
 shadowState = {

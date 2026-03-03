@@ -104,11 +104,24 @@ PlayCustomBtn.Parent = EmoteScroll
 Instance.new("UICorner", PlayCustomBtn).CornerRadius = UDim.new(0, 6)
 makeHoverable(PlayCustomBtn, Colors.green, Colors.greenLight)
 
--- Stop emote button
+-- Pause/Resume button (left half)
+PauseEmoteBtn = Instance.new("TextButton")
+PauseEmoteBtn.Size = UDim2.new(0.5, -2, 0, 26)
+PauseEmoteBtn.BackgroundColor3 = Colors.warning
+PauseEmoteBtn.Text = "⏸ PAUSE"
+PauseEmoteBtn.TextColor3 = Colors.text
+PauseEmoteBtn.TextSize = 10
+PauseEmoteBtn.Font = Enum.Font.GothamBold
+PauseEmoteBtn.AutoButtonColor = false
+PauseEmoteBtn.Parent = EmoteScroll
+Instance.new("UICorner", PauseEmoteBtn).CornerRadius = UDim.new(0, 6)
+makeHoverable(PauseEmoteBtn, Colors.warning, Color3.fromRGB(230, 180, 60))
+
+-- Stop emote button (right half)
 local StopEmoteBtn = Instance.new("TextButton")
-StopEmoteBtn.Size = UDim2.new(1, 0, 0, 26)
+StopEmoteBtn.Size = UDim2.new(0.5, -2, 0, 26)
 StopEmoteBtn.BackgroundColor3 = Colors.bloodDark
-StopEmoteBtn.Text = "⏹ STOP EMOTE"
+StopEmoteBtn.Text = "⏹ STOP"
 StopEmoteBtn.TextColor3 = Colors.text
 StopEmoteBtn.TextSize = 10
 StopEmoteBtn.Font = Enum.Font.GothamBold
@@ -186,7 +199,8 @@ recalcEmoteLayout = function()
     CustomIDLabel.Position = UDim2.new(0, 0, 0, baseY)
     CustomIDInput.Position = UDim2.new(0, 0, 0, baseY + 16)
     PlayCustomBtn.Position = UDim2.new(1, -62, 0, baseY + 16)
-    StopEmoteBtn.Position = UDim2.new(0, 0, 0, baseY + 48)
+    PauseEmoteBtn.Position = UDim2.new(0, 0, 0, baseY + 48)
+    StopEmoteBtn.Position = UDim2.new(0.5, 2, 0, baseY + 48)
 
     -- Catalog section
     local catalogY = baseY + 86
