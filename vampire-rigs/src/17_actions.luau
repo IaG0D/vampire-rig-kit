@@ -226,7 +226,7 @@ createResultCard = function(info)
     NameLabel.Size = UDim2.new(1, -65, 0, 18)
     NameLabel.Position = UDim2.new(0, contentOffsetX, 0, 5)
     NameLabel.BackgroundTransparency = 1
-    NameLabel.Text = info.name
+    NameLabel.Text = info.displayName and (info.displayName .. " @" .. info.name) or info.name
     NameLabel.TextColor3 = Colors.bloodLight
     NameLabel.TextSize = 12
     NameLabel.Font = Enum.Font.GothamBold
@@ -396,6 +396,7 @@ runScan = function()
             log("  + PLAYER:", player.Name)
             local info = {
                 name = player.Name,
+                displayName = player.DisplayName,
                 type = "PLAYER",
                 character = char,
                 player = player,
@@ -449,7 +450,9 @@ filterResults = function(searchText)
             if text == "" then
                 info.cardFrame.Visible = true
             else
-                info.cardFrame.Visible = info.name:lower():find(text, 1, true) ~= nil
+                local matchName = info.name:lower():find(text, 1, true) ~= nil
+                local matchDisplay = info.displayName and info.displayName:lower():find(text, 1, true) ~= nil
+                info.cardFrame.Visible = matchName or matchDisplay
             end
         end
     end
@@ -484,6 +487,7 @@ startAutoScan = function()
                     if char and char:FindFirstChildOfClass("Humanoid") then
                         local info = {
                             name = player.Name,
+                            displayName = player.DisplayName,
                             type = "PLAYER",
                             character = char,
                             player = player,
@@ -493,7 +497,7 @@ startAutoScan = function()
                         table.insert(allScannedRigs, info)
                         scannedPlayerSet[player] = info
                         createResultCard(info)
-                        notify(player.Name .. " joined", "info")
+                        notify(player.DisplayName .. " joined", "info")
                     end
                 end
             end
@@ -544,7 +548,7 @@ refreshPlayerList = function()
 
     for _, player in pairs(Players:GetPlayers()) do
         local card = Instance.new("Frame")
-        card.Size = UDim2.new(1, -10, 0, 60)
+        card.Size = UDim2.new(1, -10, 0, 72)
         card.BackgroundColor3 = Colors.card
         card.BorderSizePixel = 0
         card.Parent = PlayerScroll
@@ -687,6 +691,42 @@ refreshPlayerList = function()
 
         shadowBtn.MouseButton1Click:Connect(function()
             openShadowPanel(player)
+        end)
+
+        -- Fling button
+        local flingBtn = Instance.new("TextButton")
+        flingBtn.Size = UDim2.new(0, 36, 0, 18)
+        flingBtn.Position = UDim2.new(1, -80, 0, 50)
+        flingBtn.BackgroundColor3 = Colors.glowRed
+        flingBtn.Text = "FLING"
+        flingBtn.TextColor3 = Colors.text
+        flingBtn.TextSize = 8
+        flingBtn.Font = Enum.Font.GothamBold
+        flingBtn.AutoButtonColor = false
+        flingBtn.Parent = card
+        Instance.new("UICorner", flingBtn).CornerRadius = UDim.new(0, 4)
+        makeHoverable(flingBtn, Colors.glowRed, Color3.fromRGB(255, 80, 80))
+
+        flingBtn.MouseButton1Click:Connect(function()
+            flingPlayer(player)
+        end)
+
+        -- Headsit button
+        local headsitBtn = Instance.new("TextButton")
+        headsitBtn.Size = UDim2.new(0, 36, 0, 18)
+        headsitBtn.Position = UDim2.new(1, -40, 0, 50)
+        headsitBtn.BackgroundColor3 = Colors.warning
+        headsitBtn.Text = "HEAD"
+        headsitBtn.TextColor3 = Colors.bg
+        headsitBtn.TextSize = 8
+        headsitBtn.Font = Enum.Font.GothamBold
+        headsitBtn.AutoButtonColor = false
+        headsitBtn.Parent = card
+        Instance.new("UICorner", headsitBtn).CornerRadius = UDim.new(0, 4)
+        makeHoverable(headsitBtn, Colors.warning, Color3.fromRGB(230, 180, 60))
+
+        headsitBtn.MouseButton1Click:Connect(function()
+            headsitPlayer(player)
         end)
     end
 

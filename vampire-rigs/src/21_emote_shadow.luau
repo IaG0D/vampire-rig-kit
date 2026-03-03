@@ -128,6 +128,11 @@ startShadow = function(mode)
     shadowMirroredTracks = {}
     local lastAnimSync = 0
 
+    -- Apply trail if enabled
+    if shadowState.trail then
+        applyShadowTrail()
+    end
+
     shadowConnection = RunService.Heartbeat:Connect(function()
         local targetChar = target.Character
         if not targetChar or not targetChar.Parent then
@@ -201,9 +206,23 @@ startShadow = function(mode)
             end
         end
 
-        -- Mirror target animations (~every 0.3s)
+        -- Auto-orbit: increment angle over time
+        if shadowState.autoOrbit and shadowState.mode == "orbit" then
+            shadowState.angle = (shadowState.angle + shadowState.orbitSpeed * 0.5) % 360
+        end
+
+        -- Record target path if recording
+        if shadowRecording and targetHRP then
+            table.insert(shadowRecordedPath, { time = tick(), cf = targetHRP.CFrame })
+            -- Limit recording to ~1800 frames (~30s at 60fps)
+            if #shadowRecordedPath > 1800 then
+                table.remove(shadowRecordedPath, 1)
+            end
+        end
+
+        -- Mirror target animations (~every 0.3s) — only if enabled
         local now = tick()
-        if now - lastAnimSync > 0.3 then
+        if shadowState.mirrorAnims and now - lastAnimSync > 0.3 then
             lastAnimSync = now
             local targetHum = targetChar:FindFirstChildOfClass("Humanoid")
             if myHum and targetHum then
@@ -255,6 +274,7 @@ end
 
 stopShadow = function()
     shadowState.active = false
+    shadowState.autoOrbit = false
     if shadowConnection then
         shadowConnection:Disconnect()
         shadowConnection = nil
@@ -272,7 +292,202 @@ stopShadow = function()
 
     refreshShadowModeButtons()
 
-    -- Re-enable falling states
+    -- Re-enable falling states + force idle animation restart
+    local char = LP.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if hum then
+        hum:SetStateEnabled(Enum.HumanoidStateType.Freefall, true)
+        hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true)
+        hum:ChangeState(Enum.HumanoidStateType.GettingUp)
+
+        -- Stop ALL playing animation tracks so Animate script restarts idle
+        local animator = hum:FindFirstChildOfClass("Animator")
+        if animator then
+            pcall(function()
+                for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+                    track:Stop(0)
+                end
+            end)
+        end
+
+        -- Reset Animate script to force idle restart
+        local animScript = char:FindFirstChild("Animate")
+        if animScript then
+            pcall(function()
+                animScript.Disabled = true
+                task.delay(0.1, function()
+                    if animScript and animScript.Parent then
+                        animScript.Disabled = false
+                    end
+                end)
+            end)
+        end
+    end
+
+    -- Remove trail
+    removeShadowTrail()
+
+    notify("Shadow stopped", "info")
+    log("Shadow stopped")
+end
+
+--==================================================
+-- SHADOW TRAIL
+--==================================================
+
+applyShadowTrail = function()
+    removeShadowTrail()
+    local char = LP.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    local att0 = Instance.new("Attachment")
+    att0.Name = "VampTrailAtt0"
+    att0.Position = Vector3.new(0, 0, 0.5)
+    att0.Parent = hrp
+
+    local att1 = Instance.new("Attachment")
+    att1.Name = "VampTrailAtt1"
+    att1.Position = Vector3.new(0, 0, -0.5)
+    att1.Parent = hrp
+
+    shadowTrailInstance = Instance.new("Trail")
+    shadowTrailInstance.Name = "VampShadowTrail"
+    shadowTrailInstance.Attachment0 = att0
+    shadowTrailInstance.Attachment1 = att1
+    shadowTrailInstance.Lifetime = 1.5
+    shadowTrailInstance.MinLength = 0.1
+    shadowTrailInstance.FaceCamera = true
+    shadowTrailInstance.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Colors.glowPurple),
+        ColorSequenceKeypoint.new(0.5, Colors.blood),
+        ColorSequenceKeypoint.new(1, Colors.bloodDark),
+    })
+    shadowTrailInstance.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 0.3),
+        NumberSequenceKeypoint.new(0.5, 0.6),
+        NumberSequenceKeypoint.new(1, 1),
+    })
+    shadowTrailInstance.WidthScale = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 1),
+        NumberSequenceKeypoint.new(1, 0.2),
+    })
+    shadowTrailInstance.Parent = hrp
+end
+
+removeShadowTrail = function()
+    if shadowTrailInstance then
+        pcall(function() shadowTrailInstance:Destroy() end)
+        shadowTrailInstance = nil
+    end
+    local char = LP.Character
+    if char then
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            for _, att in ipairs(hrp:GetChildren()) do
+                if att.Name == "VampTrailAtt0" or att.Name == "VampTrailAtt1" then
+                    att:Destroy()
+                end
+            end
+        end
+    end
+end
+
+--==================================================
+-- SHADOW RECORD & REPLAY
+--==================================================
+
+startShadowRecording = function()
+    shadowRecordedPath = {}
+    shadowRecording = true
+    ShadowRecBtn.Text = "⏹ STOP"
+    ShadowRecBtn.BackgroundColor3 = Colors.glowRed
+    notify("Recording path...", "info")
+end
+
+stopShadowRecording = function()
+    shadowRecording = false
+    ShadowRecBtn.Text = "⏺ REC"
+    ShadowRecBtn.BackgroundColor3 = Colors.blood
+    notify("Path recorded (" .. #shadowRecordedPath .. " frames)", "success")
+end
+
+startShadowReplay = function()
+    if #shadowRecordedPath == 0 then
+        notify("No recorded path — hit REC first", "warning")
+        return
+    end
+
+    -- Stop current shadow if active
+    if shadowState.active then
+        stopShadow()
+    end
+
+    shadowReplaying = true
+    ShadowPlayReplayBtn.Text = "⏹ STOP"
+    ShadowPlayReplayBtn.BackgroundColor3 = Colors.bloodDark
+
+    -- Disable falling
+    local myChar = LP.Character
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if myHum then
+        myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+        myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+    end
+
+    -- Apply trail if enabled
+    if shadowState.trail then
+        applyShadowTrail()
+    end
+
+    -- Calculate path duration from recorded timestamps
+    local startTime = shadowRecordedPath[1].time
+    local endTime = shadowRecordedPath[#shadowRecordedPath].time
+    local duration = endTime - startTime
+
+    shadowReplayConnection = RunService.Heartbeat:Connect(function()
+        if not shadowReplaying then return end
+
+        myChar = LP.Character
+        local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+
+        -- Prevent falling
+        myHum = myChar:FindFirstChildOfClass("Humanoid")
+        if myHum and myHum:GetState() == Enum.HumanoidStateType.Freefall then
+            myHum:ChangeState(Enum.HumanoidStateType.Physics)
+        end
+
+        -- Loop through recorded path using elapsed time
+        local elapsed = (tick() - startTime) % duration
+        local targetTime = startTime + elapsed
+
+        -- Find closest frame
+        local bestCF = shadowRecordedPath[1].cf
+        for i = #shadowRecordedPath, 1, -1 do
+            if shadowRecordedPath[i].time <= targetTime + startTime then
+                bestCF = shadowRecordedPath[i].cf
+                break
+            end
+        end
+
+        myHRP.CFrame = bestCF
+    end)
+
+    notify("Replaying recorded path (loop)", "success")
+end
+
+stopShadowReplay = function()
+    shadowReplaying = false
+    if shadowReplayConnection then
+        shadowReplayConnection:Disconnect()
+        shadowReplayConnection = nil
+    end
+    ShadowPlayReplayBtn.Text = "▶ REPLAY"
+    ShadowPlayReplayBtn.BackgroundColor3 = Colors.green
+
+    -- Re-enable falling + restore idle
     local char = LP.Character
     local hum = char and char:FindFirstChildOfClass("Humanoid")
     if hum then
@@ -281,8 +496,72 @@ stopShadow = function()
         hum:ChangeState(Enum.HumanoidStateType.GettingUp)
     end
 
-    notify("Shadow stopped", "info")
-    log("Shadow stopped")
+    removeShadowTrail()
+    notify("Replay stopped", "info")
+end
+
+--==================================================
+-- TROLL FEATURES
+--==================================================
+
+flingPlayer = function(player)
+    local targetChar = player.Character
+    if not targetChar then
+        notify("No character found", "error")
+        return
+    end
+    local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    if not targetHRP or not myHRP then
+        notify("Missing HumanoidRootPart", "error")
+        return
+    end
+
+    -- TP to target then apply massive velocity
+    local savedCF = myHRP.CFrame
+    myHRP.CFrame = targetHRP.CFrame * CFrame.new(0, 0, -2)
+
+    task.delay(0.15, function()
+        if not myChar or not myChar.Parent then return end
+        local bv = Instance.new("BodyVelocity")
+        bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        bv.Velocity = Vector3.new(math.random(-200, 200), 300, math.random(-200, 200))
+        bv.Parent = targetHRP
+        task.delay(0.3, function()
+            pcall(function() bv:Destroy() end)
+        end)
+
+        -- TP back
+        task.delay(0.5, function()
+            if myHRP and myHRP.Parent then
+                myHRP.CFrame = savedCF
+            end
+        end)
+    end)
+
+    notify("Fling: " .. player.DisplayName, "success")
+end
+
+headsitPlayer = function(player)
+    local targetChar = player.Character
+    if not targetChar then
+        notify("No character found", "error")
+        return
+    end
+    local head = targetChar:FindFirstChild("Head")
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not head or not myHRP or not myHum then
+        notify("Missing parts", "error")
+        return
+    end
+
+    -- Quick TP to head and sit
+    myHRP.CFrame = head.CFrame * CFrame.new(0, 2, 0)
+    myHum.Sit = true
+    notify("Headsit: " .. player.DisplayName, "success")
 end
 
 --==================================================

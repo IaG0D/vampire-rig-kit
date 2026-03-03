@@ -245,12 +245,124 @@ ShadowFaceTargetToggle.btn.MouseButton1Click:Connect(function()
     ShadowFaceTargetToggle.refresh()
 end)
 
+-- Mirror Anims toggle
+ShadowMirrorAnimsToggle.btn.MouseButton1Click:Connect(function()
+    shadowState.mirrorAnims = not shadowState.mirrorAnims
+    ShadowMirrorAnimsToggle.refresh()
+    -- If turning off mirror, clean up existing mirrored tracks
+    if not shadowState.mirrorAnims and shadowMirroredTracks then
+        for id, track in pairs(shadowMirroredTracks) do
+            pcall(function() track:Stop() end)
+            pcall(function() track:Destroy() end)
+        end
+        shadowMirroredTracks = {}
+        -- Restart idle animation
+        local char = LP.Character
+        local hum = char and char:FindFirstChildOfClass("Humanoid")
+        if hum then
+            local animator = hum:FindFirstChildOfClass("Animator")
+            if animator then
+                pcall(function()
+                    for _, t in ipairs(animator:GetPlayingAnimationTracks()) do
+                        t:Stop(0)
+                    end
+                end)
+            end
+            local animScript = char:FindFirstChild("Animate")
+            if animScript then
+                pcall(function()
+                    animScript.Disabled = true
+                    task.delay(0.1, function()
+                        if animScript and animScript.Parent then
+                            animScript.Disabled = false
+                        end
+                    end)
+                end)
+            end
+        end
+    end
+end)
+
+-- Auto-Orbit toggle
+ShadowAutoOrbitToggle.btn.MouseButton1Click:Connect(function()
+    shadowState.autoOrbit = not shadowState.autoOrbit
+    ShadowAutoOrbitToggle.refresh()
+end)
+
+-- Trail toggle
+ShadowTrailToggle.btn.MouseButton1Click:Connect(function()
+    shadowState.trail = not shadowState.trail
+    ShadowTrailToggle.refresh()
+    if shadowState.trail and shadowState.active then
+        applyShadowTrail()
+    elseif not shadowState.trail then
+        removeShadowTrail()
+    end
+end)
+
+-- Record button
+ShadowRecBtn.MouseButton1Click:Connect(function()
+    if shadowRecording then
+        stopShadowRecording()
+    else
+        if not shadowState.active then
+            notify("Start shadow first to record", "warning")
+            return
+        end
+        startShadowRecording()
+    end
+end)
+
+-- Replay button
+ShadowPlayReplayBtn.MouseButton1Click:Connect(function()
+    if shadowReplaying then
+        stopShadowReplay()
+    else
+        startShadowReplay()
+    end
+end)
+
+-- Reset button — resets all shadow settings to defaults
+ShadowResetBtn.MouseButton1Click:Connect(function()
+    shadowState.angle = 0
+    shadowState.height = 0
+    shadowState.distance = 4
+    shadowState.delay = 0
+    shadowState.faceTarget = false
+    shadowState.mirrorAnims = true
+    shadowState.autoOrbit = false
+    shadowState.orbitSpeed = 2
+    shadowState.trail = false
+    -- Sync UI
+    ShadowPanelAngleSlider.setValue(0)
+    ShadowPanelHeightSlider.setValue(0)
+    ShadowPanelDistSlider.setValue(4)
+    ShadowPanelDelaySlider.setValue(0)
+    ShadowOrbitSpeedSlider.setValue(2)
+    ShadowFaceTargetToggle.refresh()
+    ShadowMirrorAnimsToggle.refresh()
+    ShadowAutoOrbitToggle.refresh()
+    ShadowTrailToggle.refresh()
+    refreshShadowModeButtons()
+    removeShadowTrail()
+    notify("Shadow settings reset", "info")
+end)
+
 StopShadowBtn.MouseButton1Click:Connect(function()
+    if shadowRecording then stopShadowRecording() end
+    if shadowReplaying then stopShadowReplay() end
     stopShadow()
+    ShadowMirrorAnimsToggle.refresh()
+    ShadowAutoOrbitToggle.refresh()
+    ShadowTrailToggle.refresh()
 end)
 
 ShadowPanelClose.MouseButton1Click:Connect(function()
+    if shadowRecording then stopShadowRecording() end
+    if shadowReplaying then stopShadowReplay() end
     stopShadow()
+    ShadowMirrorAnimsToggle.refresh()
+    ShadowAutoOrbitToggle.refresh()
     ShadowPanel.Visible = false
 end)
 
@@ -385,6 +497,8 @@ end)
 CloseBtn.MouseButton1Click:Connect(function()
     stopSpectate()
     stopEmote()
+    if shadowRecording then stopShadowRecording() end
+    if shadowReplaying then stopShadowReplay() end
     stopShadow()
     ShadowPanel.Visible = false
     clearESP()

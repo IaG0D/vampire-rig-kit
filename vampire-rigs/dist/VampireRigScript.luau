@@ -150,16 +150,25 @@ emotePaused = false
 -- Shadow state
 shadowState = {
     active = false,
-    mode = "orbit",   -- "orbit" | "head"
+    mode = "orbit",      -- "orbit" | "head"
     target = nil,
     delay = 0,
     distance = 4,
-    angle = 0,        -- 0-360° (0=behind, 90=right, 180=front, 270=left)
-    height = 0,       -- -5 to 10 studs vertical offset
-    faceTarget = false, -- look at target or match their rotation
+    angle = 0,           -- 0-360° (0=behind, 90=right, 180=front, 270=left)
+    height = 0,          -- -5 to 10 studs vertical offset
+    faceTarget = false,  -- look at target or match their rotation
+    mirrorAnims = true,  -- mirror target animations (ON by default)
+    autoOrbit = false,   -- slowly rotate around target
+    orbitSpeed = 2,      -- degrees per frame (1-10)
+    trail = false,       -- trail effect while shadowing
 }
 shadowConnection = nil
 shadowHistory = {}
+shadowRecordedPath = {}
+shadowRecording = false
+shadowReplaying = false
+shadowReplayConnection = nil
+shadowTrailInstance = nil
 
 -- Notification state
 notifContainer = nil
@@ -359,84 +368,136 @@ end
 
 local function createSliderRow(parent, label, min, max, default, yPos, callback)
     local row = Instance.new("Frame")
-    row.Size = UDim2.new(1, 0, 0, 28)
-    row.Position = UDim2.new(0, 0, 0, yPos)
+    row.Size = UDim2.new(1, -20, 0, 32)
+    row.Position = UDim2.new(0, 10, 0, yPos)
     row.BackgroundTransparency = 1
     row.Parent = parent
 
+    -- Label (left)
     local lbl = Instance.new("TextLabel")
-    lbl.Size = UDim2.new(0, 120, 1, 0)
+    lbl.Size = UDim2.new(0.65, 0, 0, 12)
     lbl.BackgroundTransparency = 1
     lbl.Text = label
     lbl.TextColor3 = Colors.textDim
-    lbl.TextSize = 11
+    lbl.TextSize = 10
     lbl.Font = Enum.Font.Gotham
     lbl.TextXAlignment = Enum.TextXAlignment.Left
     lbl.Parent = row
 
-    local minusBtn = Instance.new("TextButton")
-    minusBtn.Size = UDim2.new(0, 24, 0, 22)
-    minusBtn.Position = UDim2.new(1, -100, 0, 3)
-    minusBtn.BackgroundColor3 = Colors.surfaceLight
-    minusBtn.Text = "-"
-    minusBtn.TextColor3 = Colors.text
-    minusBtn.TextSize = 14
-    minusBtn.Font = Enum.Font.GothamBold
-    minusBtn.AutoButtonColor = false
-    minusBtn.Parent = row
-    Instance.new("UICorner", minusBtn).CornerRadius = UDim.new(0, 4)
+    -- Value label (right)
+    local valLabel = Instance.new("TextLabel")
+    valLabel.Size = UDim2.new(0.35, 0, 0, 12)
+    valLabel.BackgroundTransparency = 1
+    valLabel.Text = tostring(default)
+    valLabel.TextColor3 = Colors.text
+    valLabel.TextSize = 10
+    valLabel.Font = Enum.Font.GothamBold
+    valLabel.TextXAlignment = Enum.TextXAlignment.Right
+    valLabel.Parent = row
 
-    local valBox = Instance.new("TextBox")
-    valBox.Size = UDim2.new(0, 44, 0, 22)
-    valBox.Position = UDim2.new(1, -74, 0, 3)
-    valBox.BackgroundColor3 = Colors.inputBg
-    valBox.Text = tostring(default)
-    valBox.TextColor3 = Colors.text
-    valBox.TextSize = 11
-    valBox.Font = Enum.Font.Code
-    valBox.ClearTextOnFocus = true
-    valBox.Parent = row
-    Instance.new("UICorner", valBox).CornerRadius = UDim.new(0, 4)
-    local valStroke = Instance.new("UIStroke", valBox)
-    valStroke.Color = Colors.inputBorder
-    valStroke.Thickness = 1
+    -- Track bar
+    local track = Instance.new("TextButton")
+    track.Size = UDim2.new(1, 0, 0, 8)
+    track.Position = UDim2.new(0, 0, 0, 18)
+    track.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+    track.BorderSizePixel = 0
+    track.Text = ""
+    track.AutoButtonColor = false
+    track.Parent = row
+    Instance.new("UICorner", track).CornerRadius = UDim.new(0, 4)
 
-    local plusBtn = Instance.new("TextButton")
-    plusBtn.Size = UDim2.new(0, 24, 0, 22)
-    plusBtn.Position = UDim2.new(1, -28, 0, 3)
-    plusBtn.BackgroundColor3 = Colors.surfaceLight
-    plusBtn.Text = "+"
-    plusBtn.TextColor3 = Colors.text
-    plusBtn.TextSize = 14
-    plusBtn.Font = Enum.Font.GothamBold
-    plusBtn.AutoButtonColor = false
-    plusBtn.Parent = row
-    Instance.new("UICorner", plusBtn).CornerRadius = UDim.new(0, 4)
+    -- Fill bar
+    local fill = Instance.new("Frame")
+    fill.Size = UDim2.new(math.clamp((default - min) / math.max(max - min, 1), 0, 1), 0, 1, 0)
+    fill.BackgroundColor3 = Colors.glowPurple
+    fill.BorderSizePixel = 0
+    fill.Parent = track
+    Instance.new("UICorner", fill).CornerRadius = UDim.new(0, 4)
+
+    local fillGrad = Instance.new("UIGradient")
+    fillGrad.Color = ColorSequence.new(Colors.blood, Colors.glowPurple)
+    fillGrad.Parent = fill
+
+    -- Thumb knob
+    local thumb = Instance.new("Frame")
+    thumb.Size = UDim2.new(0, 14, 0, 14)
+    thumb.AnchorPoint = Vector2.new(0.5, 0.5)
+    thumb.Position = UDim2.new(math.clamp((default - min) / math.max(max - min, 1), 0, 1), 0, 0.5, 0)
+    thumb.BackgroundColor3 = Colors.text
+    thumb.BorderSizePixel = 0
+    thumb.ZIndex = 2
+    thumb.Parent = track
+    Instance.new("UICorner", thumb).CornerRadius = UDim.new(1, 0)
+    local thumbStroke = Instance.new("UIStroke", thumb)
+    thumbStroke.Color = Colors.glowPurple
+    thumbStroke.Thickness = 1.5
 
     local currentVal = default
+    local dragging = false
+
+    local function updateVisual(pct)
+        pct = math.clamp(pct, 0, 1)
+        fill.Size = UDim2.new(pct, 0, 1, 0)
+        thumb.Position = UDim2.new(pct, 0, 0.5, 0)
+    end
 
     local function setValue(v)
-        currentVal = math.clamp(math.floor(v), min, max)
-        valBox.Text = tostring(currentVal)
+        currentVal = math.clamp(math.floor(v + 0.5), min, max)
+        local pct = (currentVal - min) / math.max(max - min, 1)
+        updateVisual(pct)
+        valLabel.Text = tostring(currentVal)
         if callback then callback(currentVal) end
     end
 
-    local step = math.max(1, math.floor((max - min) / 20))
-    minusBtn.MouseButton1Click:Connect(function() setValue(currentVal - step) end)
-    plusBtn.MouseButton1Click:Connect(function() setValue(currentVal + step) end)
-    valBox.FocusLost:Connect(function()
-        local n = tonumber(valBox.Text)
-        if n then setValue(n) else valBox.Text = tostring(currentVal) end
+    local function handleInput(inputPos)
+        local absPos = track.AbsolutePosition.X
+        local absSize = track.AbsoluteSize.X
+        if absSize <= 0 then return end
+        local pct = math.clamp((inputPos - absPos) / absSize, 0, 1)
+        local rawVal = min + pct * (max - min)
+        setValue(rawVal)
+    end
+
+    -- Click on track
+    track.MouseButton1Down:Connect(function()
+        dragging = true
     end)
 
-    valBox.Focused:Connect(function()
-        TweenService:Create(valStroke, TweenInfo.new(0.2), { Color = Colors.bloodLight, Thickness = 1.5 }):Play()
-    end)
-    valBox.FocusLost:Connect(function()
-        TweenService:Create(valStroke, TweenInfo.new(0.3), { Color = Colors.inputBorder, Thickness = 1 }):Play()
+    track.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            handleInput(input.Position.X)
+        end
     end)
 
-    return { row = row, getValue = function() return currentVal end, setValue = setValue, valBox = valBox }
+    -- Drag anywhere while held
+    UIS.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            handleInput(input.Position.X)
+        end
+    end)
+
+    UIS.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+
+    -- Thumb hover glow
+    thumb.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement then
+            TweenService:Create(thumb, TweenInfo.new(0.15), { Size = UDim2.new(0, 16, 0, 16) }):Play()
+            TweenService:Create(thumbStroke, TweenInfo.new(0.15), { Thickness = 2 }):Play()
+        end
+    end)
+    thumb.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement then
+            TweenService:Create(thumb, TweenInfo.new(0.2), { Size = UDim2.new(0, 14, 0, 14) }):Play()
+            TweenService:Create(thumbStroke, TweenInfo.new(0.2), { Thickness = 1.5 }):Play()
+        end
+    end)
+
+    return { row = row, getValue = function() return currentVal end, setValue = setValue }
 end
 
 
@@ -1464,8 +1525,8 @@ recalcEmoteLayout()
 
 ShadowPanel = Instance.new("Frame")
 ShadowPanel.Name = "ShadowPanel"
-ShadowPanel.Size = UDim2.new(0, 240, 0, 380)
-ShadowPanel.Position = UDim2.new(0.5, -120, 0.5, -190)
+ShadowPanel.Size = UDim2.new(0, 240, 0, 540)
+ShadowPanel.Position = UDim2.new(0.5, -120, 0.5, -270)
 ShadowPanel.BackgroundColor3 = Colors.bg
 ShadowPanel.BorderSizePixel = 0
 ShadowPanel.Visible = false
@@ -1622,7 +1683,7 @@ end
 --==================================================
 
 -- Angle slider (0-360)
-ShadowPanelAngleSlider = createSliderRow(ShadowPanel, "Angle (0-360)", 0, 360, 0, 184, function(val)
+ShadowPanelAngleSlider = createSliderRow(ShadowPanel, "Angle (0-360)", 0, 360, 0, 182, function(val)
     shadowState.angle = val
 end)
 
@@ -1632,12 +1693,12 @@ ShadowPanelHeightSlider = createSliderRow(ShadowPanel, "Height (studs)", -5, 10,
 end)
 
 -- Distance slider (1-15)
-ShadowPanelDistSlider = createSliderRow(ShadowPanel, "Distance (studs)", 1, 15, 4, 248, function(val)
+ShadowPanelDistSlider = createSliderRow(ShadowPanel, "Distance (studs)", 1, 15, 4, 250, function(val)
     shadowState.distance = val
 end)
 
 -- Delay slider (0-5)
-ShadowPanelDelaySlider = createSliderRow(ShadowPanel, "Delay (sec)", 0, 5, 0, 280, function(val)
+ShadowPanelDelaySlider = createSliderRow(ShadowPanel, "Delay (sec)", 0, 5, 0, 284, function(val)
     shadowState.delay = val
 end)
 
@@ -1646,25 +1707,95 @@ end)
 --==================================================
 
 ShadowFaceTargetToggle = createVampToggle(
-    ShadowPanel, "Face Target", "faceTarget", shadowState, 312, Colors.glowPurple
+    ShadowPanel, "Face Target", "faceTarget", shadowState, 318, Colors.glowPurple
 )
 
 --==================================================
--- STOP BUTTON
+-- MIRROR ANIMS TOGGLE
 --==================================================
 
+ShadowMirrorAnimsToggle = createVampToggle(
+    ShadowPanel, "Mirror Anims", "mirrorAnims", shadowState, 346, Colors.glowPurple
+)
+
+--==================================================
+-- AUTO-ORBIT TOGGLE + SPEED SLIDER
+--==================================================
+
+ShadowAutoOrbitToggle = createVampToggle(
+    ShadowPanel, "Auto-Orbit", "autoOrbit", shadowState, 374, Colors.glowPurple
+)
+
+ShadowOrbitSpeedSlider = createSliderRow(ShadowPanel, "Orbit Speed", 1, 10, 2, 404, function(val)
+    shadowState.orbitSpeed = val
+end)
+
+--==================================================
+-- SHADOW TRAIL TOGGLE
+--==================================================
+
+ShadowTrailToggle = createVampToggle(
+    ShadowPanel, "Trail Effect", "trail", shadowState, 438, Colors.blood
+)
+
+--==================================================
+-- RECORD & REPLAY BUTTONS (row of 2)
+--==================================================
+
+ShadowRecBtn = Instance.new("TextButton")
+ShadowRecBtn.Size = UDim2.new(0.5, -12, 0, 24)
+ShadowRecBtn.Position = UDim2.new(0, 10, 0, 470)
+ShadowRecBtn.BackgroundColor3 = Colors.blood
+ShadowRecBtn.Text = "⏺ REC"
+ShadowRecBtn.TextColor3 = Colors.text
+ShadowRecBtn.TextSize = 10
+ShadowRecBtn.Font = Enum.Font.GothamBold
+ShadowRecBtn.AutoButtonColor = false
+ShadowRecBtn.Parent = ShadowPanel
+Instance.new("UICorner", ShadowRecBtn).CornerRadius = UDim.new(0, 6)
+makeHoverable(ShadowRecBtn, Colors.blood, Colors.glowRed)
+
+ShadowPlayReplayBtn = Instance.new("TextButton")
+ShadowPlayReplayBtn.Size = UDim2.new(0.5, -12, 0, 24)
+ShadowPlayReplayBtn.Position = UDim2.new(0.5, 2, 0, 470)
+ShadowPlayReplayBtn.BackgroundColor3 = Colors.green
+ShadowPlayReplayBtn.Text = "▶ REPLAY"
+ShadowPlayReplayBtn.TextColor3 = Colors.text
+ShadowPlayReplayBtn.TextSize = 10
+ShadowPlayReplayBtn.Font = Enum.Font.GothamBold
+ShadowPlayReplayBtn.AutoButtonColor = false
+ShadowPlayReplayBtn.Parent = ShadowPanel
+Instance.new("UICorner", ShadowPlayReplayBtn).CornerRadius = UDim.new(0, 6)
+makeHoverable(ShadowPlayReplayBtn, Colors.green, Colors.greenLight)
+
+--==================================================
+-- RESET + STOP BUTTONS (row of 2)
+--==================================================
+
+ShadowResetBtn = Instance.new("TextButton")
+ShadowResetBtn.Size = UDim2.new(0.5, -12, 0, 24)
+ShadowResetBtn.Position = UDim2.new(0, 10, 0, 500)
+ShadowResetBtn.BackgroundColor3 = Colors.warning
+ShadowResetBtn.Text = "↺ RESET"
+ShadowResetBtn.TextColor3 = Colors.bg
+ShadowResetBtn.TextSize = 10
+ShadowResetBtn.Font = Enum.Font.GothamBold
+ShadowResetBtn.AutoButtonColor = false
+ShadowResetBtn.Parent = ShadowPanel
+Instance.new("UICorner", ShadowResetBtn).CornerRadius = UDim.new(0, 6)
+makeHoverable(ShadowResetBtn, Colors.warning, Color3.fromRGB(230, 180, 60))
+
 StopShadowBtn = Instance.new("TextButton")
-StopShadowBtn.Size = UDim2.new(1, -20, 0, 26)
-StopShadowBtn.Position = UDim2.new(0, 10, 0, 348)
+StopShadowBtn.Size = UDim2.new(0.5, -12, 0, 24)
+StopShadowBtn.Position = UDim2.new(0.5, 2, 0, 500)
 StopShadowBtn.BackgroundColor3 = Colors.bloodDark
-StopShadowBtn.Text = "🔴 STOP SHADOW"
+StopShadowBtn.Text = "🔴 STOP"
 StopShadowBtn.TextColor3 = Colors.text
-StopShadowBtn.TextSize = 11
+StopShadowBtn.TextSize = 10
 StopShadowBtn.Font = Enum.Font.GothamBold
 StopShadowBtn.AutoButtonColor = false
 StopShadowBtn.Parent = ShadowPanel
 Instance.new("UICorner", StopShadowBtn).CornerRadius = UDim.new(0, 6)
-addBtnGradient(StopShadowBtn)
 makeHoverable(StopShadowBtn, Colors.bloodDark, Colors.blood)
 
 --==================================================
@@ -1690,12 +1821,16 @@ openShadowPanel = function(player)
         if ok and thumb then ShadowPanelThumb.Image = thumb end
     end)
 
-    -- Sync sliders to current state
+    -- Sync sliders + toggles to current state
     ShadowPanelAngleSlider.setValue(shadowState.angle)
     ShadowPanelHeightSlider.setValue(shadowState.height)
     ShadowPanelDistSlider.setValue(shadowState.distance)
     ShadowPanelDelaySlider.setValue(shadowState.delay)
+    ShadowOrbitSpeedSlider.setValue(shadowState.orbitSpeed)
     ShadowFaceTargetToggle.refresh()
+    ShadowMirrorAnimsToggle.refresh()
+    ShadowAutoOrbitToggle.refresh()
+    ShadowTrailToggle.refresh()
     refreshShadowModeButtons()
     ShadowPanel.Visible = true
     notify("Shadow target: " .. player.DisplayName, "info")
@@ -3194,7 +3329,7 @@ createResultCard = function(info)
     NameLabel.Size = UDim2.new(1, -65, 0, 18)
     NameLabel.Position = UDim2.new(0, contentOffsetX, 0, 5)
     NameLabel.BackgroundTransparency = 1
-    NameLabel.Text = info.name
+    NameLabel.Text = info.displayName and (info.displayName .. " @" .. info.name) or info.name
     NameLabel.TextColor3 = Colors.bloodLight
     NameLabel.TextSize = 12
     NameLabel.Font = Enum.Font.GothamBold
@@ -3364,6 +3499,7 @@ runScan = function()
             log("  + PLAYER:", player.Name)
             local info = {
                 name = player.Name,
+                displayName = player.DisplayName,
                 type = "PLAYER",
                 character = char,
                 player = player,
@@ -3417,7 +3553,9 @@ filterResults = function(searchText)
             if text == "" then
                 info.cardFrame.Visible = true
             else
-                info.cardFrame.Visible = info.name:lower():find(text, 1, true) ~= nil
+                local matchName = info.name:lower():find(text, 1, true) ~= nil
+                local matchDisplay = info.displayName and info.displayName:lower():find(text, 1, true) ~= nil
+                info.cardFrame.Visible = matchName or matchDisplay
             end
         end
     end
@@ -3452,6 +3590,7 @@ startAutoScan = function()
                     if char and char:FindFirstChildOfClass("Humanoid") then
                         local info = {
                             name = player.Name,
+                            displayName = player.DisplayName,
                             type = "PLAYER",
                             character = char,
                             player = player,
@@ -3461,7 +3600,7 @@ startAutoScan = function()
                         table.insert(allScannedRigs, info)
                         scannedPlayerSet[player] = info
                         createResultCard(info)
-                        notify(player.Name .. " joined", "info")
+                        notify(player.DisplayName .. " joined", "info")
                     end
                 end
             end
@@ -3512,7 +3651,7 @@ refreshPlayerList = function()
 
     for _, player in pairs(Players:GetPlayers()) do
         local card = Instance.new("Frame")
-        card.Size = UDim2.new(1, -10, 0, 60)
+        card.Size = UDim2.new(1, -10, 0, 72)
         card.BackgroundColor3 = Colors.card
         card.BorderSizePixel = 0
         card.Parent = PlayerScroll
@@ -3655,6 +3794,42 @@ refreshPlayerList = function()
 
         shadowBtn.MouseButton1Click:Connect(function()
             openShadowPanel(player)
+        end)
+
+        -- Fling button
+        local flingBtn = Instance.new("TextButton")
+        flingBtn.Size = UDim2.new(0, 36, 0, 18)
+        flingBtn.Position = UDim2.new(1, -80, 0, 50)
+        flingBtn.BackgroundColor3 = Colors.glowRed
+        flingBtn.Text = "FLING"
+        flingBtn.TextColor3 = Colors.text
+        flingBtn.TextSize = 8
+        flingBtn.Font = Enum.Font.GothamBold
+        flingBtn.AutoButtonColor = false
+        flingBtn.Parent = card
+        Instance.new("UICorner", flingBtn).CornerRadius = UDim.new(0, 4)
+        makeHoverable(flingBtn, Colors.glowRed, Color3.fromRGB(255, 80, 80))
+
+        flingBtn.MouseButton1Click:Connect(function()
+            flingPlayer(player)
+        end)
+
+        -- Headsit button
+        local headsitBtn = Instance.new("TextButton")
+        headsitBtn.Size = UDim2.new(0, 36, 0, 18)
+        headsitBtn.Position = UDim2.new(1, -40, 0, 50)
+        headsitBtn.BackgroundColor3 = Colors.warning
+        headsitBtn.Text = "HEAD"
+        headsitBtn.TextColor3 = Colors.bg
+        headsitBtn.TextSize = 8
+        headsitBtn.Font = Enum.Font.GothamBold
+        headsitBtn.AutoButtonColor = false
+        headsitBtn.Parent = card
+        Instance.new("UICorner", headsitBtn).CornerRadius = UDim.new(0, 4)
+        makeHoverable(headsitBtn, Colors.warning, Color3.fromRGB(230, 180, 60))
+
+        headsitBtn.MouseButton1Click:Connect(function()
+            headsitPlayer(player)
         end)
     end
 
@@ -4427,6 +4602,11 @@ startShadow = function(mode)
     shadowMirroredTracks = {}
     local lastAnimSync = 0
 
+    -- Apply trail if enabled
+    if shadowState.trail then
+        applyShadowTrail()
+    end
+
     shadowConnection = RunService.Heartbeat:Connect(function()
         local targetChar = target.Character
         if not targetChar or not targetChar.Parent then
@@ -4500,9 +4680,23 @@ startShadow = function(mode)
             end
         end
 
-        -- Mirror target animations (~every 0.3s)
+        -- Auto-orbit: increment angle over time
+        if shadowState.autoOrbit and shadowState.mode == "orbit" then
+            shadowState.angle = (shadowState.angle + shadowState.orbitSpeed * 0.5) % 360
+        end
+
+        -- Record target path if recording
+        if shadowRecording and targetHRP then
+            table.insert(shadowRecordedPath, { time = tick(), cf = targetHRP.CFrame })
+            -- Limit recording to ~1800 frames (~30s at 60fps)
+            if #shadowRecordedPath > 1800 then
+                table.remove(shadowRecordedPath, 1)
+            end
+        end
+
+        -- Mirror target animations (~every 0.3s) — only if enabled
         local now = tick()
-        if now - lastAnimSync > 0.3 then
+        if shadowState.mirrorAnims and now - lastAnimSync > 0.3 then
             lastAnimSync = now
             local targetHum = targetChar:FindFirstChildOfClass("Humanoid")
             if myHum and targetHum then
@@ -4554,6 +4748,7 @@ end
 
 stopShadow = function()
     shadowState.active = false
+    shadowState.autoOrbit = false
     if shadowConnection then
         shadowConnection:Disconnect()
         shadowConnection = nil
@@ -4571,7 +4766,202 @@ stopShadow = function()
 
     refreshShadowModeButtons()
 
-    -- Re-enable falling states
+    -- Re-enable falling states + force idle animation restart
+    local char = LP.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if hum then
+        hum:SetStateEnabled(Enum.HumanoidStateType.Freefall, true)
+        hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true)
+        hum:ChangeState(Enum.HumanoidStateType.GettingUp)
+
+        -- Stop ALL playing animation tracks so Animate script restarts idle
+        local animator = hum:FindFirstChildOfClass("Animator")
+        if animator then
+            pcall(function()
+                for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+                    track:Stop(0)
+                end
+            end)
+        end
+
+        -- Reset Animate script to force idle restart
+        local animScript = char:FindFirstChild("Animate")
+        if animScript then
+            pcall(function()
+                animScript.Disabled = true
+                task.delay(0.1, function()
+                    if animScript and animScript.Parent then
+                        animScript.Disabled = false
+                    end
+                end)
+            end)
+        end
+    end
+
+    -- Remove trail
+    removeShadowTrail()
+
+    notify("Shadow stopped", "info")
+    log("Shadow stopped")
+end
+
+--==================================================
+-- SHADOW TRAIL
+--==================================================
+
+applyShadowTrail = function()
+    removeShadowTrail()
+    local char = LP.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    local att0 = Instance.new("Attachment")
+    att0.Name = "VampTrailAtt0"
+    att0.Position = Vector3.new(0, 0, 0.5)
+    att0.Parent = hrp
+
+    local att1 = Instance.new("Attachment")
+    att1.Name = "VampTrailAtt1"
+    att1.Position = Vector3.new(0, 0, -0.5)
+    att1.Parent = hrp
+
+    shadowTrailInstance = Instance.new("Trail")
+    shadowTrailInstance.Name = "VampShadowTrail"
+    shadowTrailInstance.Attachment0 = att0
+    shadowTrailInstance.Attachment1 = att1
+    shadowTrailInstance.Lifetime = 1.5
+    shadowTrailInstance.MinLength = 0.1
+    shadowTrailInstance.FaceCamera = true
+    shadowTrailInstance.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Colors.glowPurple),
+        ColorSequenceKeypoint.new(0.5, Colors.blood),
+        ColorSequenceKeypoint.new(1, Colors.bloodDark),
+    })
+    shadowTrailInstance.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 0.3),
+        NumberSequenceKeypoint.new(0.5, 0.6),
+        NumberSequenceKeypoint.new(1, 1),
+    })
+    shadowTrailInstance.WidthScale = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 1),
+        NumberSequenceKeypoint.new(1, 0.2),
+    })
+    shadowTrailInstance.Parent = hrp
+end
+
+removeShadowTrail = function()
+    if shadowTrailInstance then
+        pcall(function() shadowTrailInstance:Destroy() end)
+        shadowTrailInstance = nil
+    end
+    local char = LP.Character
+    if char then
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            for _, att in ipairs(hrp:GetChildren()) do
+                if att.Name == "VampTrailAtt0" or att.Name == "VampTrailAtt1" then
+                    att:Destroy()
+                end
+            end
+        end
+    end
+end
+
+--==================================================
+-- SHADOW RECORD & REPLAY
+--==================================================
+
+startShadowRecording = function()
+    shadowRecordedPath = {}
+    shadowRecording = true
+    ShadowRecBtn.Text = "⏹ STOP"
+    ShadowRecBtn.BackgroundColor3 = Colors.glowRed
+    notify("Recording path...", "info")
+end
+
+stopShadowRecording = function()
+    shadowRecording = false
+    ShadowRecBtn.Text = "⏺ REC"
+    ShadowRecBtn.BackgroundColor3 = Colors.blood
+    notify("Path recorded (" .. #shadowRecordedPath .. " frames)", "success")
+end
+
+startShadowReplay = function()
+    if #shadowRecordedPath == 0 then
+        notify("No recorded path — hit REC first", "warning")
+        return
+    end
+
+    -- Stop current shadow if active
+    if shadowState.active then
+        stopShadow()
+    end
+
+    shadowReplaying = true
+    ShadowPlayReplayBtn.Text = "⏹ STOP"
+    ShadowPlayReplayBtn.BackgroundColor3 = Colors.bloodDark
+
+    -- Disable falling
+    local myChar = LP.Character
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if myHum then
+        myHum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+        myHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+    end
+
+    -- Apply trail if enabled
+    if shadowState.trail then
+        applyShadowTrail()
+    end
+
+    -- Calculate path duration from recorded timestamps
+    local startTime = shadowRecordedPath[1].time
+    local endTime = shadowRecordedPath[#shadowRecordedPath].time
+    local duration = endTime - startTime
+
+    shadowReplayConnection = RunService.Heartbeat:Connect(function()
+        if not shadowReplaying then return end
+
+        myChar = LP.Character
+        local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+
+        -- Prevent falling
+        myHum = myChar:FindFirstChildOfClass("Humanoid")
+        if myHum and myHum:GetState() == Enum.HumanoidStateType.Freefall then
+            myHum:ChangeState(Enum.HumanoidStateType.Physics)
+        end
+
+        -- Loop through recorded path using elapsed time
+        local elapsed = (tick() - startTime) % duration
+        local targetTime = startTime + elapsed
+
+        -- Find closest frame
+        local bestCF = shadowRecordedPath[1].cf
+        for i = #shadowRecordedPath, 1, -1 do
+            if shadowRecordedPath[i].time <= targetTime + startTime then
+                bestCF = shadowRecordedPath[i].cf
+                break
+            end
+        end
+
+        myHRP.CFrame = bestCF
+    end)
+
+    notify("Replaying recorded path (loop)", "success")
+end
+
+stopShadowReplay = function()
+    shadowReplaying = false
+    if shadowReplayConnection then
+        shadowReplayConnection:Disconnect()
+        shadowReplayConnection = nil
+    end
+    ShadowPlayReplayBtn.Text = "▶ REPLAY"
+    ShadowPlayReplayBtn.BackgroundColor3 = Colors.green
+
+    -- Re-enable falling + restore idle
     local char = LP.Character
     local hum = char and char:FindFirstChildOfClass("Humanoid")
     if hum then
@@ -4580,8 +4970,72 @@ stopShadow = function()
         hum:ChangeState(Enum.HumanoidStateType.GettingUp)
     end
 
-    notify("Shadow stopped", "info")
-    log("Shadow stopped")
+    removeShadowTrail()
+    notify("Replay stopped", "info")
+end
+
+--==================================================
+-- TROLL FEATURES
+--==================================================
+
+flingPlayer = function(player)
+    local targetChar = player.Character
+    if not targetChar then
+        notify("No character found", "error")
+        return
+    end
+    local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    if not targetHRP or not myHRP then
+        notify("Missing HumanoidRootPart", "error")
+        return
+    end
+
+    -- TP to target then apply massive velocity
+    local savedCF = myHRP.CFrame
+    myHRP.CFrame = targetHRP.CFrame * CFrame.new(0, 0, -2)
+
+    task.delay(0.15, function()
+        if not myChar or not myChar.Parent then return end
+        local bv = Instance.new("BodyVelocity")
+        bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        bv.Velocity = Vector3.new(math.random(-200, 200), 300, math.random(-200, 200))
+        bv.Parent = targetHRP
+        task.delay(0.3, function()
+            pcall(function() bv:Destroy() end)
+        end)
+
+        -- TP back
+        task.delay(0.5, function()
+            if myHRP and myHRP.Parent then
+                myHRP.CFrame = savedCF
+            end
+        end)
+    end)
+
+    notify("Fling: " .. player.DisplayName, "success")
+end
+
+headsitPlayer = function(player)
+    local targetChar = player.Character
+    if not targetChar then
+        notify("No character found", "error")
+        return
+    end
+    local head = targetChar:FindFirstChild("Head")
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not head or not myHRP or not myHum then
+        notify("Missing parts", "error")
+        return
+    end
+
+    -- Quick TP to head and sit
+    myHRP.CFrame = head.CFrame * CFrame.new(0, 2, 0)
+    myHum.Sit = true
+    notify("Headsit: " .. player.DisplayName, "success")
 end
 
 --==================================================
@@ -5193,12 +5647,124 @@ ShadowFaceTargetToggle.btn.MouseButton1Click:Connect(function()
     ShadowFaceTargetToggle.refresh()
 end)
 
+-- Mirror Anims toggle
+ShadowMirrorAnimsToggle.btn.MouseButton1Click:Connect(function()
+    shadowState.mirrorAnims = not shadowState.mirrorAnims
+    ShadowMirrorAnimsToggle.refresh()
+    -- If turning off mirror, clean up existing mirrored tracks
+    if not shadowState.mirrorAnims and shadowMirroredTracks then
+        for id, track in pairs(shadowMirroredTracks) do
+            pcall(function() track:Stop() end)
+            pcall(function() track:Destroy() end)
+        end
+        shadowMirroredTracks = {}
+        -- Restart idle animation
+        local char = LP.Character
+        local hum = char and char:FindFirstChildOfClass("Humanoid")
+        if hum then
+            local animator = hum:FindFirstChildOfClass("Animator")
+            if animator then
+                pcall(function()
+                    for _, t in ipairs(animator:GetPlayingAnimationTracks()) do
+                        t:Stop(0)
+                    end
+                end)
+            end
+            local animScript = char:FindFirstChild("Animate")
+            if animScript then
+                pcall(function()
+                    animScript.Disabled = true
+                    task.delay(0.1, function()
+                        if animScript and animScript.Parent then
+                            animScript.Disabled = false
+                        end
+                    end)
+                end)
+            end
+        end
+    end
+end)
+
+-- Auto-Orbit toggle
+ShadowAutoOrbitToggle.btn.MouseButton1Click:Connect(function()
+    shadowState.autoOrbit = not shadowState.autoOrbit
+    ShadowAutoOrbitToggle.refresh()
+end)
+
+-- Trail toggle
+ShadowTrailToggle.btn.MouseButton1Click:Connect(function()
+    shadowState.trail = not shadowState.trail
+    ShadowTrailToggle.refresh()
+    if shadowState.trail and shadowState.active then
+        applyShadowTrail()
+    elseif not shadowState.trail then
+        removeShadowTrail()
+    end
+end)
+
+-- Record button
+ShadowRecBtn.MouseButton1Click:Connect(function()
+    if shadowRecording then
+        stopShadowRecording()
+    else
+        if not shadowState.active then
+            notify("Start shadow first to record", "warning")
+            return
+        end
+        startShadowRecording()
+    end
+end)
+
+-- Replay button
+ShadowPlayReplayBtn.MouseButton1Click:Connect(function()
+    if shadowReplaying then
+        stopShadowReplay()
+    else
+        startShadowReplay()
+    end
+end)
+
+-- Reset button — resets all shadow settings to defaults
+ShadowResetBtn.MouseButton1Click:Connect(function()
+    shadowState.angle = 0
+    shadowState.height = 0
+    shadowState.distance = 4
+    shadowState.delay = 0
+    shadowState.faceTarget = false
+    shadowState.mirrorAnims = true
+    shadowState.autoOrbit = false
+    shadowState.orbitSpeed = 2
+    shadowState.trail = false
+    -- Sync UI
+    ShadowPanelAngleSlider.setValue(0)
+    ShadowPanelHeightSlider.setValue(0)
+    ShadowPanelDistSlider.setValue(4)
+    ShadowPanelDelaySlider.setValue(0)
+    ShadowOrbitSpeedSlider.setValue(2)
+    ShadowFaceTargetToggle.refresh()
+    ShadowMirrorAnimsToggle.refresh()
+    ShadowAutoOrbitToggle.refresh()
+    ShadowTrailToggle.refresh()
+    refreshShadowModeButtons()
+    removeShadowTrail()
+    notify("Shadow settings reset", "info")
+end)
+
 StopShadowBtn.MouseButton1Click:Connect(function()
+    if shadowRecording then stopShadowRecording() end
+    if shadowReplaying then stopShadowReplay() end
     stopShadow()
+    ShadowMirrorAnimsToggle.refresh()
+    ShadowAutoOrbitToggle.refresh()
+    ShadowTrailToggle.refresh()
 end)
 
 ShadowPanelClose.MouseButton1Click:Connect(function()
+    if shadowRecording then stopShadowRecording() end
+    if shadowReplaying then stopShadowReplay() end
     stopShadow()
+    ShadowMirrorAnimsToggle.refresh()
+    ShadowAutoOrbitToggle.refresh()
     ShadowPanel.Visible = false
 end)
 
@@ -5333,6 +5899,8 @@ end)
 CloseBtn.MouseButton1Click:Connect(function()
     stopSpectate()
     stopEmote()
+    if shadowRecording then stopShadowRecording() end
+    if shadowReplaying then stopShadowReplay() end
     stopShadow()
     ShadowPanel.Visible = false
     clearESP()
