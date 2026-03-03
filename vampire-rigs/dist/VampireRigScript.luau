@@ -457,7 +457,7 @@ PreviewCredits.Parent = PreviewFooter
 
 local SavePanel = Instance.new("Frame")
 SavePanel.Name = "SaveConfig"
-SavePanel.Size = UDim2.new(0, 320, 0, 430)
+SavePanel.Size = UDim2.new(0, 320, 0, 370)
 SavePanel.Position = UDim2.new(0.3, 330, 0.5, -200)
 SavePanel.BackgroundColor3 = Colors.bg
 SavePanel.BorderSizePixel = 0
@@ -533,7 +533,6 @@ Instance.new("UIStroke", FileNameBox).Color = Color3.fromRGB(60, 60, 60)
 -- Toggles container
 local ToggleStart = 110
 local saveConfigState = {
-    OnlyRigs = false,
     DecompileMode = false,
     SavePlayers = false,
     RemovePlayerCharacters = true,
@@ -586,54 +585,38 @@ local function createToggle(label, key, yPos)
     toggleButtons[key] = { btn = btn, lbl = lbl, refresh = refresh }
 end
 
--- Acinzenta/desabilita os toggles irrelevantes quando OnlyRigs está ON
-local function refreshOnlyRigsState()
-    local rigsOn = saveConfigState.OnlyRigs
-    local disabledKeys = {
-        "DecompileMode", "SavePlayers", "RemovePlayerCharacters",
-        "NilInstances", "SaveNonCreatable", "IsolateLocalPlayer", "SaveCameraInstances",
-    }
-    for _, k in ipairs(disabledKeys) do
-        local t = toggleButtons[k]
-        if t then
-            if rigsOn then
-                t.btn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-                t.btn.TextColor3 = Color3.fromRGB(80, 80, 80)
-                t.btn.Text = "—"
-                t.btn.Active = false
-                t.lbl.TextColor3 = Color3.fromRGB(60, 60, 60)
-            else
-                t.btn.Active = true
-                t.lbl.TextColor3 = Colors.textDim
-                t.refresh()
-            end
-        end
-    end
-end
-
-createToggle("⚡ Somente Rigs", "OnlyRigs", ToggleStart)
-createToggle("Decompile Scripts", "DecompileMode", ToggleStart + 30)
-createToggle("Salvar Players", "SavePlayers", ToggleStart + 60)
-createToggle("Remover Characters", "RemovePlayerCharacters", ToggleStart + 90)
-createToggle("Nil Instances", "NilInstances", ToggleStart + 120)
-createToggle("Non-Creatable", "SaveNonCreatable", ToggleStart + 150)
-createToggle("Isolar LocalPlayer", "IsolateLocalPlayer", ToggleStart + 180)
-createToggle("Camera Instances", "SaveCameraInstances", ToggleStart + 210)
-
--- Hook: quando OnlyRigs muda, atualiza estado visual dos outros
-toggleButtons["OnlyRigs"].btn.MouseButton1Click:Connect(refreshOnlyRigsState)
+createToggle("Decompile Scripts", "DecompileMode", ToggleStart)
+createToggle("Save Players", "SavePlayers", ToggleStart + 30)
+createToggle("Remove Characters", "RemovePlayerCharacters", ToggleStart + 60)
+createToggle("Nil Instances", "NilInstances", ToggleStart + 90)
+createToggle("Non-Creatable", "SaveNonCreatable", ToggleStart + 120)
+createToggle("Isolate LocalPlayer", "IsolateLocalPlayer", ToggleStart + 150)
+createToggle("Camera Instances", "SaveCameraInstances", ToggleStart + 180)
 
 -- Botao SALVAR
+-- Botao SAVE (usa config dos toggles)
 local ConfirmSaveBtn = Instance.new("TextButton")
-ConfirmSaveBtn.Size = UDim2.new(1, -20, 0, 36)
+ConfirmSaveBtn.Size = UDim2.new(0.5, -15, 0, 36)
 ConfirmSaveBtn.Position = UDim2.new(0, 10, 1, -50)
 ConfirmSaveBtn.BackgroundColor3 = Color3.fromRGB(80, 40, 120)
-ConfirmSaveBtn.Text = "💾 SALVAR AGORA"
+ConfirmSaveBtn.Text = "💾 SAVE"
 ConfirmSaveBtn.TextColor3 = Colors.text
-ConfirmSaveBtn.TextSize = 14
+ConfirmSaveBtn.TextSize = 13
 ConfirmSaveBtn.Font = Enum.Font.GothamBold
 ConfirmSaveBtn.Parent = SavePanel
 Instance.new("UICorner", ConfirmSaveBtn).CornerRadius = UDim.new(0, 6)
+
+-- Botao SAVE ALL (ignora config, salva tudo padrao)
+local SaveAllBtn = Instance.new("TextButton")
+SaveAllBtn.Size = UDim2.new(0.5, -15, 0, 36)
+SaveAllBtn.Position = UDim2.new(0.5, 5, 1, -50)
+SaveAllBtn.BackgroundColor3 = Color3.fromRGB(40, 100, 40)
+SaveAllBtn.Text = "⚡ SAVE ALL"
+SaveAllBtn.TextColor3 = Colors.text
+SaveAllBtn.TextSize = 13
+SaveAllBtn.Font = Enum.Font.GothamBold
+SaveAllBtn.Parent = SavePanel
+Instance.new("UICorner", SaveAllBtn).CornerRadius = UDim.new(0, 6)
 
 
 --[[ ═══════ MODULE: 06_helpers.luau ═══════ ]]
@@ -1691,61 +1674,70 @@ end)
 SavePanelClose.MouseButton1Click:Connect(function()
     SavePanel.Visible = false
 end)
+-- Helper: carrega SynSaveInstance
+local function loadSSI()
+    local Params = {
+        RepoURL = "https://raw.githubusercontent.com/luau/SynSaveInstance/main/",
+        SSI = "saveinstance",
+    }
+    local loader = loadstring(game:HttpGet(Params.RepoURL .. Params.SSI .. ".luau", true), Params.SSI)
+    if not loader then error("Failed to load SynSaveInstance") end
+    return loader()
+end
+
+-- SAVE (uses toggle config)
 ConfirmSaveBtn.MouseButton1Click:Connect(function()
-    ConfirmSaveBtn.Text = "💾 SALVANDO..."
+    ConfirmSaveBtn.Text = "💾 ..."
     task.spawn(function()
         local ok, err = pcall(function()
-            local Params = {
-                RepoURL = "https://raw.githubusercontent.com/luau/SynSaveInstance/main/",
-                SSI = "saveinstance",
-            }
-            local loader = loadstring(game:HttpGet(Params.RepoURL .. Params.SSI .. ".luau", true), Params.SSI)
-            if not loader then error("Falha ao carregar SynSaveInstance") end
-            local synsaveinstance = loader()
+            local synsaveinstance = loadSSI()
 
-            -- Monta nome do arquivo
             local fname = FileNameBox.Text
             if fname == "" then
                 fname = game.PlaceId .. "_" .. os.date("%Y%m%d_%H%M%S")
             end
 
-            local options = { FileName = fname }
+            local options = {
+                FileName = fname,
+                DecompileMode = saveConfigState.DecompileMode and "decompile" or "none",
+                SavePlayers = saveConfigState.SavePlayers,
+                RemovePlayerCharacters = saveConfigState.RemovePlayerCharacters,
+                NilInstances = saveConfigState.NilInstances,
+                SaveNonCreatable = saveConfigState.SaveNonCreatable,
+                IsolateLocalPlayer = saveConfigState.IsolateLocalPlayer,
+                SaveCameraInstances = saveConfigState.SaveCameraInstances,
+            }
 
-            if saveConfigState.OnlyRigs then
-                -- OnlyRigs: saves ONLY rigs (models with Humanoid)
-                -- Overrides all other options to avoid conflicts
-                local rigs = {}
-                for _, obj in pairs(workspace:GetDescendants()) do
-                    if obj:IsA("Model") and obj:FindFirstChildOfClass("Humanoid") then
-                        table.insert(rigs, obj)
-                    end
-                end
-                options.Mode = "custom"
-                options.ExtraInstances = rigs
-                options.SavePlayers = true
-                options.RemovePlayerCharacters = false
-                log("OnlyRigs: found " .. #rigs .. " rigs")
-            else
-                -- Normal mode: uses panel toggles
-                options.DecompileMode = saveConfigState.DecompileMode and "decompile" or "none"
-                options.SavePlayers = saveConfigState.SavePlayers
-                options.RemovePlayerCharacters = saveConfigState.RemovePlayerCharacters
-                options.NilInstances = saveConfigState.NilInstances
-                options.SaveNonCreatable = saveConfigState.SaveNonCreatable
-                options.IsolateLocalPlayer = saveConfigState.IsolateLocalPlayer
-                options.SaveCameraInstances = saveConfigState.SaveCameraInstances
-            end
-
-            log("SaveInstance options:", HttpService:JSONEncode(options))
+            log("Save options:", HttpService:JSONEncode(options))
             synsaveinstance(options)
         end)
         if ok then
-            ConfirmSaveBtn.Text = "💾 SALVO!"
+            ConfirmSaveBtn.Text = "💾 SAVED!"
         else
-            log("SaveInstance ERRO:", tostring(err))
-            ConfirmSaveBtn.Text = "💾 ERRO: " .. tostring(err):sub(1, 30)
+            log("Save ERROR:", tostring(err))
+            ConfirmSaveBtn.Text = "💾 ERR"
         end
-        task.delay(3, function() ConfirmSaveBtn.Text = "💾 SALVAR AGORA" end)
+        task.delay(3, function() ConfirmSaveBtn.Text = "💾 SAVE" end)
+    end)
+end)
+
+-- SAVE ALL (ignores config, default options)
+SaveAllBtn.MouseButton1Click:Connect(function()
+    SaveAllBtn.Text = "⚡ ..."
+    task.spawn(function()
+        local ok, err = pcall(function()
+            local synsaveinstance = loadSSI()
+            local options = {}
+            log("Save All: default options")
+            synsaveinstance(options)
+        end)
+        if ok then
+            SaveAllBtn.Text = "⚡ SAVED!"
+        else
+            log("Save All ERROR:", tostring(err))
+            SaveAllBtn.Text = "⚡ ERR"
+        end
+        task.delay(3, function() SaveAllBtn.Text = "⚡ SAVE ALL" end)
     end)
 end)
 PreviewClose.MouseButton1Click:Connect(function()
