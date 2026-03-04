@@ -1452,7 +1452,55 @@ startRemoteSpy = function()
             end
         end
 
-        -- ═══ Estratégia B: Hook direto FireServer/InvokeServer (sem getnamecallmethod) ═══
+        -- ═══ Estratégia B: hookmetamethod __namecall SEM getnamecallmethod (Xeno) ═══
+        if not hookOk and _hookMeta then
+            pcall(function()
+                local inHook = false
+                local orig
+                orig = _hookMeta(game, "__namecall", function(self, ...)
+                    if inHook then return orig(self, ...) end
+                    inHook = true
+                    local isRE, isRF = false, false
+                    pcall(function()
+                        isRE = self:IsA("RemoteEvent")
+                        if not isRE then isRF = self:IsA("RemoteFunction") end
+                    end)
+                    if isRE or isRF then
+                        local method = isRE and "FireServer" or "InvokeServer"
+                        local remotePath = "?"
+                        pcall(function() remotePath = self:GetFullName() end)
+                        remoteCallCounts[remotePath] = (remoteCallCounts[remotePath] or 0) + 1
+                        if blockedRemotes[remotePath] then inHook = false return nil end
+                        if remoteSpyActive then
+                            local caller = ""
+                            pcall(function()
+                                if _getCaller then local cs = _getCaller() if cs then caller = cs:GetFullName() end end
+                            end)
+                            local entry = {
+                                time = os.clock(), name = "?", path = remotePath,
+                                method = method, args = {...}, caller = caller, returnValue = nil,
+                            }
+                            pcall(function() entry.name = self.Name end)
+                            local result = orig(self, ...)
+                            if isRF then pcall(function() entry.returnValue = tostring(result) end) end
+                            table.insert(remoteSpyLog, entry)
+                            if #remoteSpyLog > 200 then table.remove(remoteSpyLog, 1) end
+                            pcall(function() refreshRemoteSpyLog() end)
+                            inHook = false
+                            return result
+                        end
+                    end
+                    inHook = false
+                    return orig(self, ...)
+                end)
+                if orig then
+                    remoteSpyHook = orig
+                    hookOk = true
+                end
+            end)
+        end
+
+        -- ═══ Estratégia C: Hook direto FireServer/InvokeServer (fallback) ═══
         if not hookOk and _hookFn then
             pcall(function()
                 local tmpRE = Instance.new("RemoteEvent")
@@ -1844,6 +1892,15 @@ decompileForRemote = function()
 
     notify("📜 Decompiling for: " .. remoteName .. "...", "info")
 
+    -- Abre painel com status "buscando..."
+    DecompileStatusLabel.Text = "Searching " .. remoteName .. "..."
+    DecompileStatusLabel.TextColor3 = Color3.fromRGB(200, 200, 100)
+    DecompileTitle.Text = "📜 Decompile: " .. remoteName
+    for _, c in pairs(DecompileCodeScroll:GetChildren()) do
+        if c:IsA("TextLabel") then c:Destroy() end
+    end
+    DecompilePanel.Visible = true
+
     task.spawn(function()
         local scripts = {}
         pcall(function()
@@ -1878,36 +1935,16 @@ decompileForRemote = function()
                 end
             end)
             if #found >= 15 then break end
-            if checked % 10 == 0 then task.wait() end
-        end
-
-        if #found == 0 then
-            notify("No scripts reference '" .. remoteName .. "'", "warning")
-            return
-        end
-
-        local lines = {
-            "-- ═══ Decompile Results ═══",
-            "-- Remote: " .. remoteName,
-            "-- Checked: " .. checked .. " scripts",
-            "-- Found in: " .. #found .. " scripts",
-            "",
-        }
-        for _, f in ipairs(found) do
-            table.insert(lines, "-- ═══ " .. f.script .. " ═══")
-            for _, l in ipairs(f.lines) do
-                table.insert(lines, "--   " .. l)
+            if checked % 5 == 0 then
+                pcall(function()
+                    DecompileStatusLabel.Text = "Checking... " .. checked .. "/" .. #scripts .. " scripts"
+                end)
+                task.wait()
             end
-            table.insert(lines, "")
         end
 
-        local text = table.concat(lines, "\n")
-        pcall(function()
-            if setclipboard then setclipboard(text)
-            elseif toclipboard then toclipboard(text) end
-        end)
-
-        notify("Found in " .. #found .. " scripts — copied!", "success")
+        -- Mostra resultados no painel
+        showDecompileResults(remoteName, found, checked)
     end)
 end
 

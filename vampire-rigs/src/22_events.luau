@@ -712,6 +712,18 @@ RemoteSpyDecompileBtn.MouseButton1Click:Connect(function()
     decompileForRemote()
 end)
 
+DecompileCloseBtn.MouseButton1Click:Connect(function()
+    DecompilePanel.Visible = false
+end)
+
+DecompileCopyBtn.MouseButton1Click:Connect(function()
+    pcall(function()
+        if setclipboard then setclipboard(decompileResultText)
+        elseif toclipboard then toclipboard(decompileResultText) end
+    end)
+    notify("Decompile results copied!", "success")
+end)
+
 RemoteSpyToggleBtn.MouseButton1Click:Connect(function()
     if remoteSpyActive then
         stopRemoteSpy()
@@ -959,6 +971,7 @@ CloseBtn.MouseButton1Click:Connect(function()
     stopRemoteSpy()
     if autoRepeatActive then stopAutoRepeat() end
     RemoteSpyPanel.Visible = false
+    DecompilePanel.Visible = false
     stopChatSpy()
     ChatSpyPanel.Visible = false
     if antiAfkActive then stopAntiAfk() end

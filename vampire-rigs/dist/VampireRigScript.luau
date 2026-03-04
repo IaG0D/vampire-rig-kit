@@ -3001,6 +3001,170 @@ openRemoteSpyPanel = function()
     notify("Remote Spy opened — " .. #scannedRemotes .. " remotes found", "info")
 end
 
+--==================================================
+-- DECOMPILE RESULTS PANEL — FLOATING
+--==================================================
+
+DecompilePanel = Instance.new("Frame")
+DecompilePanel.Name = "DecompilePanel"
+DecompilePanel.Size = UDim2.new(0, 420, 0, 400)
+DecompilePanel.Position = UDim2.new(0.5, 50, 0.5, -200)
+DecompilePanel.BackgroundColor3 = Color3.fromRGB(10, 12, 16)
+DecompilePanel.BorderSizePixel = 0
+DecompilePanel.Visible = false
+DecompilePanel.Parent = ScreenGui
+Instance.new("UICorner", DecompilePanel).CornerRadius = UDim.new(0, 10)
+
+DecompilePanelStroke = Instance.new("UIStroke", DecompilePanel)
+DecompilePanelStroke.Color = Color3.fromRGB(40, 100, 160)
+DecompilePanelStroke.Thickness = 1.5
+addGradient(DecompilePanel, Color3.fromRGB(12, 16, 22), Color3.fromRGB(6, 8, 12), 90)
+
+-- Top Bar
+DecompileTopBar = Instance.new("Frame")
+DecompileTopBar.Size = UDim2.new(1, 0, 0, 32)
+DecompileTopBar.BackgroundColor3 = Color3.fromRGB(15, 20, 30)
+DecompileTopBar.BorderSizePixel = 0
+DecompileTopBar.Parent = DecompilePanel
+Instance.new("UICorner", DecompileTopBar).CornerRadius = UDim.new(0, 10)
+addGradient(DecompileTopBar, Color3.fromRGB(10, 18, 30), Color3.fromRGB(15, 20, 30), 0)
+
+DecompileTopBarFix = Instance.new("Frame")
+DecompileTopBarFix.Size = UDim2.new(1, 0, 0, 10)
+DecompileTopBarFix.Position = UDim2.new(0, 0, 1, -10)
+DecompileTopBarFix.BackgroundColor3 = Color3.fromRGB(15, 20, 30)
+DecompileTopBarFix.BorderSizePixel = 0
+DecompileTopBarFix.Parent = DecompileTopBar
+
+addAccentLine(DecompileTopBar, UDim2.new(0, 0, 1, -1), Color3.fromRGB(40, 100, 160))
+
+DecompileTitle = Instance.new("TextLabel")
+DecompileTitle.Size = UDim2.new(1, -80, 1, 0)
+DecompileTitle.Position = UDim2.new(0, 10, 0, 0)
+DecompileTitle.BackgroundTransparency = 1
+DecompileTitle.Text = "📜 Decompile Results"
+DecompileTitle.TextColor3 = Color3.fromRGB(80, 160, 220)
+DecompileTitle.TextSize = 12
+DecompileTitle.Font = Enum.Font.GothamBold
+DecompileTitle.TextXAlignment = Enum.TextXAlignment.Left
+DecompileTitle.Parent = DecompileTopBar
+
+DecompileCloseBtn = Instance.new("TextButton")
+DecompileCloseBtn.Size = UDim2.new(0, 20, 0, 20)
+DecompileCloseBtn.Position = UDim2.new(1, -26, 0, 6)
+DecompileCloseBtn.BackgroundColor3 = Color3.fromRGB(40, 100, 160)
+DecompileCloseBtn.Text = "X"
+DecompileCloseBtn.TextColor3 = Colors.text
+DecompileCloseBtn.TextSize = 11
+DecompileCloseBtn.Font = Enum.Font.GothamBold
+DecompileCloseBtn.AutoButtonColor = false
+DecompileCloseBtn.Parent = DecompileTopBar
+Instance.new("UICorner", DecompileCloseBtn).CornerRadius = UDim.new(0, 6)
+makeHoverable(DecompileCloseBtn, Color3.fromRGB(40, 100, 160), Color3.fromRGB(60, 140, 200))
+
+-- Copy button
+DecompileCopyBtn = Instance.new("TextButton")
+DecompileCopyBtn.Size = UDim2.new(0, 20, 0, 20)
+DecompileCopyBtn.Position = UDim2.new(1, -50, 0, 6)
+DecompileCopyBtn.BackgroundColor3 = Color3.fromRGB(30, 80, 60)
+DecompileCopyBtn.Text = "📋"
+DecompileCopyBtn.TextColor3 = Colors.text
+DecompileCopyBtn.TextSize = 10
+DecompileCopyBtn.Font = Enum.Font.GothamBold
+DecompileCopyBtn.AutoButtonColor = false
+DecompileCopyBtn.Parent = DecompileTopBar
+Instance.new("UICorner", DecompileCopyBtn).CornerRadius = UDim.new(0, 6)
+makeHoverable(DecompileCopyBtn, Color3.fromRGB(30, 80, 60), Color3.fromRGB(40, 120, 90))
+
+-- Status label
+DecompileStatusLabel = Instance.new("TextLabel")
+DecompileStatusLabel.Size = UDim2.new(1, -20, 0, 14)
+DecompileStatusLabel.Position = UDim2.new(0, 10, 0, 36)
+DecompileStatusLabel.BackgroundTransparency = 1
+DecompileStatusLabel.Text = "Searching..."
+DecompileStatusLabel.TextColor3 = Colors.textDim
+DecompileStatusLabel.TextSize = 9
+DecompileStatusLabel.Font = Enum.Font.Code
+DecompileStatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+DecompileStatusLabel.Parent = DecompilePanel
+
+-- Code scroll area (fundo estilo terminal)
+DecompileCodeScroll = Instance.new("ScrollingFrame")
+DecompileCodeScroll.Size = UDim2.new(1, -20, 1, -58)
+DecompileCodeScroll.Position = UDim2.new(0, 10, 0, 54)
+DecompileCodeScroll.BackgroundColor3 = Color3.fromRGB(4, 6, 10)
+DecompileCodeScroll.BorderSizePixel = 0
+DecompileCodeScroll.ScrollBarThickness = 4
+DecompileCodeScroll.ScrollBarImageColor3 = Color3.fromRGB(40, 100, 160)
+DecompileCodeScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+DecompileCodeScroll.Parent = DecompilePanel
+Instance.new("UICorner", DecompileCodeScroll).CornerRadius = UDim.new(0, 6)
+
+DecompileCodeLayout = Instance.new("UIListLayout")
+DecompileCodeLayout.Padding = UDim.new(0, 0)
+DecompileCodeLayout.Parent = DecompileCodeScroll
+
+DecompileCodePad = Instance.new("UIPadding", DecompileCodeScroll)
+DecompileCodePad.PaddingTop = UDim.new(0, 4)
+DecompileCodePad.PaddingLeft = UDim.new(0, 6)
+DecompileCodePad.PaddingRight = UDim.new(0, 4)
+
+-- Texto do decompile guardado aqui para copy
+decompileResultText = ""
+
+-- Função para popular o painel
+showDecompileResults = function(remoteName, results, checked)
+    -- Limpa
+    for _, c in pairs(DecompileCodeScroll:GetChildren()) do
+        if c:IsA("TextLabel") then c:Destroy() end
+    end
+
+    local lineCount = 0
+
+    local function addLine(text, color, bold)
+        lineCount = lineCount + 1
+        local lbl = Instance.new("TextLabel")
+        lbl.Size = UDim2.new(1, -4, 0, 13)
+        lbl.BackgroundTransparency = 1
+        lbl.Text = text
+        lbl.TextColor3 = color or Color3.fromRGB(160, 170, 180)
+        lbl.TextSize = 9
+        lbl.Font = bold and Enum.Font.GothamBold or Enum.Font.Code
+        lbl.TextXAlignment = Enum.TextXAlignment.Left
+        lbl.TextTruncate = Enum.TextTruncate.AtEnd
+        lbl.LayoutOrder = lineCount
+        lbl.Parent = DecompileCodeScroll
+    end
+
+    if #results == 0 then
+        addLine("No scripts reference '" .. remoteName .. "'", Color3.fromRGB(200, 100, 60), true)
+        DecompileStatusLabel.Text = "No results — checked " .. checked .. " scripts"
+        DecompileStatusLabel.TextColor3 = Color3.fromRGB(200, 100, 60)
+    else
+        DecompileStatusLabel.Text = "Found in " .. #results .. " scripts — " .. checked .. " checked"
+        DecompileStatusLabel.TextColor3 = Color3.fromRGB(80, 200, 120)
+
+        -- Monta texto para copy
+        local copyLines = {"-- Decompile: " .. remoteName, ""}
+        for _, f in ipairs(results) do
+            addLine("═══ " .. f.script .. " ═══", Color3.fromRGB(80, 160, 220), true)
+            table.insert(copyLines, "-- ═══ " .. f.script .. " ═══")
+            addLine("", nil, false)
+            for _, l in ipairs(f.lines) do
+                addLine("  " .. l, Color3.fromRGB(180, 220, 160), false)
+                table.insert(copyLines, l)
+            end
+            addLine("", nil, false)
+            table.insert(copyLines, "")
+        end
+        decompileResultText = table.concat(copyLines, "\n")
+    end
+
+    DecompileCodeScroll.CanvasSize = UDim2.new(0, 0, 0, lineCount * 13)
+    DecompileTitle.Text = "📜 Decompile: " .. remoteName
+    DecompilePanel.Visible = true
+end
+
 
 --[[ ═══════ MODULE: 09e_chatspy_panel.luau ═══════ ]]
 
@@ -4240,6 +4404,7 @@ makeDraggable(ShadowPanel, ShadowPanelTopBar)
 makeDraggable(TrollPanel, TrollPanelTopBar)
 makeDraggable(RemoteSpyPanel, RemoteSpyTopBar)
 makeDraggable(ChatSpyPanel, ChatSpyTopBar)
+makeDraggable(DecompilePanel, DecompileTopBar)
 
 
 --[[ ═══════ MODULE: 15_animations.luau ═══════ ]]
@@ -7915,7 +8080,55 @@ startRemoteSpy = function()
             end
         end
 
-        -- ═══ Estratégia B: Hook direto FireServer/InvokeServer (sem getnamecallmethod) ═══
+        -- ═══ Estratégia B: hookmetamethod __namecall SEM getnamecallmethod (Xeno) ═══
+        if not hookOk and _hookMeta then
+            pcall(function()
+                local inHook = false
+                local orig
+                orig = _hookMeta(game, "__namecall", function(self, ...)
+                    if inHook then return orig(self, ...) end
+                    inHook = true
+                    local isRE, isRF = false, false
+                    pcall(function()
+                        isRE = self:IsA("RemoteEvent")
+                        if not isRE then isRF = self:IsA("RemoteFunction") end
+                    end)
+                    if isRE or isRF then
+                        local method = isRE and "FireServer" or "InvokeServer"
+                        local remotePath = "?"
+                        pcall(function() remotePath = self:GetFullName() end)
+                        remoteCallCounts[remotePath] = (remoteCallCounts[remotePath] or 0) + 1
+                        if blockedRemotes[remotePath] then inHook = false return nil end
+                        if remoteSpyActive then
+                            local caller = ""
+                            pcall(function()
+                                if _getCaller then local cs = _getCaller() if cs then caller = cs:GetFullName() end end
+                            end)
+                            local entry = {
+                                time = os.clock(), name = "?", path = remotePath,
+                                method = method, args = {...}, caller = caller, returnValue = nil,
+                            }
+                            pcall(function() entry.name = self.Name end)
+                            local result = orig(self, ...)
+                            if isRF then pcall(function() entry.returnValue = tostring(result) end) end
+                            table.insert(remoteSpyLog, entry)
+                            if #remoteSpyLog > 200 then table.remove(remoteSpyLog, 1) end
+                            pcall(function() refreshRemoteSpyLog() end)
+                            inHook = false
+                            return result
+                        end
+                    end
+                    inHook = false
+                    return orig(self, ...)
+                end)
+                if orig then
+                    remoteSpyHook = orig
+                    hookOk = true
+                end
+            end)
+        end
+
+        -- ═══ Estratégia C: Hook direto FireServer/InvokeServer (fallback) ═══
         if not hookOk and _hookFn then
             pcall(function()
                 local tmpRE = Instance.new("RemoteEvent")
@@ -8307,6 +8520,15 @@ decompileForRemote = function()
 
     notify("📜 Decompiling for: " .. remoteName .. "...", "info")
 
+    -- Abre painel com status "buscando..."
+    DecompileStatusLabel.Text = "Searching " .. remoteName .. "..."
+    DecompileStatusLabel.TextColor3 = Color3.fromRGB(200, 200, 100)
+    DecompileTitle.Text = "📜 Decompile: " .. remoteName
+    for _, c in pairs(DecompileCodeScroll:GetChildren()) do
+        if c:IsA("TextLabel") then c:Destroy() end
+    end
+    DecompilePanel.Visible = true
+
     task.spawn(function()
         local scripts = {}
         pcall(function()
@@ -8341,36 +8563,16 @@ decompileForRemote = function()
                 end
             end)
             if #found >= 15 then break end
-            if checked % 10 == 0 then task.wait() end
-        end
-
-        if #found == 0 then
-            notify("No scripts reference '" .. remoteName .. "'", "warning")
-            return
-        end
-
-        local lines = {
-            "-- ═══ Decompile Results ═══",
-            "-- Remote: " .. remoteName,
-            "-- Checked: " .. checked .. " scripts",
-            "-- Found in: " .. #found .. " scripts",
-            "",
-        }
-        for _, f in ipairs(found) do
-            table.insert(lines, "-- ═══ " .. f.script .. " ═══")
-            for _, l in ipairs(f.lines) do
-                table.insert(lines, "--   " .. l)
+            if checked % 5 == 0 then
+                pcall(function()
+                    DecompileStatusLabel.Text = "Checking... " .. checked .. "/" .. #scripts .. " scripts"
+                end)
+                task.wait()
             end
-            table.insert(lines, "")
         end
 
-        local text = table.concat(lines, "\n")
-        pcall(function()
-            if setclipboard then setclipboard(text)
-            elseif toclipboard then toclipboard(text) end
-        end)
-
-        notify("Found in " .. #found .. " scripts — copied!", "success")
+        -- Mostra resultados no painel
+        showDecompileResults(remoteName, found, checked)
     end)
 end
 
@@ -10633,6 +10835,18 @@ RemoteSpyDecompileBtn.MouseButton1Click:Connect(function()
     decompileForRemote()
 end)
 
+DecompileCloseBtn.MouseButton1Click:Connect(function()
+    DecompilePanel.Visible = false
+end)
+
+DecompileCopyBtn.MouseButton1Click:Connect(function()
+    pcall(function()
+        if setclipboard then setclipboard(decompileResultText)
+        elseif toclipboard then toclipboard(decompileResultText) end
+    end)
+    notify("Decompile results copied!", "success")
+end)
+
 RemoteSpyToggleBtn.MouseButton1Click:Connect(function()
     if remoteSpyActive then
         stopRemoteSpy()
@@ -10880,6 +11094,7 @@ CloseBtn.MouseButton1Click:Connect(function()
     stopRemoteSpy()
     if autoRepeatActive then stopAutoRepeat() end
     RemoteSpyPanel.Visible = false
+    DecompilePanel.Visible = false
     stopChatSpy()
     ChatSpyPanel.Visible = false
     if antiAfkActive then stopAntiAfk() end
