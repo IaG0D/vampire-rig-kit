@@ -8530,20 +8530,36 @@ decompileForRemote = function()
     DecompilePanel.Visible = true
 
     task.spawn(function()
-        local scripts = {}
+        -- Prioriza scripts que contem o nome do remote no Name ou FullName
+        local priority = {}
+        local others = {}
         pcall(function()
             for _, obj in pairs(game:GetDescendants()) do
                 if obj:IsA("LocalScript") or obj:IsA("ModuleScript") then
-                    table.insert(scripts, obj)
+                    local name = ""
+                    pcall(function() name = obj:GetFullName() end)
+                    if name:find(remoteName, 1, true) or obj.Name:find(remoteName, 1, true) then
+                        table.insert(priority, obj)
+                    else
+                        table.insert(others, obj)
+                    end
                 end
             end
         end)
 
+        -- Junta: primeiro os prioritários, depois o resto (max 300)
+        local scripts = {}
+        for _, s in ipairs(priority) do table.insert(scripts, s) end
+        local cap = 300 - #priority
+        for i = 1, math.min(cap, #others) do table.insert(scripts, others[i]) end
+
         local found = {}
         local checked = 0
+        local deadline = os.clock() + 60 -- timeout global 60s
         for _, scr in ipairs(scripts) do
+            if os.clock() > deadline then break end
             checked = checked + 1
-            pcall(function()
+            local ok = pcall(function()
                 local source = _decompile(scr)
                 if source and source:find(remoteName, 1, true) then
                     local context = {}
@@ -8553,6 +8569,7 @@ decompileForRemote = function()
                         if line:find(remoteName, 1, true) then
                             table.insert(context, "L" .. lineNum .. ": " .. line:sub(1, 120))
                         end
+                        if lineNum > 5000 then break end -- pula scripts enormes
                     end
                     if #context > 0 then
                         table.insert(found, {
@@ -8563,9 +8580,10 @@ decompileForRemote = function()
                 end
             end)
             if #found >= 15 then break end
-            if checked % 5 == 0 then
+            if checked % 3 == 0 then
                 pcall(function()
-                    DecompileStatusLabel.Text = "Checking... " .. checked .. "/" .. #scripts .. " scripts"
+                    DecompileStatusLabel.Text = "Checking... " .. checked .. "/" .. #scripts
+                        .. " | Found: " .. #found
                 end)
                 task.wait()
             end
