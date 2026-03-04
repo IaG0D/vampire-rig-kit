@@ -122,7 +122,7 @@ TrollBtnScroll.BackgroundTransparency = 1
 TrollBtnScroll.BorderSizePixel = 0
 TrollBtnScroll.ScrollBarThickness = 4
 TrollBtnScroll.ScrollBarImageColor3 = Colors.blood
-TrollBtnScroll.CanvasSize = UDim2.new(0, 0, 0, 756)
+TrollBtnScroll.CanvasSize = UDim2.new(0, 0, 0, 844)
 TrollBtnScroll.Parent = TrollPanel
 
 --==================================================
@@ -222,6 +222,15 @@ TrollLapSitBtn = createTrollBtn(TrollBtnScroll, "💺 LAP SIT", 664, 1, Color3.f
 
 -- Row 17 (y=708)
 TrollWaveBtn = createTrollBtn(TrollBtnScroll, "🌊 WAVE", 708, 0, Color3.fromRGB(40, 120, 180))
+TrollParasiteBtn = createTrollBtn(TrollBtnScroll, "🦠 PARASITE", 708, 1, Color3.fromRGB(100, 200, 60))
+
+-- Row 18 (y=752)
+TrollStalkBtn = createTrollBtn(TrollBtnScroll, "👁 STALK", 752, 0, Color3.fromRGB(60, 60, 80))
+TrollPushBtn = createTrollBtn(TrollBtnScroll, "🤜 PUSH", 752, 1, Color3.fromRGB(200, 120, 40))
+
+-- Row 19 (y=796)
+TrollSwapBtn = createTrollBtn(TrollBtnScroll, "🔀 SWAP", 796, 0, Color3.fromRGB(40, 160, 160))
+TrollJailBtn = createTrollBtn(TrollBtnScroll, "🔒 JAIL", 796, 1, Color3.fromRGB(180, 0, 0))
 
 --==================================================
 -- TROLL SPEED SLIDER

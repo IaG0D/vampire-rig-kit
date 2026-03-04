@@ -540,6 +540,26 @@ TrollWaveBtn.MouseButton1Click:Connect(function()
     if trollTarget then wavePlayer(trollTarget) end
 end)
 
+TrollParasiteBtn.MouseButton1Click:Connect(function()
+    if trollTarget then parasitePlayer(trollTarget) end
+end)
+
+TrollStalkBtn.MouseButton1Click:Connect(function()
+    if trollTarget then stalkPlayer(trollTarget) end
+end)
+
+TrollPushBtn.MouseButton1Click:Connect(function()
+    if trollTarget then pushPlayer(trollTarget) end
+end)
+
+TrollSwapBtn.MouseButton1Click:Connect(function()
+    if trollTarget then swapPlayer(trollTarget) end
+end)
+
+TrollJailBtn.MouseButton1Click:Connect(function()
+    if trollTarget then jailPlayer(trollTarget) end
+end)
+
 TrollStopBtn.MouseButton1Click:Connect(function()
     stopTroll()
     notify("Troll stopped", "info")
@@ -953,6 +973,17 @@ CloseBtn.MouseButton1Click:Connect(function()
         toggleInfiniteJump()
     end
     if movementState.freecam then stopFreecam() end
+    -- Remove nametag
+    pcall(function()
+        local char = LP.Character
+        if char then
+            local head = char:FindFirstChild("Head")
+            if head then
+                local tag = head:FindFirstChild("VampNametag")
+                if tag then tag:Destroy() end
+            end
+        end
+    end)
     -- Reset speed
     movementState.speed = 16
     movementState.jumpPower = 50

@@ -210,6 +210,8 @@ trollConnection = nil
 trollTarget = nil
 trollSpeedMul = 1
 trollSavedCFrame = nil
+trollSitTrack = nil
+trollJailParts = {}
 
 -- Remote spy state
 remoteSpyActive = false

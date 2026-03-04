@@ -222,13 +222,42 @@ stopFreecam = function()
     end
 
     local cam = workspace.CurrentCamera
+
+    -- Sempre restaurar mouse primeiro (evita ficar travado)
+    UIS.MouseBehavior = Enum.MouseBehavior.Default
+    UIS.MouseIconEnabled = true
+
     if savedCameraState then
-        cam.CameraType = savedCameraState.ctype
-        cam.CameraSubject = savedCameraState.subject
-        UIS.MouseBehavior = savedCameraState.mouseBehavior
-        UIS.MouseIconEnabled = savedCameraState.mouseIcon
+        -- Verifica se o subject salvo ainda é valido
+        local subject = savedCameraState.subject
+        local subjectValid = false
+        pcall(function()
+            subjectValid = subject and subject.Parent ~= nil
+        end)
+
+        if subjectValid then
+            cam.CameraSubject = subject
+        else
+            -- Subject morreu/respawnou — usa humanoid atual
+            local newChar = LP.Character
+            local newHum = newChar and newChar:FindFirstChildOfClass("Humanoid")
+            if newHum then
+                cam.CameraSubject = newHum
+            end
+        end
+
+        cam.CameraType = Enum.CameraType.Custom
         savedCameraState = nil
+    else
+        -- Fallback: restaura camera pro character atual
+        local newChar = LP.Character
+        local newHum = newChar and newChar:FindFirstChildOfClass("Humanoid")
+        if newHum then
+            cam.CameraSubject = newHum
+        end
+        cam.CameraType = Enum.CameraType.Custom
     end
+
     notify("Freecam OFF", "info")
     log("Freecam OFF")
 end

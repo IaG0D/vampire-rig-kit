@@ -368,8 +368,13 @@ updateESP = function()
         if p.Character then playerChars[p.Character] = p end
     end
 
+    -- Checa se alguma feature precisa de players (tracers, skeleton, etc.)
+    local needsPlayers = espState.players or espState.tracers or espState.skeleton
+        or espState.headDot or espState.threatLevel or espState.toolESP
+        or espState.healthBars or espState.boxESP or espState.chams
+
     -- Players
-    if espState.players then
+    if needsPlayers then
         for _, player in pairs(Players:GetPlayers()) do
             if player ~= LP then
                 local char = player.Character
@@ -533,13 +538,7 @@ startFootsteps = function()
     espState.footsteps = true
     FootstepsToggle.refresh()
 
-    -- Track player positions every 0.5s and leave marks
-    footstepConnection = RunService.Heartbeat:Connect(function()
-        -- Throttle: only every ~0.5s
-        if not footstepConnection then return end
-    end)
-
-    -- Use a separate task loop for mark placement
+    -- Task loop para colocar marcas a cada 0.5s
     footstepConnection = task.spawn(function()
         while espState.footsteps do
             for _, player in ipairs(Players:GetPlayers()) do
