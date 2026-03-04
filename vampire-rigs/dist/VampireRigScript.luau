@@ -7653,92 +7653,122 @@ startRemoteSpy = function()
 
     -- So instala hook uma vez (evita double-hook)
     if not remoteSpyHook then
-        -- Checa se executor suporta
-        if not hookmetamethod then
+        -- Resolve funções do executor com fallbacks
+        local _getMethod = getnamecallmethod
+        local _wrap = newcclosure or clonefunction
+
+        if not _getMethod then
             remoteSpyActive = false
-            notify("hookmetamethod not supported", "error")
-            return false
-        end
-        if not getnamecallmethod then
-            remoteSpyActive = false
-            notify("getnamecallmethod not supported", "error")
-            return false
-        end
-        if not newcclosure then
-            remoteSpyActive = false
-            notify("newcclosure not supported", "error")
+            notify("getnamecallmethod not available", "error")
             return false
         end
 
-        pcall(function()
-            remoteSpyHook = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
-                local method = getnamecallmethod()
-                if method == "FireServer" or method == "InvokeServer" then
-                    local isRemote = false
-                    pcall(function()
-                        isRemote = self:IsA("RemoteEvent") or self:IsA("RemoteFunction")
-                    end)
-                    if isRemote then
-                        local remotePath = "?"
-                        pcall(function() remotePath = self:GetFullName() end)
+        -- Hook function compartilhada
+        local function spyHookFn(self, ...)
+            local method = _getMethod()
+            if method == "FireServer" or method == "InvokeServer" then
+                local isRemote = false
+                pcall(function()
+                    isRemote = self:IsA("RemoteEvent") or self:IsA("RemoteFunction")
+                end)
+                if isRemote then
+                    local remotePath = "?"
+                    pcall(function() remotePath = self:GetFullName() end)
 
-                        -- Call counter (sempre ativo)
-                        remoteCallCounts[remotePath] = (remoteCallCounts[remotePath] or 0) + 1
+                    -- Call counter (sempre ativo)
+                    remoteCallCounts[remotePath] = (remoteCallCounts[remotePath] or 0) + 1
 
-                        -- Block check (sempre ativo)
-                        if blockedRemotes[remotePath] then
-                            return nil
-                        end
+                    -- Block check (sempre ativo)
+                    if blockedRemotes[remotePath] then
+                        return nil
+                    end
 
-                        -- Log apenas se spy ativo
-                        if remoteSpyActive then
-                            -- Caller script
-                            local caller = ""
+                    -- Log apenas se spy ativo
+                    if remoteSpyActive then
+                        -- Caller script
+                        local caller = ""
+                        pcall(function()
+                            if getcallingscript then
+                                local cs = getcallingscript()
+                                if cs then caller = cs:GetFullName() end
+                            end
+                        end)
+
+                        local entry = {
+                            time = os.clock(),
+                            name = "?",
+                            path = remotePath,
+                            method = method,
+                            args = {...},
+                            caller = caller,
+                            returnValue = nil,
+                        }
+                        pcall(function() entry.name = self.Name end)
+
+                        -- Call original e captura retorno
+                        local result = remoteSpyHook(self, ...)
+
+                        -- Return logger (InvokeServer)
+                        if method == "InvokeServer" then
                             pcall(function()
-                                if getcallingscript then
-                                    local cs = getcallingscript()
-                                    if cs then caller = cs:GetFullName() end
-                                end
+                                entry.returnValue = tostring(result)
                             end)
-
-                            local entry = {
-                                time = os.clock(),
-                                name = "?",
-                                path = remotePath,
-                                method = method,
-                                args = {...},
-                                caller = caller,
-                                returnValue = nil,
-                            }
-                            pcall(function() entry.name = self.Name end)
-
-                            -- Call original e captura retorno
-                            local result = remoteSpyHook(self, ...)
-
-                            -- Return logger (InvokeServer)
-                            if method == "InvokeServer" then
-                                pcall(function()
-                                    entry.returnValue = tostring(result)
-                                end)
-                            end
-
-                            table.insert(remoteSpyLog, entry)
-                            if #remoteSpyLog > 200 then
-                                table.remove(remoteSpyLog, 1)
-                            end
-                            pcall(function() refreshRemoteSpyLog() end)
-
-                            return result
                         end
+
+                        table.insert(remoteSpyLog, entry)
+                        if #remoteSpyLog > 200 then
+                            table.remove(remoteSpyLog, 1)
+                        end
+                        pcall(function() refreshRemoteSpyLog() end)
+
+                        return result
                     end
                 end
-                return remoteSpyHook(self, ...)
-            end))
-        end)
+            end
+            return remoteSpyHook(self, ...)
+        end
 
-        if not remoteSpyHook then
+        -- Wrap se possivel (previne detecção)
+        local wrappedHook = _wrap and _wrap(spyHookFn) or spyHookFn
+
+        local hookOk = false
+
+        -- Metodo 1: hookmetamethod (preferido)
+        if hookmetamethod then
+            pcall(function()
+                remoteSpyHook = hookmetamethod(game, "__namecall", wrappedHook)
+                if remoteSpyHook then hookOk = true end
+            end)
+        end
+
+        -- Metodo 2: getrawmetatable + setreadonly (fallback)
+        if not hookOk and getrawmetatable then
+            pcall(function()
+                local mt = getrawmetatable(game)
+                local oldNamecall = mt.__namecall
+                remoteSpyHook = oldNamecall
+                if setreadonly then setreadonly(mt, false) end
+                mt.__namecall = wrappedHook
+                if setreadonly then setreadonly(mt, true) end
+                hookOk = true
+            end)
+        end
+
+        -- Metodo 3: hookfunction direto (outro fallback)
+        if not hookOk and hookfunction then
+            pcall(function()
+                local mt = getrawmetatable and getrawmetatable(game)
+                if mt and mt.__namecall then
+                    remoteSpyHook = hookfunction(mt.__namecall, wrappedHook)
+                    hookOk = true
+                end
+            end)
+        end
+
+        if not hookOk then
+            remoteSpyHook = nil
             remoteSpyActive = false
-            notify("Failed to hook __namecall", "error")
+            notify("Hook failed — executor not supported", "error")
             return false
         end
     end
