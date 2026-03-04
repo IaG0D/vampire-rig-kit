@@ -8,7 +8,7 @@ selectedFireRemote = nil
 
 RemoteSpyPanel = Instance.new("Frame")
 RemoteSpyPanel.Name = "RemoteSpyPanel"
-RemoteSpyPanel.Size = UDim2.new(0, 280, 0, 720)
+RemoteSpyPanel.Size = UDim2.new(0, 280, 0, 710)
 RemoteSpyPanel.Position = UDim2.new(0.5, -400, 0.5, -360)
 RemoteSpyPanel.BackgroundColor3 = Colors.bg
 RemoteSpyPanel.BorderSizePixel = 0
@@ -216,14 +216,46 @@ addBtnGradient(RemoteSpyMassFireBtn)
 makeHoverable(RemoteSpyMassFireBtn, Color3.fromRGB(160, 30, 30), Color3.fromRGB(200, 50, 50))
 
 --==================================================
+-- FUZZ + DECOMPILE ROW
+--==================================================
+
+RemoteSpyFuzzBtn = Instance.new("TextButton")
+RemoteSpyFuzzBtn.Size = UDim2.new(0.5, -12, 0, 26)
+RemoteSpyFuzzBtn.Position = UDim2.new(0, 10, 0, 318)
+RemoteSpyFuzzBtn.BackgroundColor3 = Color3.fromRGB(120, 60, 180)
+RemoteSpyFuzzBtn.Text = "🧪 FUZZ"
+RemoteSpyFuzzBtn.TextColor3 = Colors.text
+RemoteSpyFuzzBtn.TextSize = 10
+RemoteSpyFuzzBtn.Font = Enum.Font.GothamBold
+RemoteSpyFuzzBtn.AutoButtonColor = false
+RemoteSpyFuzzBtn.Parent = RemoteSpyPanel
+Instance.new("UICorner", RemoteSpyFuzzBtn).CornerRadius = UDim.new(0, 6)
+addBtnGradient(RemoteSpyFuzzBtn)
+makeHoverable(RemoteSpyFuzzBtn, Color3.fromRGB(120, 60, 180), Color3.fromRGB(160, 80, 220))
+
+RemoteSpyDecompileBtn = Instance.new("TextButton")
+RemoteSpyDecompileBtn.Size = UDim2.new(0.5, -12, 0, 26)
+RemoteSpyDecompileBtn.Position = UDim2.new(0.5, 2, 0, 318)
+RemoteSpyDecompileBtn.BackgroundColor3 = Color3.fromRGB(40, 100, 160)
+RemoteSpyDecompileBtn.Text = "📜 DECOMPILE"
+RemoteSpyDecompileBtn.TextColor3 = Colors.text
+RemoteSpyDecompileBtn.TextSize = 10
+RemoteSpyDecompileBtn.Font = Enum.Font.GothamBold
+RemoteSpyDecompileBtn.AutoButtonColor = false
+RemoteSpyDecompileBtn.Parent = RemoteSpyPanel
+Instance.new("UICorner", RemoteSpyDecompileBtn).CornerRadius = UDim.new(0, 6)
+addBtnGradient(RemoteSpyDecompileBtn)
+makeHoverable(RemoteSpyDecompileBtn, Color3.fromRGB(40, 100, 160), Color3.fromRGB(60, 140, 200))
+
+--==================================================
 -- SPY SECTION
 --==================================================
 
-addAccentLine(RemoteSpyPanel, UDim2.new(0, 10, 0, 320), Color3.fromRGB(0, 180, 160), UDim2.new(1, -20, 0, 1))
+addAccentLine(RemoteSpyPanel, UDim2.new(0, 10, 0, 352), Color3.fromRGB(0, 180, 160), UDim2.new(1, -20, 0, 1))
 
 RemoteSpyToggleBtn = Instance.new("TextButton")
 RemoteSpyToggleBtn.Size = UDim2.new(1, -20, 0, 28)
-RemoteSpyToggleBtn.Position = UDim2.new(0, 10, 0, 328)
+RemoteSpyToggleBtn.Position = UDim2.new(0, 10, 0, 360)
 RemoteSpyToggleBtn.BackgroundColor3 = Color3.fromRGB(40, 80, 70)
 RemoteSpyToggleBtn.Text = "🕵 START SPY"
 RemoteSpyToggleBtn.TextColor3 = Colors.text
@@ -237,7 +269,7 @@ makeHoverable(RemoteSpyToggleBtn, Color3.fromRGB(40, 80, 70), Color3.fromRGB(0, 
 
 RemoteSpyStatusLabel = Instance.new("TextLabel")
 RemoteSpyStatusLabel.Size = UDim2.new(1, -20, 0, 14)
-RemoteSpyStatusLabel.Position = UDim2.new(0, 10, 0, 360)
+RemoteSpyStatusLabel.Position = UDim2.new(0, 10, 0, 392)
 RemoteSpyStatusLabel.BackgroundTransparency = 1
 RemoteSpyStatusLabel.Text = "Spy: OFF"
 RemoteSpyStatusLabel.TextColor3 = Colors.textDim
@@ -248,7 +280,7 @@ RemoteSpyStatusLabel.Parent = RemoteSpyPanel
 
 RemoteSpyLogFilterBox = Instance.new("TextBox")
 RemoteSpyLogFilterBox.Size = UDim2.new(1, -20, 0, 22)
-RemoteSpyLogFilterBox.Position = UDim2.new(0, 10, 0, 378)
+RemoteSpyLogFilterBox.Position = UDim2.new(0, 10, 0, 410)
 RemoteSpyLogFilterBox.BackgroundColor3 = Colors.content
 RemoteSpyLogFilterBox.Text = ""
 RemoteSpyLogFilterBox.PlaceholderText = "Search spy log..."
@@ -265,7 +297,7 @@ Instance.new("UIPadding", RemoteSpyLogFilterBox).PaddingLeft = UDim.new(0, 6)
 -- Spy log scroll
 RemoteSpyLogScroll = Instance.new("ScrollingFrame")
 RemoteSpyLogScroll.Size = UDim2.new(1, -20, 0, 150)
-RemoteSpyLogScroll.Position = UDim2.new(0, 10, 0, 404)
+RemoteSpyLogScroll.Position = UDim2.new(0, 10, 0, 436)
 RemoteSpyLogScroll.BackgroundColor3 = Color3.fromRGB(10, 14, 14)
 RemoteSpyLogScroll.BorderSizePixel = 0
 RemoteSpyLogScroll.ScrollBarThickness = 3
@@ -286,9 +318,9 @@ RemoteSpyLogPad.PaddingRight = UDim.new(0, 3)
 -- Hint label
 RemoteSpyLogHint = Instance.new("TextLabel")
 RemoteSpyLogHint.Size = UDim2.new(1, -20, 0, 12)
-RemoteSpyLogHint.Position = UDim2.new(0, 10, 0, 556)
+RemoteSpyLogHint.Position = UDim2.new(0, 10, 0, 588)
 RemoteSpyLogHint.BackgroundTransparency = 1
-RemoteSpyLogHint.Text = "💡 Click log entry → copy script to clipboard"
+RemoteSpyLogHint.Text = "💡 Click entry → copy script + auto-fill args"
 RemoteSpyLogHint.TextColor3 = Color3.fromRGB(80, 80, 90)
 RemoteSpyLogHint.TextSize = 8
 RemoteSpyLogHint.Font = Enum.Font.Gotham
@@ -299,11 +331,11 @@ RemoteSpyLogHint.Parent = RemoteSpyPanel
 -- AUTO-REPEAT SECTION
 --==================================================
 
-addAccentLine(RemoteSpyPanel, UDim2.new(0, 10, 0, 572), Color3.fromRGB(120, 60, 180), UDim2.new(1, -20, 0, 1))
+addAccentLine(RemoteSpyPanel, UDim2.new(0, 10, 0, 604), Color3.fromRGB(120, 60, 180), UDim2.new(1, -20, 0, 1))
 
 RemoteSpyRepeatLabel = Instance.new("TextLabel")
 RemoteSpyRepeatLabel.Size = UDim2.new(0, 48, 0, 22)
-RemoteSpyRepeatLabel.Position = UDim2.new(0, 10, 0, 580)
+RemoteSpyRepeatLabel.Position = UDim2.new(0, 10, 0, 612)
 RemoteSpyRepeatLabel.BackgroundTransparency = 1
 RemoteSpyRepeatLabel.Text = "Repeat:"
 RemoteSpyRepeatLabel.TextColor3 = Colors.textDim
@@ -315,7 +347,7 @@ RemoteSpyRepeatLabel.Parent = RemoteSpyPanel
 -- Interval box
 RemoteSpyIntervalBox = Instance.new("TextBox")
 RemoteSpyIntervalBox.Size = UDim2.new(0, 50, 0, 22)
-RemoteSpyIntervalBox.Position = UDim2.new(0, 60, 0, 580)
+RemoteSpyIntervalBox.Position = UDim2.new(0, 60, 0, 612)
 RemoteSpyIntervalBox.BackgroundColor3 = Colors.inputBg
 RemoteSpyIntervalBox.Text = "1"
 RemoteSpyIntervalBox.PlaceholderText = "sec"
@@ -329,7 +361,7 @@ Instance.new("UICorner", RemoteSpyIntervalBox).CornerRadius = UDim.new(0, 4)
 
 RemoteSpyRepeatXLabel = Instance.new("TextLabel")
 RemoteSpyRepeatXLabel.Size = UDim2.new(0, 16, 0, 22)
-RemoteSpyRepeatXLabel.Position = UDim2.new(0, 113, 0, 580)
+RemoteSpyRepeatXLabel.Position = UDim2.new(0, 113, 0, 612)
 RemoteSpyRepeatXLabel.BackgroundTransparency = 1
 RemoteSpyRepeatXLabel.Text = "x"
 RemoteSpyRepeatXLabel.TextColor3 = Colors.textDim
@@ -340,7 +372,7 @@ RemoteSpyRepeatXLabel.Parent = RemoteSpyPanel
 -- Count box (0 = infinite)
 RemoteSpyCountBox = Instance.new("TextBox")
 RemoteSpyCountBox.Size = UDim2.new(0, 40, 0, 22)
-RemoteSpyCountBox.Position = UDim2.new(0, 130, 0, 580)
+RemoteSpyCountBox.Position = UDim2.new(0, 130, 0, 612)
 RemoteSpyCountBox.BackgroundColor3 = Colors.inputBg
 RemoteSpyCountBox.Text = "10"
 RemoteSpyCountBox.PlaceholderText = "0=∞"
@@ -355,7 +387,7 @@ Instance.new("UICorner", RemoteSpyCountBox).CornerRadius = UDim.new(0, 4)
 -- Repeat button
 RemoteSpyRepeatBtn = Instance.new("TextButton")
 RemoteSpyRepeatBtn.Size = UDim2.new(0, 90, 0, 22)
-RemoteSpyRepeatBtn.Position = UDim2.new(1, -100, 0, 580)
+RemoteSpyRepeatBtn.Position = UDim2.new(1, -100, 0, 612)
 RemoteSpyRepeatBtn.BackgroundColor3 = Color3.fromRGB(80, 40, 120)
 RemoteSpyRepeatBtn.Text = "▶ REPEAT"
 RemoteSpyRepeatBtn.TextColor3 = Colors.text
@@ -373,7 +405,7 @@ makeHoverable(RemoteSpyRepeatBtn, Color3.fromRGB(80, 40, 120), Color3.fromRGB(11
 -- Row: [EXPORT] [CLEAR]
 RemoteSpyExportBtn = Instance.new("TextButton")
 RemoteSpyExportBtn.Size = UDim2.new(0.5, -12, 0, 26)
-RemoteSpyExportBtn.Position = UDim2.new(0, 10, 0, 612)
+RemoteSpyExportBtn.Position = UDim2.new(0, 10, 0, 644)
 RemoteSpyExportBtn.BackgroundColor3 = Color3.fromRGB(0, 100, 140)
 RemoteSpyExportBtn.Text = "📋 EXPORT LOG"
 RemoteSpyExportBtn.TextColor3 = Colors.text
@@ -386,7 +418,7 @@ makeHoverable(RemoteSpyExportBtn, Color3.fromRGB(0, 100, 140), Color3.fromRGB(0,
 
 RemoteSpyClearBtn = Instance.new("TextButton")
 RemoteSpyClearBtn.Size = UDim2.new(0.5, -12, 0, 26)
-RemoteSpyClearBtn.Position = UDim2.new(0.5, 2, 0, 612)
+RemoteSpyClearBtn.Position = UDim2.new(0.5, 2, 0, 644)
 RemoteSpyClearBtn.BackgroundColor3 = Colors.warning
 RemoteSpyClearBtn.Text = "🗑 CLEAR"
 RemoteSpyClearBtn.TextColor3 = Colors.bg
@@ -400,7 +432,7 @@ makeHoverable(RemoteSpyClearBtn, Colors.warning, Color3.fromRGB(230, 180, 60))
 -- Row: [CLOSE]
 RemoteSpyCloseBottomBtn = Instance.new("TextButton")
 RemoteSpyCloseBottomBtn.Size = UDim2.new(1, -20, 0, 26)
-RemoteSpyCloseBottomBtn.Position = UDim2.new(0, 10, 0, 642)
+RemoteSpyCloseBottomBtn.Position = UDim2.new(0, 10, 0, 674)
 RemoteSpyCloseBottomBtn.BackgroundColor3 = Colors.bloodDark
 RemoteSpyCloseBottomBtn.Text = "🔴 CLOSE"
 RemoteSpyCloseBottomBtn.TextColor3 = Colors.text

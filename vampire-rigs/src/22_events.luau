@@ -704,6 +704,14 @@ RemoteSpyMassFireBtn.MouseButton1Click:Connect(function()
     massFireRemotes()
 end)
 
+RemoteSpyFuzzBtn.MouseButton1Click:Connect(function()
+    fuzzRemote()
+end)
+
+RemoteSpyDecompileBtn.MouseButton1Click:Connect(function()
+    decompileForRemote()
+end)
+
 RemoteSpyToggleBtn.MouseButton1Click:Connect(function()
     if remoteSpyActive then
         stopRemoteSpy()
