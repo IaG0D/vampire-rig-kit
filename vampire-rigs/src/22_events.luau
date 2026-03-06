@@ -876,6 +876,40 @@ do
 end
 
 --==================================================
+-- BACKPACK VIEWER EVENTS
+--==================================================
+
+BackpackCloseX.MouseButton1Click:Connect(function()
+    BackpackPanel.Visible = false
+end)
+
+BackpackCloseBtn.MouseButton1Click:Connect(function()
+    BackpackPanel.Visible = false
+end)
+
+BackpackRefreshBtn.MouseButton1Click:Connect(function()
+    if backpackTarget then
+        scanBackpack(backpackTarget)
+        refreshBackpackList()
+        notify("Backpack refreshed", "info")
+    end
+end)
+
+-- Backpack filter debounce
+do
+    local bpFilterTimer = nil
+    BackpackFilterBox:GetPropertyChangedSignal("Text"):Connect(function()
+        if bpFilterTimer then
+            task.cancel(bpFilterTimer)
+        end
+        bpFilterTimer = task.delay(0.3, function()
+            bpFilterTimer = nil
+            refreshBackpackList()
+        end)
+    end)
+end
+
+--==================================================
 -- DEATH BALL EVENTS
 --==================================================
 
@@ -1121,6 +1155,7 @@ CloseBtn.MouseButton1Click:Connect(function()
     DeathBallPanel.Visible = false
     stopChatSpy()
     ChatSpyPanel.Visible = false
+    BackpackPanel.Visible = false
     if antiAfkActive then stopAntiAfk() end
     clearPlayerInfo()
     playerInfoActive = false

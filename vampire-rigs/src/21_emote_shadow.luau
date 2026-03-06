@@ -2066,39 +2066,43 @@ isCharacterPart = function(obj)
     return ok and result
 end
 
--- AUTO-DETECT: acha QUALQUER objeto se movendo rápido (bola real)
--- Filtra: não-character, tamanho razoável, velocidade > threshold
+-- AUTO-DETECT: acha QUALQUER objeto se movendo (bola real)
+-- Usa delta position pra detectar bolas movidas por CFrame (sem physics)
 autoDetectBalls = function(hrp, range)
     local now = os.clock()
-    if now - deathBallCacheTime < 0.5 and #deathBallCache > 0 then
+    -- Cache curto (0.15s) pra não perder bola rápida
+    if now - deathBallCacheTime < 0.15 and #deathBallCache > 0 then
         return deathBallCache
     end
     local balls = {}
     pcall(function()
         for _, obj in pairs(workspace:GetDescendants()) do
             if obj:IsA("BasePart") and not obj:IsA("Terrain") then
-                local dist = (obj.Position - hrp.Position).Magnitude
-                if dist <= range * 3 then -- scan 3x o range
-                    -- Ignora partes de characters
+                local pos = obj.Position
+                local dist = (pos - hrp.Position).Magnitude
+                if dist <= 50 then -- scan amplo pra trackear bola vindo de longe
                     if not isCharacterPart(obj) then
-                        -- Checa se está se movendo (velocity do engine OU delta)
-                        local vel = obj.Velocity
-                        local speed = vel and vel.Magnitude or 0
-                        -- Também checa por delta position
-                        if speed < 2 then
+                        local size = obj.Size.Magnitude
+                        if size > 0.3 and size < 25 then
+                            -- Velocidade: engine velocity OU delta position
+                            local speed = 0
+                            local vel = obj.Velocity
+                            if vel then speed = vel.Magnitude end
+                            -- Delta position (detecta bolas movidas por CFrame)
                             local id = tostring(obj)
                             local prev = deathBallPrevPositions[id]
                             if prev then
                                 local dt = now - prev.time
-                                if dt > 0.01 then
-                                    speed = ((obj.Position - prev.pos) / dt).Magnitude
+                                if dt > 0.01 and dt < 1 then
+                                    local deltaSpeed = ((pos - prev.pos) / dt).Magnitude
+                                    if deltaSpeed > speed then speed = deltaSpeed end
                                 end
                             end
-                        end
-                        -- Bola = parte se movendo rápido + tamanho razoável (não muito grande nem tiny)
-                        local size = obj.Size.Magnitude
-                        if speed > 5 and size > 0.5 and size < 20 then
-                            table.insert(balls, obj)
+                            deathBallPrevPositions[id] = { pos = pos, time = now }
+                            -- Bola = qualquer coisa se movendo (threshold baixo: >2 m/s)
+                            if speed > 2 then
+                                table.insert(balls, obj)
+                            end
                         end
                     end
                 end

@@ -346,6 +346,23 @@ createResultCard = function(info)
         ShadowResultBtn.MouseButton1Click:Connect(function()
             openShadowPanel(info.player)
         end)
+
+        local BagResultBtn = Instance.new("TextButton")
+        BagResultBtn.Size = UDim2.new(0, 32, 0, 20)
+        BagResultBtn.Position = UDim2.new(0, 148, 1, -26)
+        BagResultBtn.BackgroundColor3 = Color3.fromRGB(200, 140, 40)
+        BagResultBtn.Text = "BAG"
+        BagResultBtn.TextColor3 = Colors.text
+        BagResultBtn.TextSize = 9
+        BagResultBtn.Font = Enum.Font.GothamBold
+        BagResultBtn.AutoButtonColor = false
+        BagResultBtn.Parent = Card
+        Instance.new("UICorner", BagResultBtn).CornerRadius = UDim.new(0, 4)
+        makeHoverable(BagResultBtn, Color3.fromRGB(200, 140, 40), Color3.fromRGB(240, 180, 60))
+
+        BagResultBtn.MouseButton1Click:Connect(function()
+            openBackpackPanel(info.player)
+        end)
     end
 
     JSONBtn.MouseButton1Click:Connect(function()
@@ -722,6 +739,24 @@ refreshPlayerList = function(filterText)
 
         trollBtn.MouseButton1Click:Connect(function()
             openTrollPanel(player)
+        end)
+
+        -- Backpack button
+        local bagBtn = Instance.new("TextButton")
+        bagBtn.Size = UDim2.new(0, 30, 0, 18)
+        bagBtn.Position = UDim2.new(1, -134, 0, 30)
+        bagBtn.BackgroundColor3 = Color3.fromRGB(200, 140, 40)
+        bagBtn.Text = "BAG"
+        bagBtn.TextColor3 = Colors.text
+        bagBtn.TextSize = 8
+        bagBtn.Font = Enum.Font.GothamBold
+        bagBtn.AutoButtonColor = false
+        bagBtn.Parent = card
+        Instance.new("UICorner", bagBtn).CornerRadius = UDim.new(0, 4)
+        makeHoverable(bagBtn, Color3.fromRGB(200, 140, 40), Color3.fromRGB(240, 180, 60))
+
+        bagBtn.MouseButton1Click:Connect(function()
+            openBackpackPanel(player)
         end)
         end -- if match
     end

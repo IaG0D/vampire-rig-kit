@@ -231,6 +231,10 @@ chatSpyActive = false
 chatSpyLog = {}
 chatSpyConnections = {}
 
+-- Backpack viewer state
+backpackTarget = nil
+backpackItems = {}
+
 -- Player info state
 playerInfoState = { active = false }
 playerInfoActive = false
