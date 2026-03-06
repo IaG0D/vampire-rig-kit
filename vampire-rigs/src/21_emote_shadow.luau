@@ -2440,6 +2440,164 @@ stopDeathBall = function()
 end
 
 --==================================================
+-- DEATH BALL OBJECT SCANNER (descobre nomes de partes)
+--==================================================
+
+deathBallScannerActive = false
+deathBallScannerObjects = {}
+deathBallScannerConn = nil
+
+-- Scan: cria billboards em TODOS os BaseParts num raio
+startObjectScanner = function()
+    if deathBallScannerActive then
+        stopObjectScanner()
+        return
+    end
+    deathBallScannerActive = true
+    local scanRange = tonumber(DeathBallScanRangeBox and DeathBallScanRangeBox.Text) or 50
+
+    DeathBallScanObjBtn.Text = "🔎 SCANNING... (click to stop)"
+    DeathBallScanObjBtn.BackgroundColor3 = Color3.fromRGB(40, 140, 60)
+    notify("Object Scanner ON — range " .. scanRange .. " studs", "success")
+
+    -- Lista para resultados
+    local foundNames = {}
+
+    deathBallScannerConn = RunService.Heartbeat:Connect(function()
+        if not deathBallScannerActive then return end
+
+        local char = LP.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
+
+        -- Limpa billboards antigos
+        for id, obj in pairs(deathBallScannerObjects) do
+            pcall(function()
+                if not obj.part or not obj.part.Parent then
+                    obj.gui:Destroy()
+                    deathBallScannerObjects[id] = nil
+                elseif (obj.part.Position - hrp.Position).Magnitude > scanRange then
+                    obj.gui:Destroy()
+                    deathBallScannerObjects[id] = nil
+                end
+            end)
+        end
+
+        -- Scan partes perto
+        pcall(function()
+            for _, obj in pairs(workspace:GetDescendants()) do
+                if obj:IsA("BasePart") and not obj:IsA("Terrain") then
+                    local id = tostring(obj)
+                    if not deathBallScannerObjects[id] then
+                        local dist = (obj.Position - hrp.Position).Magnitude
+                        if dist <= scanRange then
+                            -- Ignora partes do próprio character e de players
+                            local isChar = false
+                            pcall(function()
+                                for _, p in pairs(Players:GetPlayers()) do
+                                    if p.Character and obj:IsDescendantOf(p.Character) then
+                                        isChar = true
+                                        break
+                                    end
+                                end
+                            end)
+
+                            if not isChar then
+                                pcall(function()
+                                    local bb = Instance.new("BillboardGui")
+                                    bb.Name = "ObjScan"
+                                    bb.Size = UDim2.new(0, 160, 0, 44)
+                                    bb.StudsOffset = Vector3.new(0, 2, 0)
+                                    bb.AlwaysOnTop = true
+                                    bb.Adornee = obj
+                                    bb.Parent = CoreGui
+
+                                    local lbl = Instance.new("TextLabel")
+                                    lbl.Size = UDim2.new(1, 0, 1, 0)
+                                    lbl.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+                                    lbl.BackgroundTransparency = 0.4
+                                    lbl.TextColor3 = Color3.fromRGB(0, 255, 200)
+                                    lbl.TextSize = 9
+                                    lbl.Font = Enum.Font.Code
+                                    lbl.TextWrapped = true
+                                    lbl.TextStrokeTransparency = 0.5
+                                    lbl.RichText = true
+                                    lbl.Parent = bb
+                                    Instance.new("UICorner", lbl).CornerRadius = UDim.new(0, 4)
+
+                                    deathBallScannerObjects[id] = { gui = bb, label = lbl, part = obj }
+
+                                    -- Track unique names
+                                    if not foundNames[obj.Name] then
+                                        foundNames[obj.Name] = { class = obj.ClassName, count = 0 }
+                                    end
+                                    foundNames[obj.Name].count = foundNames[obj.Name].count + 1
+                                end)
+                            end
+                        end
+                    end
+                end
+            end
+        end)
+
+        -- Atualiza labels com info ao vivo
+        for id, data in pairs(deathBallScannerObjects) do
+            pcall(function()
+                if data.part and data.part.Parent and data.label then
+                    local d = (data.part.Position - hrp.Position).Magnitude
+                    local c = data.part.Color
+                    local vel = ""
+                    if data.part:IsA("BasePart") then
+                        local v = data.part.Velocity
+                        if v.Magnitude > 1 then
+                            vel = string.format(" <font color='#ff6'>%.0fm/s</font>", v.Magnitude)
+                        end
+                    end
+                    local colorHex = string.format("#%02x%02x%02x",
+                        math.floor(c.R * 255), math.floor(c.G * 255), math.floor(c.B * 255))
+                    data.label.Text = string.format(
+                        "<font color='#0fc'>%s</font> <font color='%s'>■</font>\n%s %.0fs%s",
+                        data.part.Name, colorHex, data.part.ClassName, d, vel
+                    )
+                end
+            end)
+        end
+
+        -- Atualiza lista de nomes encontrados
+        pcall(function()
+            if DeathBallScanResultLabel then
+                local lines = {}
+                local sorted = {}
+                for name, info in pairs(foundNames) do
+                    table.insert(sorted, { name = name, class = info.class, count = info.count })
+                end
+                table.sort(sorted, function(a, b) return a.count > b.count end)
+                for i, item in ipairs(sorted) do
+                    if i > 15 then break end
+                    table.insert(lines, item.name .. " (" .. item.class .. ") x" .. item.count)
+                end
+                DeathBallScanResultLabel.Text = #lines > 0 and table.concat(lines, "\n") or "No objects nearby..."
+            end
+        end)
+    end)
+end
+
+stopObjectScanner = function()
+    deathBallScannerActive = false
+    if deathBallScannerConn then
+        deathBallScannerConn:Disconnect()
+        deathBallScannerConn = nil
+    end
+    for id, obj in pairs(deathBallScannerObjects) do
+        pcall(function() obj.gui:Destroy() end)
+    end
+    deathBallScannerObjects = {}
+    DeathBallScanObjBtn.Text = "🔎 SCAN OBJECTS (find ball name)"
+    DeathBallScanObjBtn.BackgroundColor3 = Color3.fromRGB(40, 80, 120)
+    notify("Object Scanner OFF", "info")
+end
+
+--==================================================
 -- DEATH BALL AFK BOT
 --==================================================
 

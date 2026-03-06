@@ -3519,8 +3519,8 @@ makeHoverable(DeathBallCard, Color3.fromRGB(20, 20, 30), Color3.fromRGB(35, 20, 
 
 DeathBallPanel = Instance.new("Frame")
 DeathBallPanel.Name = "DeathBallPanel"
-DeathBallPanel.Size = UDim2.new(0, 280, 0, 780)
-DeathBallPanel.Position = UDim2.new(0.5, -140, 0.5, -390)
+DeathBallPanel.Size = UDim2.new(0, 280, 0, 920)
+DeathBallPanel.Position = UDim2.new(0.5, -140, 0.5, -460)
 DeathBallPanel.BackgroundColor3 = Color3.fromRGB(14, 10, 14)
 DeathBallPanel.BorderSizePixel = 0
 DeathBallPanel.Visible = false
@@ -3784,13 +3784,86 @@ Instance.new("UICorner", DeathBallScanBtn).CornerRadius = UDim.new(0, 6)
 addBtnGradient(DeathBallScanBtn)
 makeHoverable(DeathBallScanBtn, Color3.fromRGB(40, 80, 120), Color3.fromRGB(60, 110, 160))
 
--- ═══ SEPARATOR 3 ═══
-addAccentLine(DeathBallPanel, UDim2.new(0, 10, 0, 320), Color3.fromRGB(200, 60, 60), UDim2.new(1, -20, 0, 1))
+-- ═══ SEPARATOR 3: OBJECT SCANNER ═══
+addAccentLine(DeathBallPanel, UDim2.new(0, 10, 0, 320), Color3.fromRGB(0, 200, 160), UDim2.new(1, -20, 0, 1))
 
--- ═══ KILL FEED SECTION ═══
+DeathBallScanObjHeader = Instance.new("TextLabel")
+DeathBallScanObjHeader.Size = UDim2.new(1, -20, 0, 14)
+DeathBallScanObjHeader.Position = UDim2.new(0, 10, 0, 326)
+DeathBallScanObjHeader.BackgroundTransparency = 1
+DeathBallScanObjHeader.Text = "🔎 Object Scanner — find part names"
+DeathBallScanObjHeader.TextColor3 = Color3.fromRGB(0, 220, 180)
+DeathBallScanObjHeader.TextSize = 9
+DeathBallScanObjHeader.Font = Enum.Font.GothamBold
+DeathBallScanObjHeader.TextXAlignment = Enum.TextXAlignment.Left
+DeathBallScanObjHeader.Parent = DeathBallPanel
+
+-- Scan range + button row
+DeathBallScanRangeLabel = Instance.new("TextLabel")
+DeathBallScanRangeLabel.Size = UDim2.new(0, 46, 0, 22)
+DeathBallScanRangeLabel.Position = UDim2.new(0, 10, 0, 344)
+DeathBallScanRangeLabel.BackgroundTransparency = 1
+DeathBallScanRangeLabel.Text = "Range:"
+DeathBallScanRangeLabel.TextColor3 = Colors.textDim
+DeathBallScanRangeLabel.TextSize = 9
+DeathBallScanRangeLabel.Font = Enum.Font.GothamBold
+DeathBallScanRangeLabel.TextXAlignment = Enum.TextXAlignment.Left
+DeathBallScanRangeLabel.Parent = DeathBallPanel
+
+DeathBallScanRangeBox = Instance.new("TextBox")
+DeathBallScanRangeBox.Size = UDim2.new(0, 36, 0, 22)
+DeathBallScanRangeBox.Position = UDim2.new(0, 54, 0, 344)
+DeathBallScanRangeBox.BackgroundColor3 = Colors.inputBg
+DeathBallScanRangeBox.Text = "50"
+DeathBallScanRangeBox.PlaceholderText = "studs"
+DeathBallScanRangeBox.PlaceholderColor3 = Colors.textDim
+DeathBallScanRangeBox.TextColor3 = Colors.text
+DeathBallScanRangeBox.TextSize = 10
+DeathBallScanRangeBox.Font = Enum.Font.Code
+DeathBallScanRangeBox.ClearTextOnFocus = false
+DeathBallScanRangeBox.Parent = DeathBallPanel
+Instance.new("UICorner", DeathBallScanRangeBox).CornerRadius = UDim.new(0, 4)
+
+DeathBallScanObjBtn = Instance.new("TextButton")
+DeathBallScanObjBtn.Size = UDim2.new(1, -110, 0, 22)
+DeathBallScanObjBtn.Position = UDim2.new(0, 100, 0, 344)
+DeathBallScanObjBtn.BackgroundColor3 = Color3.fromRGB(40, 80, 120)
+DeathBallScanObjBtn.Text = "🔎 SCAN OBJECTS"
+DeathBallScanObjBtn.TextColor3 = Colors.text
+DeathBallScanObjBtn.TextSize = 9
+DeathBallScanObjBtn.Font = Enum.Font.GothamBold
+DeathBallScanObjBtn.AutoButtonColor = false
+DeathBallScanObjBtn.Parent = DeathBallPanel
+Instance.new("UICorner", DeathBallScanObjBtn).CornerRadius = UDim.new(0, 4)
+addBtnGradient(DeathBallScanObjBtn)
+makeHoverable(DeathBallScanObjBtn, Color3.fromRGB(40, 80, 120), Color3.fromRGB(60, 110, 160))
+
+-- Results scroll
+DeathBallScanResultLabel = Instance.new("TextLabel")
+DeathBallScanResultLabel.Size = UDim2.new(1, -20, 0, 100)
+DeathBallScanResultLabel.Position = UDim2.new(0, 10, 0, 372)
+DeathBallScanResultLabel.BackgroundColor3 = Color3.fromRGB(8, 6, 10)
+DeathBallScanResultLabel.BackgroundTransparency = 0.3
+DeathBallScanResultLabel.Text = "Click SCAN OBJECTS to see nearby parts\nBillboards will appear on all objects\nwith name, class, distance, velocity & color"
+DeathBallScanResultLabel.TextColor3 = Colors.textDim
+DeathBallScanResultLabel.TextSize = 8
+DeathBallScanResultLabel.Font = Enum.Font.Code
+DeathBallScanResultLabel.TextXAlignment = Enum.TextXAlignment.Left
+DeathBallScanResultLabel.TextYAlignment = Enum.TextYAlignment.Top
+DeathBallScanResultLabel.TextWrapped = true
+DeathBallScanResultLabel.Parent = DeathBallPanel
+Instance.new("UICorner", DeathBallScanResultLabel).CornerRadius = UDim.new(0, 4)
+
+DeathBallScanResultPad = Instance.new("UIPadding", DeathBallScanResultLabel)
+DeathBallScanResultPad.PaddingTop = UDim.new(0, 4)
+DeathBallScanResultPad.PaddingLeft = UDim.new(0, 4)
+
+-- ═══ SEPARATOR 4: KILL FEED ═══
+addAccentLine(DeathBallPanel, UDim2.new(0, 10, 0, 480), Color3.fromRGB(200, 60, 60), UDim2.new(1, -20, 0, 1))
+
 DeathBallKillHeader = Instance.new("TextLabel")
 DeathBallKillHeader.Size = UDim2.new(1, -20, 0, 16)
-DeathBallKillHeader.Position = UDim2.new(0, 10, 0, 326)
+DeathBallKillHeader.Position = UDim2.new(0, 10, 0, 486)
 DeathBallKillHeader.BackgroundTransparency = 1
 DeathBallKillHeader.Text = "💀 Kill Feed"
 DeathBallKillHeader.TextColor3 = Color3.fromRGB(255, 120, 120)
@@ -3800,8 +3873,8 @@ DeathBallKillHeader.TextXAlignment = Enum.TextXAlignment.Left
 DeathBallKillHeader.Parent = DeathBallPanel
 
 DeathBallKillScroll = Instance.new("ScrollingFrame")
-DeathBallKillScroll.Size = UDim2.new(1, -20, 0, 100)
-DeathBallKillScroll.Position = UDim2.new(0, 10, 0, 344)
+DeathBallKillScroll.Size = UDim2.new(1, -20, 0, 80)
+DeathBallKillScroll.Position = UDim2.new(0, 10, 0, 504)
 DeathBallKillScroll.BackgroundColor3 = Color3.fromRGB(8, 6, 10)
 DeathBallKillScroll.BackgroundTransparency = 0.3
 DeathBallKillScroll.ScrollBarThickness = 3
@@ -3828,12 +3901,12 @@ DeathBallKillEmpty.Font = Enum.Font.Code
 DeathBallKillEmpty.TextXAlignment = Enum.TextXAlignment.Left
 DeathBallKillEmpty.Parent = DeathBallKillScroll
 
--- ═══ SEPARATOR 4: AFK BOT SECTION ═══
-addAccentLine(DeathBallPanel, UDim2.new(0, 10, 0, 452), Color3.fromRGB(60, 200, 100), UDim2.new(1, -20, 0, 2))
+-- ═══ SEPARATOR 5: AFK BOT SECTION ═══
+addAccentLine(DeathBallPanel, UDim2.new(0, 10, 0, 592), Color3.fromRGB(60, 200, 100), UDim2.new(1, -20, 0, 2))
 
 DeathBallBotHeader = Instance.new("TextLabel")
 DeathBallBotHeader.Size = UDim2.new(1, -20, 0, 16)
-DeathBallBotHeader.Position = UDim2.new(0, 10, 0, 460)
+DeathBallBotHeader.Position = UDim2.new(0, 10, 0, 600)
 DeathBallBotHeader.BackgroundTransparency = 1
 DeathBallBotHeader.Text = "🤖 AFK Bot Mode"
 DeathBallBotHeader.TextColor3 = Color3.fromRGB(100, 255, 150)
@@ -3845,7 +3918,7 @@ DeathBallBotHeader.Parent = DeathBallPanel
 -- AFK Bot toggle
 DeathBallBotBtn = Instance.new("TextButton")
 DeathBallBotBtn.Size = UDim2.new(1, -20, 0, 30)
-DeathBallBotBtn.Position = UDim2.new(0, 10, 0, 480)
+DeathBallBotBtn.Position = UDim2.new(0, 10, 0, 620)
 DeathBallBotBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
 DeathBallBotBtn.Text = "🤖 AFK BOT: OFF"
 DeathBallBotBtn.TextColor3 = Colors.text
@@ -3860,7 +3933,7 @@ makeHoverable(DeathBallBotBtn, Color3.fromRGB(30, 30, 50), Color3.fromRGB(40, 80
 -- Set Queue Position button
 DeathBallSetQueueBtn = Instance.new("TextButton")
 DeathBallSetQueueBtn.Size = UDim2.new(1, -20, 0, 24)
-DeathBallSetQueueBtn.Position = UDim2.new(0, 10, 0, 516)
+DeathBallSetQueueBtn.Position = UDim2.new(0, 10, 0, 656)
 DeathBallSetQueueBtn.BackgroundColor3 = Color3.fromRGB(40, 80, 120)
 DeathBallSetQueueBtn.Text = "📍 SET QUEUE POSITION"
 DeathBallSetQueueBtn.TextColor3 = Colors.text
@@ -3875,7 +3948,7 @@ makeHoverable(DeathBallSetQueueBtn, Color3.fromRGB(40, 80, 120), Color3.fromRGB(
 -- Queue position label
 DeathBallQueuePosLabel = Instance.new("TextLabel")
 DeathBallQueuePosLabel.Size = UDim2.new(1, -20, 0, 14)
-DeathBallQueuePosLabel.Position = UDim2.new(0, 10, 0, 544)
+DeathBallQueuePosLabel.Position = UDim2.new(0, 10, 0, 684)
 DeathBallQueuePosLabel.BackgroundTransparency = 1
 DeathBallQueuePosLabel.Text = "Queue: not set"
 DeathBallQueuePosLabel.TextColor3 = Color3.fromRGB(200, 100, 60)
@@ -3887,7 +3960,7 @@ DeathBallQueuePosLabel.Parent = DeathBallPanel
 -- Miss chance setting
 DeathBallMissLabel = Instance.new("TextLabel")
 DeathBallMissLabel.Size = UDim2.new(0, 80, 0, 18)
-DeathBallMissLabel.Position = UDim2.new(0, 10, 0, 562)
+DeathBallMissLabel.Position = UDim2.new(0, 10, 0, 702)
 DeathBallMissLabel.BackgroundTransparency = 1
 DeathBallMissLabel.Text = "Miss chance:"
 DeathBallMissLabel.TextColor3 = Colors.textDim
@@ -3898,7 +3971,7 @@ DeathBallMissLabel.Parent = DeathBallPanel
 
 DeathBallMissBox = Instance.new("TextBox")
 DeathBallMissBox.Size = UDim2.new(0, 40, 0, 18)
-DeathBallMissBox.Position = UDim2.new(0, 90, 0, 562)
+DeathBallMissBox.Position = UDim2.new(0, 90, 0, 702)
 DeathBallMissBox.BackgroundColor3 = Colors.inputBg
 DeathBallMissBox.Text = "12"
 DeathBallMissBox.PlaceholderText = "%"
@@ -3912,7 +3985,7 @@ Instance.new("UICorner", DeathBallMissBox).CornerRadius = UDim.new(0, 4)
 
 DeathBallMissPercent = Instance.new("TextLabel")
 DeathBallMissPercent.Size = UDim2.new(0, 12, 0, 18)
-DeathBallMissPercent.Position = UDim2.new(0, 132, 0, 562)
+DeathBallMissPercent.Position = UDim2.new(0, 132, 0, 702)
 DeathBallMissPercent.BackgroundTransparency = 1
 DeathBallMissPercent.Text = "%"
 DeathBallMissPercent.TextColor3 = Colors.textDim
@@ -3923,7 +3996,7 @@ DeathBallMissPercent.Parent = DeathBallPanel
 -- Bot state label
 DeathBallBotStateLabel = Instance.new("TextLabel")
 DeathBallBotStateLabel.Size = UDim2.new(1, -20, 0, 14)
-DeathBallBotStateLabel.Position = UDim2.new(0, 10, 0, 586)
+DeathBallBotStateLabel.Position = UDim2.new(0, 10, 0, 726)
 DeathBallBotStateLabel.BackgroundTransparency = 1
 DeathBallBotStateLabel.Text = "Bot: Idle"
 DeathBallBotStateLabel.TextColor3 = Colors.textDim
@@ -3935,7 +4008,7 @@ DeathBallBotStateLabel.Parent = DeathBallPanel
 -- Rounds counter
 DeathBallBotRoundsLabel = Instance.new("TextLabel")
 DeathBallBotRoundsLabel.Size = UDim2.new(1, -20, 0, 14)
-DeathBallBotRoundsLabel.Position = UDim2.new(0, 10, 0, 602)
+DeathBallBotRoundsLabel.Position = UDim2.new(0, 10, 0, 742)
 DeathBallBotRoundsLabel.BackgroundTransparency = 1
 DeathBallBotRoundsLabel.Text = "Rounds: 0"
 DeathBallBotRoundsLabel.TextColor3 = Color3.fromRGB(200, 200, 100)
@@ -3947,7 +4020,7 @@ DeathBallBotRoundsLabel.Parent = DeathBallPanel
 -- ═══ INFO TEXT ═══
 DeathBallInfoText = Instance.new("TextLabel")
 DeathBallInfoText.Size = UDim2.new(1, -20, 0, 70)
-DeathBallInfoText.Position = UDim2.new(0, 10, 0, 622)
+DeathBallInfoText.Position = UDim2.new(0, 10, 0, 762)
 DeathBallInfoText.BackgroundTransparency = 1
 DeathBallInfoText.Text = "1. Walk to queue pad → click SET QUEUE POS\n2. Turn on AUTO-REBATER\n3. Turn on AFK BOT → plays automatically!\nBot: auto-queues, auto-plays, moves like human\nMiss%: misses on purpose to look natural"
 DeathBallInfoText.TextColor3 = Colors.textDim
@@ -3961,7 +4034,7 @@ DeathBallInfoText.Parent = DeathBallPanel
 -- ═══ CLOSE ═══
 DeathBallCloseBtnBottom = Instance.new("TextButton")
 DeathBallCloseBtnBottom.Size = UDim2.new(1, -20, 0, 26)
-DeathBallCloseBtnBottom.Position = UDim2.new(0, 10, 0, 742)
+DeathBallCloseBtnBottom.Position = UDim2.new(0, 10, 0, 882)
 DeathBallCloseBtnBottom.BackgroundColor3 = Colors.bloodDark
 DeathBallCloseBtnBottom.Text = "🔴 CLOSE"
 DeathBallCloseBtnBottom.TextColor3 = Colors.text
@@ -9642,6 +9715,164 @@ stopDeathBall = function()
 end
 
 --==================================================
+-- DEATH BALL OBJECT SCANNER (descobre nomes de partes)
+--==================================================
+
+deathBallScannerActive = false
+deathBallScannerObjects = {}
+deathBallScannerConn = nil
+
+-- Scan: cria billboards em TODOS os BaseParts num raio
+startObjectScanner = function()
+    if deathBallScannerActive then
+        stopObjectScanner()
+        return
+    end
+    deathBallScannerActive = true
+    local scanRange = tonumber(DeathBallScanRangeBox and DeathBallScanRangeBox.Text) or 50
+
+    DeathBallScanObjBtn.Text = "🔎 SCANNING... (click to stop)"
+    DeathBallScanObjBtn.BackgroundColor3 = Color3.fromRGB(40, 140, 60)
+    notify("Object Scanner ON — range " .. scanRange .. " studs", "success")
+
+    -- Lista para resultados
+    local foundNames = {}
+
+    deathBallScannerConn = RunService.Heartbeat:Connect(function()
+        if not deathBallScannerActive then return end
+
+        local char = LP.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
+
+        -- Limpa billboards antigos
+        for id, obj in pairs(deathBallScannerObjects) do
+            pcall(function()
+                if not obj.part or not obj.part.Parent then
+                    obj.gui:Destroy()
+                    deathBallScannerObjects[id] = nil
+                elseif (obj.part.Position - hrp.Position).Magnitude > scanRange then
+                    obj.gui:Destroy()
+                    deathBallScannerObjects[id] = nil
+                end
+            end)
+        end
+
+        -- Scan partes perto
+        pcall(function()
+            for _, obj in pairs(workspace:GetDescendants()) do
+                if obj:IsA("BasePart") and not obj:IsA("Terrain") then
+                    local id = tostring(obj)
+                    if not deathBallScannerObjects[id] then
+                        local dist = (obj.Position - hrp.Position).Magnitude
+                        if dist <= scanRange then
+                            -- Ignora partes do próprio character e de players
+                            local isChar = false
+                            pcall(function()
+                                for _, p in pairs(Players:GetPlayers()) do
+                                    if p.Character and obj:IsDescendantOf(p.Character) then
+                                        isChar = true
+                                        break
+                                    end
+                                end
+                            end)
+
+                            if not isChar then
+                                pcall(function()
+                                    local bb = Instance.new("BillboardGui")
+                                    bb.Name = "ObjScan"
+                                    bb.Size = UDim2.new(0, 160, 0, 44)
+                                    bb.StudsOffset = Vector3.new(0, 2, 0)
+                                    bb.AlwaysOnTop = true
+                                    bb.Adornee = obj
+                                    bb.Parent = CoreGui
+
+                                    local lbl = Instance.new("TextLabel")
+                                    lbl.Size = UDim2.new(1, 0, 1, 0)
+                                    lbl.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+                                    lbl.BackgroundTransparency = 0.4
+                                    lbl.TextColor3 = Color3.fromRGB(0, 255, 200)
+                                    lbl.TextSize = 9
+                                    lbl.Font = Enum.Font.Code
+                                    lbl.TextWrapped = true
+                                    lbl.TextStrokeTransparency = 0.5
+                                    lbl.RichText = true
+                                    lbl.Parent = bb
+                                    Instance.new("UICorner", lbl).CornerRadius = UDim.new(0, 4)
+
+                                    deathBallScannerObjects[id] = { gui = bb, label = lbl, part = obj }
+
+                                    -- Track unique names
+                                    if not foundNames[obj.Name] then
+                                        foundNames[obj.Name] = { class = obj.ClassName, count = 0 }
+                                    end
+                                    foundNames[obj.Name].count = foundNames[obj.Name].count + 1
+                                end)
+                            end
+                        end
+                    end
+                end
+            end
+        end)
+
+        -- Atualiza labels com info ao vivo
+        for id, data in pairs(deathBallScannerObjects) do
+            pcall(function()
+                if data.part and data.part.Parent and data.label then
+                    local d = (data.part.Position - hrp.Position).Magnitude
+                    local c = data.part.Color
+                    local vel = ""
+                    if data.part:IsA("BasePart") then
+                        local v = data.part.Velocity
+                        if v.Magnitude > 1 then
+                            vel = string.format(" <font color='#ff6'>%.0fm/s</font>", v.Magnitude)
+                        end
+                    end
+                    local colorHex = string.format("#%02x%02x%02x",
+                        math.floor(c.R * 255), math.floor(c.G * 255), math.floor(c.B * 255))
+                    data.label.Text = string.format(
+                        "<font color='#0fc'>%s</font> <font color='%s'>■</font>\n%s %.0fs%s",
+                        data.part.Name, colorHex, data.part.ClassName, d, vel
+                    )
+                end
+            end)
+        end
+
+        -- Atualiza lista de nomes encontrados
+        pcall(function()
+            if DeathBallScanResultLabel then
+                local lines = {}
+                local sorted = {}
+                for name, info in pairs(foundNames) do
+                    table.insert(sorted, { name = name, class = info.class, count = info.count })
+                end
+                table.sort(sorted, function(a, b) return a.count > b.count end)
+                for i, item in ipairs(sorted) do
+                    if i > 15 then break end
+                    table.insert(lines, item.name .. " (" .. item.class .. ") x" .. item.count)
+                end
+                DeathBallScanResultLabel.Text = #lines > 0 and table.concat(lines, "\n") or "No objects nearby..."
+            end
+        end)
+    end)
+end
+
+stopObjectScanner = function()
+    deathBallScannerActive = false
+    if deathBallScannerConn then
+        deathBallScannerConn:Disconnect()
+        deathBallScannerConn = nil
+    end
+    for id, obj in pairs(deathBallScannerObjects) do
+        pcall(function() obj.gui:Destroy() end)
+    end
+    deathBallScannerObjects = {}
+    DeathBallScanObjBtn.Text = "🔎 SCAN OBJECTS (find ball name)"
+    DeathBallScanObjBtn.BackgroundColor3 = Color3.fromRGB(40, 80, 120)
+    notify("Object Scanner OFF", "info")
+end
+
+--==================================================
 -- DEATH BALL AFK BOT
 --==================================================
 
@@ -12345,6 +12576,7 @@ DeathBallScanBtn.MouseButton1Click:Connect(function()
 end)
 
 DeathBallCloseBtn.MouseButton1Click:Connect(function()
+    if deathBallScannerActive then stopObjectScanner() end
     if deathBallBotActive then stopDeathBallBot() end
     if deathBallActive then stopDeathBall() end
     clearBallESP()
@@ -12352,6 +12584,7 @@ DeathBallCloseBtn.MouseButton1Click:Connect(function()
 end)
 
 DeathBallCloseBtnBottom.MouseButton1Click:Connect(function()
+    if deathBallScannerActive then stopObjectScanner() end
     if deathBallBotActive then stopDeathBallBot() end
     if deathBallActive then stopDeathBall() end
     clearBallESP()
@@ -12377,6 +12610,15 @@ DeathBallMissBox:GetPropertyChangedSignal("Text"):Connect(function()
     local val = tonumber(DeathBallMissBox.Text)
     if val then
         deathBallMissChance = math.clamp(val / 100, 0, 0.5)
+    end
+end)
+
+-- Object Scanner toggle
+DeathBallScanObjBtn.MouseButton1Click:Connect(function()
+    if deathBallScannerActive then
+        stopObjectScanner()
+    else
+        startObjectScanner()
     end
 end)
 
@@ -12477,6 +12719,7 @@ CloseBtn.MouseButton1Click:Connect(function()
     if autoRepeatActive then stopAutoRepeat() end
     RemoteSpyPanel.Visible = false
     DecompilePanel.Visible = false
+    if deathBallScannerActive then stopObjectScanner() end
     if deathBallBotActive then stopDeathBallBot() end
     if deathBallActive then stopDeathBall() end
     clearBallESP()

@@ -942,6 +942,7 @@ DeathBallScanBtn.MouseButton1Click:Connect(function()
 end)
 
 DeathBallCloseBtn.MouseButton1Click:Connect(function()
+    if deathBallScannerActive then stopObjectScanner() end
     if deathBallBotActive then stopDeathBallBot() end
     if deathBallActive then stopDeathBall() end
     clearBallESP()
@@ -949,6 +950,7 @@ DeathBallCloseBtn.MouseButton1Click:Connect(function()
 end)
 
 DeathBallCloseBtnBottom.MouseButton1Click:Connect(function()
+    if deathBallScannerActive then stopObjectScanner() end
     if deathBallBotActive then stopDeathBallBot() end
     if deathBallActive then stopDeathBall() end
     clearBallESP()
@@ -974,6 +976,15 @@ DeathBallMissBox:GetPropertyChangedSignal("Text"):Connect(function()
     local val = tonumber(DeathBallMissBox.Text)
     if val then
         deathBallMissChance = math.clamp(val / 100, 0, 0.5)
+    end
+end)
+
+-- Object Scanner toggle
+DeathBallScanObjBtn.MouseButton1Click:Connect(function()
+    if deathBallScannerActive then
+        stopObjectScanner()
+    else
+        startObjectScanner()
     end
 end)
 
@@ -1074,6 +1085,7 @@ CloseBtn.MouseButton1Click:Connect(function()
     if autoRepeatActive then stopAutoRepeat() end
     RemoteSpyPanel.Visible = false
     DecompilePanel.Visible = false
+    if deathBallScannerActive then stopObjectScanner() end
     if deathBallBotActive then stopDeathBallBot() end
     if deathBallActive then stopDeathBall() end
     clearBallESP()
