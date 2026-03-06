@@ -3663,7 +3663,7 @@ DeathBallRangeBox = Instance.new("TextBox")
 DeathBallRangeBox.Size = UDim2.new(0, 40, 0, 20)
 DeathBallRangeBox.Position = UDim2.new(0, 58, 0, 148)
 DeathBallRangeBox.BackgroundColor3 = Colors.inputBg
-DeathBallRangeBox.Text = "15"
+DeathBallRangeBox.Text = "5"
 DeathBallRangeBox.PlaceholderText = "studs"
 DeathBallRangeBox.PlaceholderColor3 = Colors.textDim
 DeathBallRangeBox.TextColor3 = Colors.text
@@ -9346,6 +9346,8 @@ deathBallForceMode = true -- ON por default (full auto)
 deathBallDebugMode = false
 deathBallAutoDetect = true -- detecta bola automaticamente por velocidade
 deathBallDetectedMethod = "none" -- método que funcionou
+deathBallLearnedMethod = nil -- método que JÁ funcionou (pra reusar)
+deathBallRespawnConn = nil -- reconecta auto-rebater ao respawnar
 
 -- Detecta se uma cor é "vermelha" (targeting) — mais flexível
 isRedColor = function(color)
@@ -9504,65 +9506,29 @@ getBestTarget = function(balls, hrp)
     return best
 end
 
--- SMART INTERACTION: tenta TODOS os métodos possíveis de rebater
+-- SMART INTERACTION: F key + mouse click (confirmado pelo jogo)
+-- Tenta F primeiro (VIM keypress), depois mouse click, depois fallbacks
 tryAllInteractions = function(ball, cam)
     local methods = {}
+    local vim = nil
+    pcall(function() vim = game:GetService("VirtualInputManager") end)
 
-    -- 1. ClickDetector no ball ou filhos
+    -- 1. TECLA F — principal do jogo
     pcall(function()
-        local cd = ball:FindFirstChildOfClass("ClickDetector")
-            or ball:FindFirstDescendantWhichIsA("ClickDetector")
-        if not cd and ball.Parent then
-            cd = ball.Parent:FindFirstChildOfClass("ClickDetector")
-        end
-        if cd then
-            -- fireclickdetector do executor
-            local _env = (typeof(getgenv) == "function" and getgenv()) or {}
-            local fcd = fireclickdetector or _env.fireclickdetector
-            if fcd then
-                fcd(cd)
-                table.insert(methods, "ClickDetector")
-            end
+        if vim then
+            -- KeyDown F
+            vim:SendKeyEvent(true, Enum.KeyCode.F, false, game)
+            task.delay(0.05, function()
+                pcall(function()
+                    vim:SendKeyEvent(false, Enum.KeyCode.F, false, game)
+                end)
+            end)
+            table.insert(methods, "F")
         end
     end)
 
-    -- 2. ProximityPrompt no ball ou filhos
+    -- 2. Mouse click (VIM)
     pcall(function()
-        local pp = ball:FindFirstChildOfClass("ProximityPrompt")
-        if not pp and ball.Parent then
-            pp = ball.Parent:FindFirstChildOfClass("ProximityPrompt")
-        end
-        if pp then
-            fireproximityprompt(pp)
-            table.insert(methods, "ProximityPrompt")
-        end
-    end)
-
-    -- 3. Tool activation — se o player tem uma tool (bat, racket, etc)
-    pcall(function()
-        local char = LP.Character
-        if char then
-            local tool = char:FindFirstChildOfClass("Tool")
-            if tool then
-                tool:Activate()
-                table.insert(methods, "Tool:" .. tool.Name)
-            end
-        end
-    end)
-
-    -- 4. Mouse click (mouse1click do executor)
-    pcall(function()
-        local _env = (typeof(getgenv) == "function" and getgenv()) or {}
-        local _click = mouse1click or _env.mouse1click
-        if _click then
-            _click()
-            table.insert(methods, "mouse1click")
-        end
-    end)
-
-    -- 5. VirtualInputManager
-    pcall(function()
-        local vim = game:GetService("VirtualInputManager")
         if vim then
             vim:SendMouseButtonEvent(
                 cam.ViewportSize.X / 2,
@@ -9578,86 +9544,178 @@ tryAllInteractions = function(ball, cam)
                     )
                 end)
             end)
-            table.insert(methods, "VIM")
+            table.insert(methods, "Click")
         end
     end)
 
-    -- 6. Busca RemoteEvents relevantes perto do ball
+    -- 3. mouse1click do executor
     pcall(function()
-        local remotes = {}
-        -- Remotes dentro do ball ou parent
-        for _, child in pairs(ball:GetDescendants()) do
-            if child:IsA("RemoteEvent") then
-                table.insert(remotes, child)
-            end
-        end
-        if ball.Parent then
-            for _, child in pairs(ball.Parent:GetChildren()) do
-                if child:IsA("RemoteEvent") then
-                    table.insert(remotes, child)
-                end
-            end
-        end
-        for _, re in pairs(remotes) do
-            re:FireServer()
-            table.insert(methods, "Remote:" .. re.Name)
+        local _env = (typeof(getgenv) == "function" and getgenv()) or {}
+        local _click = mouse1click or _env.mouse1click
+        if _click then
+            _click()
+            table.insert(methods, "m1c")
         end
     end)
 
-    -- Salva métodos usados (pra debug)
+    -- 4. Tool activation (se tiver bat/racket equipada)
+    pcall(function()
+        local char = LP.Character
+        if char then
+            local tool = char:FindFirstChildOfClass("Tool")
+            if tool then
+                tool:Activate()
+                table.insert(methods, "Tool")
+            end
+        end
+    end)
+
+    -- 5. ClickDetector (fallback)
+    pcall(function()
+        local cd = ball:FindFirstChildOfClass("ClickDetector")
+        if not cd and ball.Parent then cd = ball.Parent:FindFirstChildOfClass("ClickDetector") end
+        if cd then
+            local _env = (typeof(getgenv) == "function" and getgenv()) or {}
+            local fcd = fireclickdetector or _env.fireclickdetector
+            if fcd then fcd(cd) table.insert(methods, "CD") end
+        end
+    end)
+
+    -- 6. ProximityPrompt (fallback)
+    pcall(function()
+        local pp = ball:FindFirstChildOfClass("ProximityPrompt")
+        if not pp and ball.Parent then pp = ball.Parent:FindFirstChildOfClass("ProximityPrompt") end
+        if pp then
+            fireproximityprompt(pp)
+            table.insert(methods, "PP")
+        end
+    end)
+
     if #methods > 0 then
         deathBallDetectedMethod = table.concat(methods, "+")
     end
     return #methods > 0
 end
 
--- ESP: cria billboard em cima da bola
+-- ESP: cria Highlight (box/contorno) + Billboard (nome + dist + vel)
 createBallESP = function(ball)
     local id = tostring(ball)
     if deathBallEspObjects[id] then return end
     pcall(function()
-        local bb = Instance.new("BillboardGui")
-        bb.Name = "DB_ESP"
-        bb.Size = UDim2.new(0, 120, 0, 40)
-        bb.StudsOffset = Vector3.new(0, 3, 0)
-        bb.AlwaysOnTop = true
-        bb.Adornee = ball
-        bb.Parent = CoreGui
+        -- Highlight = contorno físico na bola (igual ESP de camera)
+        local hl = Instance.new("Highlight")
+        hl.Name = "DB_HL"
+        hl.Adornee = ball
+        hl.FillColor = Color3.fromRGB(255, 60, 60)
+        hl.FillTransparency = 0.7
+        hl.OutlineColor = Color3.fromRGB(255, 80, 80)
+        hl.OutlineTransparency = 0
+        hl.Parent = ball
 
-        local lbl = Instance.new("TextLabel")
-        lbl.Size = UDim2.new(1, 0, 1, 0)
-        lbl.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-        lbl.BackgroundTransparency = 0.5
-        lbl.TextColor3 = Color3.fromRGB(255, 80, 80)
-        lbl.TextSize = 10
-        lbl.Font = Enum.Font.Code
-        lbl.Text = "⚽ Ball"
-        lbl.TextStrokeTransparency = 0.5
-        lbl.Parent = bb
-        Instance.new("UICorner", lbl).CornerRadius = UDim.new(0, 4)
+        -- Billboard = nome + distancia + velocidade acima da bola
+        local bg = Instance.new("BillboardGui")
+        bg.Name = "DB_BG"
+        bg.Size = UDim2.new(0, 160, 0, 46)
+        bg.StudsOffset = Vector3.new(0, 3, 0)
+        bg.AlwaysOnTop = true
+        bg.Adornee = ball
+        bg.Parent = ball
 
-        deathBallEspObjects[id] = { gui = bb, label = lbl, ball = ball }
+        local nameLabel = Instance.new("TextLabel")
+        nameLabel.Name = "BallName"
+        nameLabel.Size = UDim2.new(1, 0, 0, 16)
+        nameLabel.BackgroundTransparency = 1
+        nameLabel.Text = ball.Name
+        nameLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
+        nameLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+        nameLabel.TextStrokeTransparency = 0.3
+        nameLabel.TextSize = 13
+        nameLabel.Font = Enum.Font.GothamBold
+        nameLabel.Parent = bg
+
+        local distLabel = Instance.new("TextLabel")
+        distLabel.Name = "BallDist"
+        distLabel.Size = UDim2.new(1, 0, 0, 14)
+        distLabel.Position = UDim2.new(0, 0, 0, 16)
+        distLabel.BackgroundTransparency = 1
+        distLabel.Text = "? studs"
+        distLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+        distLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+        distLabel.TextStrokeTransparency = 0.3
+        distLabel.TextSize = 11
+        distLabel.Font = Enum.Font.Gotham
+        distLabel.Parent = bg
+
+        local velLabel = Instance.new("TextLabel")
+        velLabel.Name = "BallVel"
+        velLabel.Size = UDim2.new(1, 0, 0, 12)
+        velLabel.Position = UDim2.new(0, 0, 0, 30)
+        velLabel.BackgroundTransparency = 1
+        velLabel.Text = ""
+        velLabel.TextColor3 = Color3.fromRGB(255, 200, 60)
+        velLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+        velLabel.TextStrokeTransparency = 0.3
+        velLabel.TextSize = 10
+        velLabel.Font = Enum.Font.GothamBold
+        velLabel.Parent = bg
+
+        deathBallEspObjects[id] = {
+            highlight = hl,
+            billboard = bg,
+            nameLabel = nameLabel,
+            distLabel = distLabel,
+            velLabel = velLabel,
+            ball = ball
+        }
     end)
 end
 
--- ESP: atualiza todos os billboards
+-- ESP: atualiza todos os Highlights + Billboards
 updateBallESP = function(hrp)
     for id, esp in pairs(deathBallEspObjects) do
         pcall(function()
             if not esp.ball or not esp.ball.Parent then
-                esp.gui:Destroy()
+                if esp.highlight then esp.highlight:Destroy() end
+                if esp.billboard then esp.billboard:Destroy() end
                 deathBallEspObjects[id] = nil
                 return
             end
             local dist = (esp.ball.Position - hrp.Position).Magnitude
-            local color = esp.ball.Color
-            local isRed = isRedColor(color)
-            local approaching = isBallApproaching(esp.ball, hrp)
+            local isRed = isRedColor(esp.ball.Color)
+            local approaching, dot = isBallApproaching(esp.ball, hrp)
             local _, speed = getBallVelocity(esp.ball)
-            local status = isRed and "🔴 TARGET" or (approaching and "⚠ INCOMING" or "⚪")
-            esp.label.Text = string.format("%s %.0fs %.0fm/s", status, dist, speed)
-            esp.label.TextColor3 = isRed and Color3.fromRGB(255, 80, 80)
-                or (approaching and Color3.fromRGB(255, 200, 60) or Color3.fromRGB(160, 160, 160))
+
+            -- Atualiza cor do Highlight baseado no estado
+            if isRed then
+                esp.highlight.FillColor = Color3.fromRGB(255, 40, 40)
+                esp.highlight.FillTransparency = 0.4
+                esp.highlight.OutlineColor = Color3.fromRGB(255, 60, 60)
+                esp.nameLabel.TextColor3 = Color3.fromRGB(255, 60, 60)
+                esp.nameLabel.Text = "TARGET " .. esp.ball.Name
+            elseif approaching then
+                esp.highlight.FillColor = Color3.fromRGB(255, 180, 40)
+                esp.highlight.FillTransparency = 0.6
+                esp.highlight.OutlineColor = Color3.fromRGB(255, 200, 60)
+                esp.nameLabel.TextColor3 = Color3.fromRGB(255, 200, 60)
+                esp.nameLabel.Text = "INCOMING " .. esp.ball.Name
+            else
+                esp.highlight.FillColor = Color3.fromRGB(100, 100, 100)
+                esp.highlight.FillTransparency = 0.8
+                esp.highlight.OutlineColor = Color3.fromRGB(150, 150, 150)
+                esp.nameLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+                esp.nameLabel.Text = esp.ball.Name
+            end
+
+            esp.distLabel.Text = string.format("%.0f studs", dist)
+            esp.distLabel.TextColor3 = dist < 15 and Color3.fromRGB(255, 100, 100) or Color3.fromRGB(200, 200, 200)
+
+            if speed > 2 then
+                esp.velLabel.Text = string.format("%.0f m/s %s", speed, approaching and ">>>" or "")
+                esp.velLabel.TextColor3 = approaching and Color3.fromRGB(255, 200, 60) or Color3.fromRGB(150, 150, 150)
+            else
+                esp.velLabel.Text = "idle"
+                esp.velLabel.TextColor3 = Color3.fromRGB(100, 100, 100)
+            end
         end)
     end
 end
@@ -9665,7 +9723,10 @@ end
 -- ESP: limpa todos
 clearBallESP = function()
     for id, esp in pairs(deathBallEspObjects) do
-        pcall(function() esp.gui:Destroy() end)
+        pcall(function()
+            if esp.highlight then esp.highlight:Destroy() end
+            if esp.billboard then esp.billboard:Destroy() end
+        end)
     end
     deathBallEspObjects = {}
 end
@@ -9768,9 +9829,14 @@ startDeathBall = function()
     deathBallDetectedMethod = "none"
 
     local ballName = DeathBallNameBox.Text or "Ball"
-    local range = tonumber(DeathBallRangeBox.Text) or 15
-    local clickCooldown = tonumber(DeathBallCooldownBox and DeathBallCooldownBox.Text) or 0.2
+    local baseRange = tonumber(DeathBallRangeBox.Text) or 5 -- só age pertinho
+    local baseCooldown = tonumber(DeathBallCooldownBox and DeathBallCooldownBox.Text) or 0.15
     local cam = workspace.CurrentCamera
+
+    -- AUTO: liga ESP junto
+    deathBallEspActive = true
+    DeathBallEspBtn.Text = "ESP: ON"
+    DeathBallEspBtn.BackgroundColor3 = Color3.fromRGB(40, 80, 120)
 
     DeathBallAutoBtn.Text = "⚡ AUTO-PLAY: ON"
     DeathBallAutoBtn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
@@ -9778,9 +9844,20 @@ startDeathBall = function()
     DeathBallStatusLabel.TextColor3 = Color3.fromRGB(100, 220, 200)
 
     local mode = deathBallAutoDetect and "AUTO-DETECT" or ("name: " .. ballName)
-    notify("Death Ball ON — " .. mode, "success")
+    notify("Death Ball ON — " .. mode .. " + ESP", "success")
 
     startKillFeed()
+
+    -- AUTO-RECONNECT: se morrer, reconecta o loop ao respawnar
+    if deathBallRespawnConn then deathBallRespawnConn:Disconnect() end
+    deathBallRespawnConn = LP.CharacterAdded:Connect(function()
+        if not deathBallActive then return end
+        task.wait(1)
+        deathBallPrevPositions = {}
+        deathBallCacheTime = 0
+        DeathBallStatusLabel.Text = "Status: Respawned — resuming..."
+        DeathBallStatusLabel.TextColor3 = Color3.fromRGB(100, 220, 200)
+    end)
 
     deathBallConnection = RunService.Heartbeat:Connect(function()
         if not deathBallActive then return end
@@ -9789,14 +9866,14 @@ startDeathBall = function()
         local hrp = char and char:FindFirstChild("HumanoidRootPart")
         if not hrp then return end
 
-        -- Re-read settings live
-        range = tonumber(DeathBallRangeBox.Text) or 15
-        clickCooldown = tonumber(DeathBallCooldownBox and DeathBallCooldownBox.Text) or 0.2
+        -- Re-read base settings live
+        baseRange = tonumber(DeathBallRangeBox.Text) or 5 -- só age pertinho
+        baseCooldown = tonumber(DeathBallCooldownBox and DeathBallCooldownBox.Text) or 0.15
 
         -- Acha bolas: AUTO-DETECT por velocidade OU por nome
         local balls
         if deathBallAutoDetect then
-            balls = autoDetectBalls(hrp, range)
+            balls = autoDetectBalls(hrp, baseRange)
         else
             balls = findAllBalls(ballName)
         end
@@ -9813,7 +9890,7 @@ startDeathBall = function()
             return
         end
 
-        -- ESP: cria/atualiza billboards
+        -- ESP: cria/atualiza highlights + billboards
         if deathBallEspActive then
             for _, b in pairs(balls) do
                 createBallESP(b)
@@ -9821,7 +9898,7 @@ startDeathBall = function()
             updateBallESP(hrp)
         end
 
-        -- Pega melhor alvo (prioridade: vindo na direção + perto + vermelha)
+        -- Pega melhor alvo
         local ball = getBestTarget(balls, hrp)
         if not ball then ball = balls[1] end
 
@@ -9831,47 +9908,61 @@ startDeathBall = function()
         local approaching, dot, vel = isBallApproaching(ball, hrp)
         local speed = vel.Magnitude
 
+        -- RANGE FIXO: só age dentro de 5 studs (close range)
+        local dynRange = baseRange
+
+        -- COOLDOWN por distância com variação aleatória (parece humano):
+        -- <2 studs = 16~19 cps (0.053~0.063s)
+        -- <5 studs = 8~12 cps (0.083~0.125s)
+        -- >5 studs = nem tenta
+        local dynCooldown = baseCooldown
+        if dist <= 2 then
+            dynCooldown = 1 / (math.random(16, 19) + math.random() * 0.5)
+        elseif dist <= 5 then
+            dynCooldown = 1 / (math.random(8, 12) + math.random() * 0.5)
+        end
+
         -- Info panel
         DeathBallBallInfo.Text = string.format("Balls: %d | Best: %s (%s)", #balls, ball.Name, ball.ClassName)
         DeathBallBallInfo.TextColor3 = Color3.fromRGB(100, 220, 200)
-        DeathBallDistInfo.Text = string.format("Distance: %.1f studs", dist)
-        DeathBallDistInfo.TextColor3 = dist < range and Color3.fromRGB(255, 80, 80) or Colors.textDim
-        DeathBallColorInfo.Text = string.format("Method: %s | Color: R%.0f G%.0f B%.0f %s",
+        DeathBallDistInfo.Text = string.format("Distance: %.1f studs (range: %.0f)", dist, dynRange)
+        DeathBallDistInfo.TextColor3 = dist < dynRange and Color3.fromRGB(255, 80, 80) or Colors.textDim
+        DeathBallColorInfo.Text = string.format("Method: %s%s",
             deathBallDetectedMethod,
-            color.R * 255, color.G * 255, color.B * 255,
-            isRed and "RED" or "")
-        DeathBallColorInfo.TextColor3 = isRed and Color3.fromRGB(255, 80, 80) or Colors.textDim
-        DeathBallVelInfo.Text = string.format("Vel: %.0f m/s %s dot:%.1f",
+            deathBallLearnedMethod and (" [learned: " .. deathBallLearnedMethod .. "]") or "")
+        DeathBallColorInfo.TextColor3 = deathBallLearnedMethod and Color3.fromRGB(100, 255, 100) or Colors.textDim
+        DeathBallVelInfo.Text = string.format("Vel: %.0f m/s %s dot:%.1f cd:%.2f",
             speed,
             approaching and "INCOMING" or "away",
-            dot or 0)
+            dot or 0,
+            dynCooldown)
         DeathBallVelInfo.TextColor3 = approaching and Color3.fromRGB(255, 200, 60) or Colors.textDim
 
         -- Debug: mostra info detalhada
         if deathBallDebugMode then
-            local dbg = string.format("DBG: %s cls=%s vel=%.0f app=%s red=%s dst=%.0f path=%s",
+            local dbg = string.format("DBG: %s cls=%s vel=%.0f app=%s red=%s dst=%.0f rng=%.0f path=%s",
                 ball.Name, ball.ClassName, speed,
-                tostring(approaching), tostring(isRed), dist,
-                ball:GetFullName():sub(1, 40))
+                tostring(approaching), tostring(isRed), dist, dynRange,
+                ball:GetFullName():sub(1, 35))
             DeathBallStatusLabel.Text = dbg
             DeathBallStatusLabel.TextColor3 = Color3.fromRGB(200, 200, 255)
         end
 
-        -- Auto-dodge: bola vindo mas NÃO vermelha
+        -- Auto-dodge
         if deathBallDodgeActive and approaching and not isRed and dist < 30 then
             doDodge(ball, hrp)
         end
 
-        -- Decide se devemos agir (Force ON = atua em QUALQUER bola que se aproxima)
-        local shouldAct = deathBallForceMode and (approaching or dist < range) or isRed
+        -- Decide se devemos agir
+        local shouldAct = deathBallForceMode and (approaching or dist < dynRange) or isRed
 
         if shouldAct then
             if not deathBallDebugMode then
-                DeathBallStatusLabel.Text = string.format("Status: TARGETING %s — %.0fm %.0fm/s", ball.Name, dist, speed)
+                DeathBallStatusLabel.Text = string.format("TARGETING %s — %.0fm %.0fm/s", ball.Name, dist, speed)
                 DeathBallStatusLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
             end
 
-            -- Prediction aim: mira onde a bola VAI estar
+            -- Prediction aim
             local timeToReach = dist / math.max(speed, 1)
             local aimTime = math.min(timeToReach * 0.3, 0.5)
             local predictedPos = predictBallPosition(ball, aimTime)
@@ -9880,35 +9971,35 @@ startDeathBall = function()
                 cam.CFrame = CFrame.lookAt(cam.CFrame.Position, predictedPos)
             end)
 
-            -- Trigger: dentro do range + cooldown + miss chance
+            -- Trigger com dynamic cooldown
             local now = os.clock()
             local shouldMiss = deathBallBotActive and math.random() < deathBallMissChance
-            if dist <= range and (now - deathBallLastClick) >= clickCooldown and not shouldMiss then
+            if dist <= dynRange and (now - deathBallLastClick) >= dynCooldown and not shouldMiss then
                 if not deathBallDebugMode then
-                    DeathBallStatusLabel.Text = "Status: REBATING! [" .. deathBallDetectedMethod .. "]"
+                    DeathBallStatusLabel.Text = "REBATING! [" .. deathBallDetectedMethod .. "]"
                     DeathBallStatusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
                 end
 
-                -- SMART INTERACTION: tenta TODOS os métodos
+                -- SMART INTERACTION
                 tryAllInteractions(ball, cam)
 
                 deathBallLastClick = now
                 deathBallStats.rebated = deathBallStats.rebated + 1
                 DeathBallStatsLabel.Text = "Rebated: " .. deathBallStats.rebated .. " | Missed: " .. deathBallStats.missed
-            elseif dist <= range and shouldMiss then
+            elseif dist <= dynRange and shouldMiss then
                 deathBallStats.missed = deathBallStats.missed + 1
                 DeathBallStatsLabel.Text = "Rebated: " .. deathBallStats.rebated .. " | Missed: " .. deathBallStats.missed
                 if not deathBallDebugMode then
-                    DeathBallStatusLabel.Text = "Status: MISSED (on purpose)"
+                    DeathBallStatusLabel.Text = "MISSED (on purpose)"
                     DeathBallStatusLabel.TextColor3 = Color3.fromRGB(255, 160, 60)
                 end
             end
         elseif not deathBallDebugMode then
             if approaching and dist < 40 then
-                DeathBallStatusLabel.Text = string.format("Status: INCOMING — %.0fm %.0fm/s", dist, speed)
+                DeathBallStatusLabel.Text = string.format("INCOMING — %.0fm %.0fm/s", dist, speed)
                 DeathBallStatusLabel.TextColor3 = Color3.fromRGB(255, 200, 60)
             else
-                DeathBallStatusLabel.Text = "Status: Watching..."
+                DeathBallStatusLabel.Text = "Watching..."
                 DeathBallStatusLabel.TextColor3 = Color3.fromRGB(200, 200, 100)
             end
         end
@@ -9921,9 +10012,16 @@ stopDeathBall = function()
         deathBallConnection:Disconnect()
         deathBallConnection = nil
     end
+    if deathBallRespawnConn then
+        deathBallRespawnConn:Disconnect()
+        deathBallRespawnConn = nil
+    end
     clearBallESP()
     stopKillFeed()
     deathBallPrevPositions = {}
+    deathBallEspActive = false
+    DeathBallEspBtn.Text = "ESP: OFF"
+    DeathBallEspBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
     DeathBallAutoBtn.Text = "⚡ AUTO-PLAY: OFF"
     DeathBallAutoBtn.BackgroundColor3 = Color3.fromRGB(40, 20, 20)
     DeathBallStatusLabel.Text = "Status: Idle"
