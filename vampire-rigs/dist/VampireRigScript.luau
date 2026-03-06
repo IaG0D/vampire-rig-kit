@@ -3519,8 +3519,8 @@ makeHoverable(DeathBallCard, Color3.fromRGB(20, 20, 30), Color3.fromRGB(35, 20, 
 
 DeathBallPanel = Instance.new("Frame")
 DeathBallPanel.Name = "DeathBallPanel"
-DeathBallPanel.Size = UDim2.new(0, 280, 0, 920)
-DeathBallPanel.Position = UDim2.new(0.5, -140, 0.5, -460)
+DeathBallPanel.Size = UDim2.new(0, 280, 0, 870)
+DeathBallPanel.Position = UDim2.new(0.5, -140, 0.5, -420)
 DeathBallPanel.BackgroundColor3 = Color3.fromRGB(14, 10, 14)
 DeathBallPanel.BorderSizePixel = 0
 DeathBallPanel.Visible = false
@@ -3554,7 +3554,7 @@ DeathBallTitleLabel = Instance.new("TextLabel")
 DeathBallTitleLabel.Size = UDim2.new(1, -40, 1, 0)
 DeathBallTitleLabel.Position = UDim2.new(0, 10, 0, 0)
 DeathBallTitleLabel.BackgroundTransparency = 1
-DeathBallTitleLabel.Text = "⚽ Death Ball v2"
+DeathBallTitleLabel.Text = "⚽ Death Ball v3 AUTO"
 DeathBallTitleLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
 DeathBallTitleLabel.TextSize = 12
 DeathBallTitleLabel.Font = Enum.Font.GothamBold
@@ -3574,14 +3574,14 @@ DeathBallCloseBtn.Parent = DeathBallTopBar
 Instance.new("UICorner", DeathBallCloseBtn).CornerRadius = UDim.new(0, 6)
 makeHoverable(DeathBallCloseBtn, Color3.fromRGB(200, 60, 60), Color3.fromRGB(240, 80, 80))
 
--- ═══ AUTO-REBATER TOGGLE ═══
+-- ═══ AUTO-PLAY TOGGLE (botão principal) ═══
 DeathBallAutoBtn = Instance.new("TextButton")
-DeathBallAutoBtn.Size = UDim2.new(1, -20, 0, 34)
+DeathBallAutoBtn.Size = UDim2.new(1, -20, 0, 38)
 DeathBallAutoBtn.Position = UDim2.new(0, 10, 0, 40)
 DeathBallAutoBtn.BackgroundColor3 = Color3.fromRGB(40, 20, 20)
-DeathBallAutoBtn.Text = "⚡ AUTO-REBATER: OFF"
+DeathBallAutoBtn.Text = "⚡ AUTO-PLAY: OFF"
 DeathBallAutoBtn.TextColor3 = Colors.text
-DeathBallAutoBtn.TextSize = 12
+DeathBallAutoBtn.TextSize = 13
 DeathBallAutoBtn.Font = Enum.Font.GothamBold
 DeathBallAutoBtn.AutoButtonColor = false
 DeathBallAutoBtn.Parent = DeathBallPanel
@@ -3589,14 +3589,28 @@ Instance.new("UICorner", DeathBallAutoBtn).CornerRadius = UDim.new(0, 8)
 addBtnGradient(DeathBallAutoBtn)
 makeHoverable(DeathBallAutoBtn, Color3.fromRGB(40, 20, 20), Color3.fromRGB(60, 30, 30))
 
--- ═══ FEATURE TOGGLES ROW ═══
+-- ═══ ROW 1: AUTO-DETECT + ESP ═══
+DeathBallAutoDetectBtn = Instance.new("TextButton")
+DeathBallAutoDetectBtn.Size = UDim2.new(0.48, -5, 0, 26)
+DeathBallAutoDetectBtn.Position = UDim2.new(0, 10, 0, 84)
+DeathBallAutoDetectBtn.BackgroundColor3 = Color3.fromRGB(40, 140, 60)
+DeathBallAutoDetectBtn.Text = "AUTO-DETECT: ON"
+DeathBallAutoDetectBtn.TextColor3 = Colors.text
+DeathBallAutoDetectBtn.TextSize = 9
+DeathBallAutoDetectBtn.Font = Enum.Font.GothamBold
+DeathBallAutoDetectBtn.AutoButtonColor = false
+DeathBallAutoDetectBtn.Parent = DeathBallPanel
+Instance.new("UICorner", DeathBallAutoDetectBtn).CornerRadius = UDim.new(0, 6)
+addBtnGradient(DeathBallAutoDetectBtn)
+makeHoverable(DeathBallAutoDetectBtn, Color3.fromRGB(40, 140, 60), Color3.fromRGB(60, 180, 80))
+
 DeathBallEspBtn = Instance.new("TextButton")
 DeathBallEspBtn.Size = UDim2.new(0.48, -5, 0, 26)
-DeathBallEspBtn.Position = UDim2.new(0, 10, 0, 80)
+DeathBallEspBtn.Position = UDim2.new(0.52, 0, 0, 84)
 DeathBallEspBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
-DeathBallEspBtn.Text = "👁 ESP: OFF"
+DeathBallEspBtn.Text = "ESP: OFF"
 DeathBallEspBtn.TextColor3 = Colors.text
-DeathBallEspBtn.TextSize = 10
+DeathBallEspBtn.TextSize = 9
 DeathBallEspBtn.Font = Enum.Font.GothamBold
 DeathBallEspBtn.AutoButtonColor = false
 DeathBallEspBtn.Parent = DeathBallPanel
@@ -3604,13 +3618,14 @@ Instance.new("UICorner", DeathBallEspBtn).CornerRadius = UDim.new(0, 6)
 addBtnGradient(DeathBallEspBtn)
 makeHoverable(DeathBallEspBtn, Color3.fromRGB(30, 30, 50), Color3.fromRGB(50, 50, 80))
 
+-- ═══ ROW 2: DODGE + DEBUG ═══
 DeathBallDodgeBtn = Instance.new("TextButton")
 DeathBallDodgeBtn.Size = UDim2.new(0.48, -5, 0, 26)
-DeathBallDodgeBtn.Position = UDim2.new(0.52, 0, 0, 80)
+DeathBallDodgeBtn.Position = UDim2.new(0, 10, 0, 114)
 DeathBallDodgeBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
-DeathBallDodgeBtn.Text = "🏃 DODGE: OFF"
+DeathBallDodgeBtn.Text = "DODGE: OFF"
 DeathBallDodgeBtn.TextColor3 = Colors.text
-DeathBallDodgeBtn.TextSize = 10
+DeathBallDodgeBtn.TextSize = 9
 DeathBallDodgeBtn.Font = Enum.Font.GothamBold
 DeathBallDodgeBtn.AutoButtonColor = false
 DeathBallDodgeBtn.Parent = DeathBallPanel
@@ -3618,10 +3633,24 @@ Instance.new("UICorner", DeathBallDodgeBtn).CornerRadius = UDim.new(0, 6)
 addBtnGradient(DeathBallDodgeBtn)
 makeHoverable(DeathBallDodgeBtn, Color3.fromRGB(30, 30, 50), Color3.fromRGB(50, 50, 80))
 
+DeathBallDebugBtn = Instance.new("TextButton")
+DeathBallDebugBtn.Size = UDim2.new(0.48, -5, 0, 26)
+DeathBallDebugBtn.Position = UDim2.new(0.52, 0, 0, 114)
+DeathBallDebugBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
+DeathBallDebugBtn.Text = "DEBUG: OFF"
+DeathBallDebugBtn.TextColor3 = Colors.text
+DeathBallDebugBtn.TextSize = 9
+DeathBallDebugBtn.Font = Enum.Font.GothamBold
+DeathBallDebugBtn.AutoButtonColor = false
+DeathBallDebugBtn.Parent = DeathBallPanel
+Instance.new("UICorner", DeathBallDebugBtn).CornerRadius = UDim.new(0, 6)
+addBtnGradient(DeathBallDebugBtn)
+makeHoverable(DeathBallDebugBtn, Color3.fromRGB(30, 30, 50), Color3.fromRGB(50, 50, 80))
+
 -- ═══ SETTINGS ROW 1: RANGE + COOLDOWN ═══
 DeathBallRangeLabel = Instance.new("TextLabel")
 DeathBallRangeLabel.Size = UDim2.new(0, 50, 0, 20)
-DeathBallRangeLabel.Position = UDim2.new(0, 10, 0, 114)
+DeathBallRangeLabel.Position = UDim2.new(0, 10, 0, 148)
 DeathBallRangeLabel.BackgroundTransparency = 1
 DeathBallRangeLabel.Text = "Range:"
 DeathBallRangeLabel.TextColor3 = Colors.textDim
@@ -3632,7 +3661,7 @@ DeathBallRangeLabel.Parent = DeathBallPanel
 
 DeathBallRangeBox = Instance.new("TextBox")
 DeathBallRangeBox.Size = UDim2.new(0, 40, 0, 20)
-DeathBallRangeBox.Position = UDim2.new(0, 58, 0, 114)
+DeathBallRangeBox.Position = UDim2.new(0, 58, 0, 148)
 DeathBallRangeBox.BackgroundColor3 = Colors.inputBg
 DeathBallRangeBox.Text = "15"
 DeathBallRangeBox.PlaceholderText = "studs"
@@ -3646,7 +3675,7 @@ Instance.new("UICorner", DeathBallRangeBox).CornerRadius = UDim.new(0, 4)
 
 DeathBallCooldownLabel = Instance.new("TextLabel")
 DeathBallCooldownLabel.Size = UDim2.new(0, 60, 0, 20)
-DeathBallCooldownLabel.Position = UDim2.new(0.5, -20, 0, 114)
+DeathBallCooldownLabel.Position = UDim2.new(0.5, -20, 0, 148)
 DeathBallCooldownLabel.BackgroundTransparency = 1
 DeathBallCooldownLabel.Text = "Cooldown:"
 DeathBallCooldownLabel.TextColor3 = Colors.textDim
@@ -3657,9 +3686,9 @@ DeathBallCooldownLabel.Parent = DeathBallPanel
 
 DeathBallCooldownBox = Instance.new("TextBox")
 DeathBallCooldownBox.Size = UDim2.new(0, 40, 0, 20)
-DeathBallCooldownBox.Position = UDim2.new(0.5, 42, 0, 114)
+DeathBallCooldownBox.Position = UDim2.new(0.5, 42, 0, 148)
 DeathBallCooldownBox.BackgroundColor3 = Colors.inputBg
-DeathBallCooldownBox.Text = "0.3"
+DeathBallCooldownBox.Text = "0.2"
 DeathBallCooldownBox.PlaceholderText = "sec"
 DeathBallCooldownBox.PlaceholderColor3 = Colors.textDim
 DeathBallCooldownBox.TextColor3 = Colors.text
@@ -3669,10 +3698,10 @@ DeathBallCooldownBox.ClearTextOnFocus = false
 DeathBallCooldownBox.Parent = DeathBallPanel
 Instance.new("UICorner", DeathBallCooldownBox).CornerRadius = UDim.new(0, 4)
 
--- ═══ SETTINGS ROW 2: BALL NAME ═══
+-- ═══ SETTINGS ROW 2: BALL NAME (usado quando auto-detect OFF) ═══
 DeathBallNameLabel = Instance.new("TextLabel")
 DeathBallNameLabel.Size = UDim2.new(0, 80, 0, 20)
-DeathBallNameLabel.Position = UDim2.new(0, 10, 0, 140)
+DeathBallNameLabel.Position = UDim2.new(0, 10, 0, 174)
 DeathBallNameLabel.BackgroundTransparency = 1
 DeathBallNameLabel.Text = "Ball Name:"
 DeathBallNameLabel.TextColor3 = Colors.textDim
@@ -3683,10 +3712,10 @@ DeathBallNameLabel.Parent = DeathBallPanel
 
 DeathBallNameBox = Instance.new("TextBox")
 DeathBallNameBox.Size = UDim2.new(1, -100, 0, 20)
-DeathBallNameBox.Position = UDim2.new(0, 90, 0, 140)
+DeathBallNameBox.Position = UDim2.new(0, 90, 0, 174)
 DeathBallNameBox.BackgroundColor3 = Colors.inputBg
 DeathBallNameBox.Text = "Ball"
-DeathBallNameBox.PlaceholderText = "Ball part name"
+DeathBallNameBox.PlaceholderText = "only if auto-detect OFF"
 DeathBallNameBox.PlaceholderColor3 = Colors.textDim
 DeathBallNameBox.TextColor3 = Colors.text
 DeathBallNameBox.TextSize = 10
@@ -3696,14 +3725,14 @@ DeathBallNameBox.Parent = DeathBallPanel
 Instance.new("UICorner", DeathBallNameBox).CornerRadius = UDim.new(0, 4)
 
 -- ═══ SEPARATOR 1 ═══
-addAccentLine(DeathBallPanel, UDim2.new(0, 10, 0, 168), Color3.fromRGB(200, 60, 60), UDim2.new(1, -20, 0, 1))
+addAccentLine(DeathBallPanel, UDim2.new(0, 10, 0, 200), Color3.fromRGB(200, 60, 60), UDim2.new(1, -20, 0, 1))
 
 -- ═══ STATUS & INFO ═══
 DeathBallStatusLabel = Instance.new("TextLabel")
 DeathBallStatusLabel.Size = UDim2.new(1, -20, 0, 14)
-DeathBallStatusLabel.Position = UDim2.new(0, 10, 0, 174)
+DeathBallStatusLabel.Position = UDim2.new(0, 10, 0, 208)
 DeathBallStatusLabel.BackgroundTransparency = 1
-DeathBallStatusLabel.Text = "Status: Idle"
+DeathBallStatusLabel.Text = "Status: Idle — press AUTO-PLAY to start"
 DeathBallStatusLabel.TextColor3 = Colors.textDim
 DeathBallStatusLabel.TextSize = 9
 DeathBallStatusLabel.Font = Enum.Font.Code
@@ -3712,7 +3741,7 @@ DeathBallStatusLabel.Parent = DeathBallPanel
 
 DeathBallBallInfo = Instance.new("TextLabel")
 DeathBallBallInfo.Size = UDim2.new(1, -20, 0, 14)
-DeathBallBallInfo.Position = UDim2.new(0, 10, 0, 190)
+DeathBallBallInfo.Position = UDim2.new(0, 10, 0, 224)
 DeathBallBallInfo.BackgroundTransparency = 1
 DeathBallBallInfo.Text = "Balls: --"
 DeathBallBallInfo.TextColor3 = Colors.textDim
@@ -3723,7 +3752,7 @@ DeathBallBallInfo.Parent = DeathBallPanel
 
 DeathBallDistInfo = Instance.new("TextLabel")
 DeathBallDistInfo.Size = UDim2.new(1, -20, 0, 14)
-DeathBallDistInfo.Position = UDim2.new(0, 10, 0, 206)
+DeathBallDistInfo.Position = UDim2.new(0, 10, 0, 240)
 DeathBallDistInfo.BackgroundTransparency = 1
 DeathBallDistInfo.Text = "Distance: --"
 DeathBallDistInfo.TextColor3 = Colors.textDim
@@ -3734,9 +3763,9 @@ DeathBallDistInfo.Parent = DeathBallPanel
 
 DeathBallColorInfo = Instance.new("TextLabel")
 DeathBallColorInfo.Size = UDim2.new(1, -20, 0, 14)
-DeathBallColorInfo.Position = UDim2.new(0, 10, 0, 222)
+DeathBallColorInfo.Position = UDim2.new(0, 10, 0, 256)
 DeathBallColorInfo.BackgroundTransparency = 1
-DeathBallColorInfo.Text = "Color: --"
+DeathBallColorInfo.Text = "Method: none"
 DeathBallColorInfo.TextColor3 = Colors.textDim
 DeathBallColorInfo.TextSize = 9
 DeathBallColorInfo.Font = Enum.Font.Code
@@ -3745,7 +3774,7 @@ DeathBallColorInfo.Parent = DeathBallPanel
 
 DeathBallVelInfo = Instance.new("TextLabel")
 DeathBallVelInfo.Size = UDim2.new(1, -20, 0, 14)
-DeathBallVelInfo.Position = UDim2.new(0, 10, 0, 238)
+DeathBallVelInfo.Position = UDim2.new(0, 10, 0, 272)
 DeathBallVelInfo.BackgroundTransparency = 1
 DeathBallVelInfo.Text = "Velocity: --"
 DeathBallVelInfo.TextColor3 = Colors.textDim
@@ -3755,12 +3784,12 @@ DeathBallVelInfo.TextXAlignment = Enum.TextXAlignment.Left
 DeathBallVelInfo.Parent = DeathBallPanel
 
 -- ═══ SEPARATOR 2 ═══
-addAccentLine(DeathBallPanel, UDim2.new(0, 10, 0, 258), Color3.fromRGB(200, 60, 60), UDim2.new(1, -20, 0, 1))
+addAccentLine(DeathBallPanel, UDim2.new(0, 10, 0, 292), Color3.fromRGB(200, 60, 60), UDim2.new(1, -20, 0, 1))
 
 -- ═══ STATS ═══
 DeathBallStatsLabel = Instance.new("TextLabel")
 DeathBallStatsLabel.Size = UDim2.new(1, -20, 0, 14)
-DeathBallStatsLabel.Position = UDim2.new(0, 10, 0, 264)
+DeathBallStatsLabel.Position = UDim2.new(0, 10, 0, 298)
 DeathBallStatsLabel.BackgroundTransparency = 1
 DeathBallStatsLabel.Text = "Rebated: 0 | Missed: 0"
 DeathBallStatsLabel.TextColor3 = Color3.fromRGB(200, 200, 100)
@@ -3772,9 +3801,9 @@ DeathBallStatsLabel.Parent = DeathBallPanel
 -- ═══ SCAN BALL BUTTON ═══
 DeathBallScanBtn = Instance.new("TextButton")
 DeathBallScanBtn.Size = UDim2.new(1, -20, 0, 26)
-DeathBallScanBtn.Position = UDim2.new(0, 10, 0, 286)
+DeathBallScanBtn.Position = UDim2.new(0, 10, 0, 318)
 DeathBallScanBtn.BackgroundColor3 = Color3.fromRGB(40, 80, 120)
-DeathBallScanBtn.Text = "🔍 SCAN FOR BALLS"
+DeathBallScanBtn.Text = "SCAN FOR BALLS (manual)"
 DeathBallScanBtn.TextColor3 = Colors.text
 DeathBallScanBtn.TextSize = 10
 DeathBallScanBtn.Font = Enum.Font.GothamBold
@@ -3785,13 +3814,13 @@ addBtnGradient(DeathBallScanBtn)
 makeHoverable(DeathBallScanBtn, Color3.fromRGB(40, 80, 120), Color3.fromRGB(60, 110, 160))
 
 -- ═══ SEPARATOR 3: OBJECT SCANNER ═══
-addAccentLine(DeathBallPanel, UDim2.new(0, 10, 0, 320), Color3.fromRGB(0, 200, 160), UDim2.new(1, -20, 0, 1))
+addAccentLine(DeathBallPanel, UDim2.new(0, 10, 0, 352), Color3.fromRGB(0, 200, 160), UDim2.new(1, -20, 0, 1))
 
 DeathBallScanObjHeader = Instance.new("TextLabel")
 DeathBallScanObjHeader.Size = UDim2.new(1, -20, 0, 14)
-DeathBallScanObjHeader.Position = UDim2.new(0, 10, 0, 326)
+DeathBallScanObjHeader.Position = UDim2.new(0, 10, 0, 358)
 DeathBallScanObjHeader.BackgroundTransparency = 1
-DeathBallScanObjHeader.Text = "🔎 Object Scanner — find part names"
+DeathBallScanObjHeader.Text = "Object Scanner — find part names"
 DeathBallScanObjHeader.TextColor3 = Color3.fromRGB(0, 220, 180)
 DeathBallScanObjHeader.TextSize = 9
 DeathBallScanObjHeader.Font = Enum.Font.GothamBold
@@ -3801,7 +3830,7 @@ DeathBallScanObjHeader.Parent = DeathBallPanel
 -- Scan range + button row
 DeathBallScanRangeLabel = Instance.new("TextLabel")
 DeathBallScanRangeLabel.Size = UDim2.new(0, 46, 0, 22)
-DeathBallScanRangeLabel.Position = UDim2.new(0, 10, 0, 344)
+DeathBallScanRangeLabel.Position = UDim2.new(0, 10, 0, 376)
 DeathBallScanRangeLabel.BackgroundTransparency = 1
 DeathBallScanRangeLabel.Text = "Range:"
 DeathBallScanRangeLabel.TextColor3 = Colors.textDim
@@ -3812,7 +3841,7 @@ DeathBallScanRangeLabel.Parent = DeathBallPanel
 
 DeathBallScanRangeBox = Instance.new("TextBox")
 DeathBallScanRangeBox.Size = UDim2.new(0, 36, 0, 22)
-DeathBallScanRangeBox.Position = UDim2.new(0, 54, 0, 344)
+DeathBallScanRangeBox.Position = UDim2.new(0, 54, 0, 376)
 DeathBallScanRangeBox.BackgroundColor3 = Colors.inputBg
 DeathBallScanRangeBox.Text = "50"
 DeathBallScanRangeBox.PlaceholderText = "studs"
@@ -3826,9 +3855,9 @@ Instance.new("UICorner", DeathBallScanRangeBox).CornerRadius = UDim.new(0, 4)
 
 DeathBallScanObjBtn = Instance.new("TextButton")
 DeathBallScanObjBtn.Size = UDim2.new(1, -110, 0, 22)
-DeathBallScanObjBtn.Position = UDim2.new(0, 100, 0, 344)
+DeathBallScanObjBtn.Position = UDim2.new(0, 100, 0, 376)
 DeathBallScanObjBtn.BackgroundColor3 = Color3.fromRGB(40, 80, 120)
-DeathBallScanObjBtn.Text = "🔎 SCAN OBJECTS"
+DeathBallScanObjBtn.Text = "SCAN OBJECTS"
 DeathBallScanObjBtn.TextColor3 = Colors.text
 DeathBallScanObjBtn.TextSize = 9
 DeathBallScanObjBtn.Font = Enum.Font.GothamBold
@@ -3840,11 +3869,11 @@ makeHoverable(DeathBallScanObjBtn, Color3.fromRGB(40, 80, 120), Color3.fromRGB(6
 
 -- Results scroll
 DeathBallScanResultLabel = Instance.new("TextLabel")
-DeathBallScanResultLabel.Size = UDim2.new(1, -20, 0, 100)
-DeathBallScanResultLabel.Position = UDim2.new(0, 10, 0, 372)
+DeathBallScanResultLabel.Size = UDim2.new(1, -20, 0, 90)
+DeathBallScanResultLabel.Position = UDim2.new(0, 10, 0, 404)
 DeathBallScanResultLabel.BackgroundColor3 = Color3.fromRGB(8, 6, 10)
 DeathBallScanResultLabel.BackgroundTransparency = 0.3
-DeathBallScanResultLabel.Text = "Click SCAN OBJECTS to see nearby parts\nBillboards will appear on all objects\nwith name, class, distance, velocity & color"
+DeathBallScanResultLabel.Text = "Click SCAN OBJECTS to see nearby parts\nBillboards show name, class, dist, vel & color"
 DeathBallScanResultLabel.TextColor3 = Colors.textDim
 DeathBallScanResultLabel.TextSize = 8
 DeathBallScanResultLabel.Font = Enum.Font.Code
@@ -3859,13 +3888,13 @@ DeathBallScanResultPad.PaddingTop = UDim.new(0, 4)
 DeathBallScanResultPad.PaddingLeft = UDim.new(0, 4)
 
 -- ═══ SEPARATOR 4: KILL FEED ═══
-addAccentLine(DeathBallPanel, UDim2.new(0, 10, 0, 480), Color3.fromRGB(200, 60, 60), UDim2.new(1, -20, 0, 1))
+addAccentLine(DeathBallPanel, UDim2.new(0, 10, 0, 502), Color3.fromRGB(200, 60, 60), UDim2.new(1, -20, 0, 1))
 
 DeathBallKillHeader = Instance.new("TextLabel")
 DeathBallKillHeader.Size = UDim2.new(1, -20, 0, 16)
-DeathBallKillHeader.Position = UDim2.new(0, 10, 0, 486)
+DeathBallKillHeader.Position = UDim2.new(0, 10, 0, 508)
 DeathBallKillHeader.BackgroundTransparency = 1
-DeathBallKillHeader.Text = "💀 Kill Feed"
+DeathBallKillHeader.Text = "Kill Feed"
 DeathBallKillHeader.TextColor3 = Color3.fromRGB(255, 120, 120)
 DeathBallKillHeader.TextSize = 10
 DeathBallKillHeader.Font = Enum.Font.GothamBold
@@ -3873,8 +3902,8 @@ DeathBallKillHeader.TextXAlignment = Enum.TextXAlignment.Left
 DeathBallKillHeader.Parent = DeathBallPanel
 
 DeathBallKillScroll = Instance.new("ScrollingFrame")
-DeathBallKillScroll.Size = UDim2.new(1, -20, 0, 80)
-DeathBallKillScroll.Position = UDim2.new(0, 10, 0, 504)
+DeathBallKillScroll.Size = UDim2.new(1, -20, 0, 70)
+DeathBallKillScroll.Position = UDim2.new(0, 10, 0, 526)
 DeathBallKillScroll.BackgroundColor3 = Color3.fromRGB(8, 6, 10)
 DeathBallKillScroll.BackgroundTransparency = 0.3
 DeathBallKillScroll.ScrollBarThickness = 3
@@ -3902,13 +3931,13 @@ DeathBallKillEmpty.TextXAlignment = Enum.TextXAlignment.Left
 DeathBallKillEmpty.Parent = DeathBallKillScroll
 
 -- ═══ SEPARATOR 5: AFK BOT SECTION ═══
-addAccentLine(DeathBallPanel, UDim2.new(0, 10, 0, 592), Color3.fromRGB(60, 200, 100), UDim2.new(1, -20, 0, 2))
+addAccentLine(DeathBallPanel, UDim2.new(0, 10, 0, 604), Color3.fromRGB(60, 200, 100), UDim2.new(1, -20, 0, 2))
 
 DeathBallBotHeader = Instance.new("TextLabel")
 DeathBallBotHeader.Size = UDim2.new(1, -20, 0, 16)
-DeathBallBotHeader.Position = UDim2.new(0, 10, 0, 600)
+DeathBallBotHeader.Position = UDim2.new(0, 10, 0, 612)
 DeathBallBotHeader.BackgroundTransparency = 1
-DeathBallBotHeader.Text = "🤖 AFK Bot Mode"
+DeathBallBotHeader.Text = "AFK Bot Mode"
 DeathBallBotHeader.TextColor3 = Color3.fromRGB(100, 255, 150)
 DeathBallBotHeader.TextSize = 11
 DeathBallBotHeader.Font = Enum.Font.GothamBold
@@ -3918,9 +3947,9 @@ DeathBallBotHeader.Parent = DeathBallPanel
 -- AFK Bot toggle
 DeathBallBotBtn = Instance.new("TextButton")
 DeathBallBotBtn.Size = UDim2.new(1, -20, 0, 30)
-DeathBallBotBtn.Position = UDim2.new(0, 10, 0, 620)
+DeathBallBotBtn.Position = UDim2.new(0, 10, 0, 632)
 DeathBallBotBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
-DeathBallBotBtn.Text = "🤖 AFK BOT: OFF"
+DeathBallBotBtn.Text = "AFK BOT: OFF"
 DeathBallBotBtn.TextColor3 = Colors.text
 DeathBallBotBtn.TextSize = 11
 DeathBallBotBtn.Font = Enum.Font.GothamBold
@@ -3933,9 +3962,9 @@ makeHoverable(DeathBallBotBtn, Color3.fromRGB(30, 30, 50), Color3.fromRGB(40, 80
 -- Set Queue Position button
 DeathBallSetQueueBtn = Instance.new("TextButton")
 DeathBallSetQueueBtn.Size = UDim2.new(1, -20, 0, 24)
-DeathBallSetQueueBtn.Position = UDim2.new(0, 10, 0, 656)
+DeathBallSetQueueBtn.Position = UDim2.new(0, 10, 0, 668)
 DeathBallSetQueueBtn.BackgroundColor3 = Color3.fromRGB(40, 80, 120)
-DeathBallSetQueueBtn.Text = "📍 SET QUEUE POSITION"
+DeathBallSetQueueBtn.Text = "SET QUEUE POSITION"
 DeathBallSetQueueBtn.TextColor3 = Colors.text
 DeathBallSetQueueBtn.TextSize = 9
 DeathBallSetQueueBtn.Font = Enum.Font.GothamBold
@@ -3948,7 +3977,7 @@ makeHoverable(DeathBallSetQueueBtn, Color3.fromRGB(40, 80, 120), Color3.fromRGB(
 -- Queue position label
 DeathBallQueuePosLabel = Instance.new("TextLabel")
 DeathBallQueuePosLabel.Size = UDim2.new(1, -20, 0, 14)
-DeathBallQueuePosLabel.Position = UDim2.new(0, 10, 0, 684)
+DeathBallQueuePosLabel.Position = UDim2.new(0, 10, 0, 696)
 DeathBallQueuePosLabel.BackgroundTransparency = 1
 DeathBallQueuePosLabel.Text = "Queue: not set"
 DeathBallQueuePosLabel.TextColor3 = Color3.fromRGB(200, 100, 60)
@@ -3960,7 +3989,7 @@ DeathBallQueuePosLabel.Parent = DeathBallPanel
 -- Miss chance setting
 DeathBallMissLabel = Instance.new("TextLabel")
 DeathBallMissLabel.Size = UDim2.new(0, 80, 0, 18)
-DeathBallMissLabel.Position = UDim2.new(0, 10, 0, 702)
+DeathBallMissLabel.Position = UDim2.new(0, 10, 0, 714)
 DeathBallMissLabel.BackgroundTransparency = 1
 DeathBallMissLabel.Text = "Miss chance:"
 DeathBallMissLabel.TextColor3 = Colors.textDim
@@ -3971,7 +4000,7 @@ DeathBallMissLabel.Parent = DeathBallPanel
 
 DeathBallMissBox = Instance.new("TextBox")
 DeathBallMissBox.Size = UDim2.new(0, 40, 0, 18)
-DeathBallMissBox.Position = UDim2.new(0, 90, 0, 702)
+DeathBallMissBox.Position = UDim2.new(0, 90, 0, 714)
 DeathBallMissBox.BackgroundColor3 = Colors.inputBg
 DeathBallMissBox.Text = "12"
 DeathBallMissBox.PlaceholderText = "%"
@@ -3985,7 +4014,7 @@ Instance.new("UICorner", DeathBallMissBox).CornerRadius = UDim.new(0, 4)
 
 DeathBallMissPercent = Instance.new("TextLabel")
 DeathBallMissPercent.Size = UDim2.new(0, 12, 0, 18)
-DeathBallMissPercent.Position = UDim2.new(0, 132, 0, 702)
+DeathBallMissPercent.Position = UDim2.new(0, 132, 0, 714)
 DeathBallMissPercent.BackgroundTransparency = 1
 DeathBallMissPercent.Text = "%"
 DeathBallMissPercent.TextColor3 = Colors.textDim
@@ -3996,7 +4025,7 @@ DeathBallMissPercent.Parent = DeathBallPanel
 -- Bot state label
 DeathBallBotStateLabel = Instance.new("TextLabel")
 DeathBallBotStateLabel.Size = UDim2.new(1, -20, 0, 14)
-DeathBallBotStateLabel.Position = UDim2.new(0, 10, 0, 726)
+DeathBallBotStateLabel.Position = UDim2.new(0, 10, 0, 738)
 DeathBallBotStateLabel.BackgroundTransparency = 1
 DeathBallBotStateLabel.Text = "Bot: Idle"
 DeathBallBotStateLabel.TextColor3 = Colors.textDim
@@ -4008,7 +4037,7 @@ DeathBallBotStateLabel.Parent = DeathBallPanel
 -- Rounds counter
 DeathBallBotRoundsLabel = Instance.new("TextLabel")
 DeathBallBotRoundsLabel.Size = UDim2.new(1, -20, 0, 14)
-DeathBallBotRoundsLabel.Position = UDim2.new(0, 10, 0, 742)
+DeathBallBotRoundsLabel.Position = UDim2.new(0, 10, 0, 754)
 DeathBallBotRoundsLabel.BackgroundTransparency = 1
 DeathBallBotRoundsLabel.Text = "Rounds: 0"
 DeathBallBotRoundsLabel.TextColor3 = Color3.fromRGB(200, 200, 100)
@@ -4019,10 +4048,10 @@ DeathBallBotRoundsLabel.Parent = DeathBallPanel
 
 -- ═══ INFO TEXT ═══
 DeathBallInfoText = Instance.new("TextLabel")
-DeathBallInfoText.Size = UDim2.new(1, -20, 0, 70)
-DeathBallInfoText.Position = UDim2.new(0, 10, 0, 762)
+DeathBallInfoText.Size = UDim2.new(1, -20, 0, 50)
+DeathBallInfoText.Position = UDim2.new(0, 10, 0, 774)
 DeathBallInfoText.BackgroundTransparency = 1
-DeathBallInfoText.Text = "1. Walk to queue pad → click SET QUEUE POS\n2. Turn on AUTO-REBATER\n3. Turn on AFK BOT → plays automatically!\nBot: auto-queues, auto-plays, moves like human\nMiss%: misses on purpose to look natural"
+DeathBallInfoText.Text = "v3 AUTO: just press AUTO-PLAY!\nAuto-detects balls, tries all click methods\nFor AFK: set queue pos + turn on bot"
 DeathBallInfoText.TextColor3 = Colors.textDim
 DeathBallInfoText.TextSize = 8
 DeathBallInfoText.Font = Enum.Font.Code
@@ -4034,9 +4063,9 @@ DeathBallInfoText.Parent = DeathBallPanel
 -- ═══ CLOSE ═══
 DeathBallCloseBtnBottom = Instance.new("TextButton")
 DeathBallCloseBtnBottom.Size = UDim2.new(1, -20, 0, 26)
-DeathBallCloseBtnBottom.Position = UDim2.new(0, 10, 0, 882)
+DeathBallCloseBtnBottom.Position = UDim2.new(0, 10, 0, 830)
 DeathBallCloseBtnBottom.BackgroundColor3 = Colors.bloodDark
-DeathBallCloseBtnBottom.Text = "🔴 CLOSE"
+DeathBallCloseBtnBottom.Text = "CLOSE"
 DeathBallCloseBtnBottom.TextColor3 = Colors.text
 DeathBallCloseBtnBottom.TextSize = 10
 DeathBallCloseBtnBottom.Font = Enum.Font.GothamBold
@@ -9287,7 +9316,7 @@ decompileForRemote = function()
 end
 
 --==================================================
--- DEATH BALL AUTO-REBATER v2 — FULL FEATURES
+-- DEATH BALL AUTO-REBATER v3 — FULL AUTO
 --==================================================
 
 deathBallActive = false
@@ -9313,24 +9342,98 @@ deathBallHumanTimer = 0
 deathBallDeathConn = nil
 deathBallLastHumanMove = 0
 deathBallBotRoundCount = 0
+deathBallForceMode = true -- ON por default (full auto)
+deathBallDebugMode = false
+deathBallAutoDetect = true -- detecta bola automaticamente por velocidade
+deathBallDetectedMethod = "none" -- método que funcionou
 
--- Detecta se uma cor é "vermelha" (targeting)
+-- Detecta se uma cor é "vermelha" (targeting) — mais flexível
 isRedColor = function(color)
-    return color.R > 0.6 and color.G < 0.3 and color.B < 0.3
+    if color.R > 0.6 and color.G < 0.3 and color.B < 0.3 then return true end
+    if color.R > 0.4 and color.G < 0.15 and color.B < 0.15 then return true end
+    if color.R > 0.7 and color.G < 0.4 and color.B < 0.2 then return true end
+    return false
 end
 
--- Acha TODAS as bolas no workspace (com cache de 1s)
-findAllBalls = function(ballName)
+-- Checa se um objeto é parte de um character
+isCharacterPart = function(obj)
+    local ok, result = pcall(function()
+        for _, p in pairs(Players:GetPlayers()) do
+            if p.Character and obj:IsDescendantOf(p.Character) then
+                return true
+            end
+        end
+        return false
+    end)
+    return ok and result
+end
+
+-- AUTO-DETECT: acha QUALQUER objeto se movendo rápido (bola real)
+-- Filtra: não-character, tamanho razoável, velocidade > threshold
+autoDetectBalls = function(hrp, range)
     local now = os.clock()
-    if now - deathBallCacheTime < 1 and #deathBallCache > 0 then
+    if now - deathBallCacheTime < 0.5 and #deathBallCache > 0 then
         return deathBallCache
     end
     local balls = {}
     pcall(function()
+        for _, obj in pairs(workspace:GetDescendants()) do
+            if obj:IsA("BasePart") and not obj:IsA("Terrain") then
+                local dist = (obj.Position - hrp.Position).Magnitude
+                if dist <= range * 3 then -- scan 3x o range
+                    -- Ignora partes de characters
+                    if not isCharacterPart(obj) then
+                        -- Checa se está se movendo (velocity do engine OU delta)
+                        local vel = obj.Velocity
+                        local speed = vel and vel.Magnitude or 0
+                        -- Também checa por delta position
+                        if speed < 2 then
+                            local id = tostring(obj)
+                            local prev = deathBallPrevPositions[id]
+                            if prev then
+                                local dt = now - prev.time
+                                if dt > 0.01 then
+                                    speed = ((obj.Position - prev.pos) / dt).Magnitude
+                                end
+                            end
+                        end
+                        -- Bola = parte se movendo rápido + tamanho razoável (não muito grande nem tiny)
+                        local size = obj.Size.Magnitude
+                        if speed > 5 and size > 0.5 and size < 20 then
+                            table.insert(balls, obj)
+                        end
+                    end
+                end
+            end
+        end
+    end)
+    deathBallCache = balls
+    deathBallCacheTime = now
+    return balls
+end
+
+-- Acha bolas por NOME (modo manual, fallback)
+findAllBalls = function(ballName)
+    local now = os.clock()
+    if now - deathBallCacheTime < 0.5 and #deathBallCache > 0 then
+        return deathBallCache
+    end
+    local balls = {}
+    local seen = {}
+    pcall(function()
         local lower = ballName:lower()
         for _, obj in pairs(workspace:GetDescendants()) do
-            if obj:IsA("BasePart") and obj.Name:lower():find(lower, 1, true) then
-                table.insert(balls, obj)
+            if obj:IsA("BasePart") and not seen[obj] then
+                local nameMatch = obj.Name:lower():find(lower, 1, true)
+                local parentMatch = obj.Parent and obj.Parent.Name:lower():find(lower, 1, true)
+                if nameMatch or parentMatch then
+                    seen[obj] = true
+                    table.insert(balls, obj)
+                    if parentMatch and obj.Parent:IsA("BasePart") and not seen[obj.Parent] then
+                        seen[obj.Parent] = true
+                        table.insert(balls, obj.Parent)
+                    end
+                end
             end
         end
     end)
@@ -9349,7 +9452,7 @@ getBallVelocity = function(ball)
         local dt = now - prev.time
         if dt > 0.01 then
             local vel = (pos - prev.pos) / dt
-            deathBallPrevPositions[id] = { pos = pos, time = now }
+            deathBallPrevPositions[id] = { pos = pos, time = now, vel = vel, speed = vel.Magnitude }
             return vel, vel.Magnitude
         end
         return prev.vel or Vector3.zero, prev.speed or 0
@@ -9364,7 +9467,7 @@ isBallApproaching = function(ball, hrp)
     if speed < 2 then return false, 0, vel end
     local toPlayer = (hrp.Position - ball.Position).Unit
     local dot = vel.Unit:Dot(toPlayer)
-    return dot > 0.3, dot, vel
+    return dot > 0.2, dot, vel -- threshold mais baixo para pegar mais
 end
 
 -- Predição: onde a bola vai estar em N segundos
@@ -9374,7 +9477,7 @@ predictBallPosition = function(ball, seconds)
     return ball.Position + vel * seconds
 end
 
--- Prioriza bola mais perigosa: vermelha + vindo na direção + mais perto
+-- Prioriza bola mais perigosa: vindo na direção + mais perto + vermelha é bonus
 getBestTarget = function(balls, hrp)
     local best = nil
     local bestScore = -999
@@ -9386,8 +9489,11 @@ getBestTarget = function(balls, hrp)
             local approaching, dot = isBallApproaching(ball, hrp)
             local s = 0
             if isRed then s = s + 100 end
-            if approaching then s = s + 50 * dot end
+            if approaching then s = s + 80 * dot end -- peso maior
             s = s - dist * 0.5
+            -- Bonus: velocidade alta = mais prioridade
+            local _, speed = getBallVelocity(ball)
+            s = s + math.min(speed, 50) * 0.3
             return s
         end)
         if ok and score > bestScore then
@@ -9396,6 +9502,113 @@ getBestTarget = function(balls, hrp)
         end
     end
     return best
+end
+
+-- SMART INTERACTION: tenta TODOS os métodos possíveis de rebater
+tryAllInteractions = function(ball, cam)
+    local methods = {}
+
+    -- 1. ClickDetector no ball ou filhos
+    pcall(function()
+        local cd = ball:FindFirstChildOfClass("ClickDetector")
+            or ball:FindFirstDescendantWhichIsA("ClickDetector")
+        if not cd and ball.Parent then
+            cd = ball.Parent:FindFirstChildOfClass("ClickDetector")
+        end
+        if cd then
+            -- fireclickdetector do executor
+            local _env = (typeof(getgenv) == "function" and getgenv()) or {}
+            local fcd = fireclickdetector or _env.fireclickdetector
+            if fcd then
+                fcd(cd)
+                table.insert(methods, "ClickDetector")
+            end
+        end
+    end)
+
+    -- 2. ProximityPrompt no ball ou filhos
+    pcall(function()
+        local pp = ball:FindFirstChildOfClass("ProximityPrompt")
+        if not pp and ball.Parent then
+            pp = ball.Parent:FindFirstChildOfClass("ProximityPrompt")
+        end
+        if pp then
+            fireproximityprompt(pp)
+            table.insert(methods, "ProximityPrompt")
+        end
+    end)
+
+    -- 3. Tool activation — se o player tem uma tool (bat, racket, etc)
+    pcall(function()
+        local char = LP.Character
+        if char then
+            local tool = char:FindFirstChildOfClass("Tool")
+            if tool then
+                tool:Activate()
+                table.insert(methods, "Tool:" .. tool.Name)
+            end
+        end
+    end)
+
+    -- 4. Mouse click (mouse1click do executor)
+    pcall(function()
+        local _env = (typeof(getgenv) == "function" and getgenv()) or {}
+        local _click = mouse1click or _env.mouse1click
+        if _click then
+            _click()
+            table.insert(methods, "mouse1click")
+        end
+    end)
+
+    -- 5. VirtualInputManager
+    pcall(function()
+        local vim = game:GetService("VirtualInputManager")
+        if vim then
+            vim:SendMouseButtonEvent(
+                cam.ViewportSize.X / 2,
+                cam.ViewportSize.Y / 2,
+                0, true, game, 0
+            )
+            task.delay(0.03, function()
+                pcall(function()
+                    vim:SendMouseButtonEvent(
+                        cam.ViewportSize.X / 2,
+                        cam.ViewportSize.Y / 2,
+                        0, false, game, 0
+                    )
+                end)
+            end)
+            table.insert(methods, "VIM")
+        end
+    end)
+
+    -- 6. Busca RemoteEvents relevantes perto do ball
+    pcall(function()
+        local remotes = {}
+        -- Remotes dentro do ball ou parent
+        for _, child in pairs(ball:GetDescendants()) do
+            if child:IsA("RemoteEvent") then
+                table.insert(remotes, child)
+            end
+        end
+        if ball.Parent then
+            for _, child in pairs(ball.Parent:GetChildren()) do
+                if child:IsA("RemoteEvent") then
+                    table.insert(remotes, child)
+                end
+            end
+        end
+        for _, re in pairs(remotes) do
+            re:FireServer()
+            table.insert(methods, "Remote:" .. re.Name)
+        end
+    end)
+
+    -- Salva métodos usados (pra debug)
+    if #methods > 0 then
+        deathBallDetectedMethod = table.concat(methods, "+")
+    end
+    return #methods > 0
 end
 
 -- ESP: cria billboard em cima da bola
@@ -9552,25 +9765,20 @@ startDeathBall = function()
     deathBallPrevPositions = {}
     deathBallLastClick = 0
     deathBallKillFeed = {}
+    deathBallDetectedMethod = "none"
 
     local ballName = DeathBallNameBox.Text or "Ball"
     local range = tonumber(DeathBallRangeBox.Text) or 15
-    local clickCooldown = tonumber(DeathBallCooldownBox and DeathBallCooldownBox.Text) or 0.3
+    local clickCooldown = tonumber(DeathBallCooldownBox and DeathBallCooldownBox.Text) or 0.2
     local cam = workspace.CurrentCamera
 
-    -- Resolve click functions
-    local _env = (typeof(getgenv) == "function" and getgenv()) or {}
-    local _click = mouse1click or _env.mouse1click
-    local _vim = nil
-    pcall(function()
-        _vim = game:GetService("VirtualInputManager")
-    end)
-
-    DeathBallAutoBtn.Text = "⚡ AUTO-REBATER: ON"
+    DeathBallAutoBtn.Text = "⚡ AUTO-PLAY: ON"
     DeathBallAutoBtn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
-    DeathBallStatusLabel.Text = "Status: Scanning..."
+    DeathBallStatusLabel.Text = "Status: Auto-detecting balls..."
     DeathBallStatusLabel.TextColor3 = Color3.fromRGB(100, 220, 200)
-    notify("Death Ball ON — scanning for '" .. ballName .. "'", "success")
+
+    local mode = deathBallAutoDetect and "AUTO-DETECT" or ("name: " .. ballName)
+    notify("Death Ball ON — " .. mode, "success")
 
     startKillFeed()
 
@@ -9583,17 +9791,24 @@ startDeathBall = function()
 
         -- Re-read settings live
         range = tonumber(DeathBallRangeBox.Text) or 15
-        clickCooldown = tonumber(DeathBallCooldownBox and DeathBallCooldownBox.Text) or 0.3
+        clickCooldown = tonumber(DeathBallCooldownBox and DeathBallCooldownBox.Text) or 0.2
 
-        -- Acha TODAS as bolas (cache 1s)
-        local balls = findAllBalls(ballName)
+        -- Acha bolas: AUTO-DETECT por velocidade OU por nome
+        local balls
+        if deathBallAutoDetect then
+            balls = autoDetectBalls(hrp, range)
+        else
+            balls = findAllBalls(ballName)
+        end
         deathBallFoundBalls = balls
 
         if #balls == 0 then
-            DeathBallBallInfo.Text = "Balls: none found"
-            DeathBallBallInfo.TextColor3 = Color3.fromRGB(200, 100, 60)
+            DeathBallBallInfo.Text = deathBallAutoDetect
+                and "Auto-detect: waiting for moving objects..."
+                or "Balls: none found"
+            DeathBallBallInfo.TextColor3 = Color3.fromRGB(200, 200, 100)
             DeathBallDistInfo.Text = "Distance: --"
-            DeathBallColorInfo.Text = "Color: --"
+            DeathBallColorInfo.Text = "Method: " .. deathBallDetectedMethod
             DeathBallVelInfo.Text = "Velocity: --"
             return
         end
@@ -9606,7 +9821,7 @@ startDeathBall = function()
             updateBallESP(hrp)
         end
 
-        -- Pega melhor alvo (prioridade: vermelha + vindo na direção + perto)
+        -- Pega melhor alvo (prioridade: vindo na direção + perto + vermelha)
         local ball = getBestTarget(balls, hrp)
         if not ball then ball = balls[1] end
 
@@ -9617,29 +9832,44 @@ startDeathBall = function()
         local speed = vel.Magnitude
 
         -- Info panel
-        DeathBallBallInfo.Text = string.format("Balls: %d found | Best: %s", #balls, ball.Name)
+        DeathBallBallInfo.Text = string.format("Balls: %d | Best: %s (%s)", #balls, ball.Name, ball.ClassName)
         DeathBallBallInfo.TextColor3 = Color3.fromRGB(100, 220, 200)
         DeathBallDistInfo.Text = string.format("Distance: %.1f studs", dist)
         DeathBallDistInfo.TextColor3 = dist < range and Color3.fromRGB(255, 80, 80) or Colors.textDim
-        DeathBallColorInfo.Text = string.format("Color: R%.0f G%.0f B%.0f %s",
+        DeathBallColorInfo.Text = string.format("Method: %s | Color: R%.0f G%.0f B%.0f %s",
+            deathBallDetectedMethod,
             color.R * 255, color.G * 255, color.B * 255,
-            isRed and "🔴 TARGET" or "⚪")
+            isRed and "RED" or "")
         DeathBallColorInfo.TextColor3 = isRed and Color3.fromRGB(255, 80, 80) or Colors.textDim
-        DeathBallVelInfo.Text = string.format("Velocity: %.0f m/s %s %s",
+        DeathBallVelInfo.Text = string.format("Vel: %.0f m/s %s dot:%.1f",
             speed,
-            approaching and "→ INCOMING" or "← AWAY",
-            dot and string.format("(%.1f)", dot) or "")
+            approaching and "INCOMING" or "away",
+            dot or 0)
         DeathBallVelInfo.TextColor3 = approaching and Color3.fromRGB(255, 200, 60) or Colors.textDim
 
-        -- Auto-dodge: bola vindo mas NÃO vermelha (outro player pode rebater pra nós)
+        -- Debug: mostra info detalhada
+        if deathBallDebugMode then
+            local dbg = string.format("DBG: %s cls=%s vel=%.0f app=%s red=%s dst=%.0f path=%s",
+                ball.Name, ball.ClassName, speed,
+                tostring(approaching), tostring(isRed), dist,
+                ball:GetFullName():sub(1, 40))
+            DeathBallStatusLabel.Text = dbg
+            DeathBallStatusLabel.TextColor3 = Color3.fromRGB(200, 200, 255)
+        end
+
+        -- Auto-dodge: bola vindo mas NÃO vermelha
         if deathBallDodgeActive and approaching and not isRed and dist < 30 then
             doDodge(ball, hrp)
         end
 
-        -- Auto-aim + trigger: bola vermelha vindo na nossa direção
-        if isRed then
-            DeathBallStatusLabel.Text = string.format("Status: 🎯 TARGET — %.1fs %.0fm/s", dist, speed)
-            DeathBallStatusLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
+        -- Decide se devemos agir (Force ON = atua em QUALQUER bola que se aproxima)
+        local shouldAct = deathBallForceMode and (approaching or dist < range) or isRed
+
+        if shouldAct then
+            if not deathBallDebugMode then
+                DeathBallStatusLabel.Text = string.format("Status: TARGETING %s — %.0fm %.0fm/s", ball.Name, dist, speed)
+                DeathBallStatusLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
+            end
 
             -- Prediction aim: mira onde a bola VAI estar
             local timeToReach = dist / math.max(speed, 1)
@@ -9650,50 +9880,37 @@ startDeathBall = function()
                 cam.CFrame = CFrame.lookAt(cam.CFrame.Position, predictedPos)
             end)
 
-            -- Trigger: clica quando dentro do range (com cooldown anti-spam + miss chance)
+            -- Trigger: dentro do range + cooldown + miss chance
             local now = os.clock()
             local shouldMiss = deathBallBotActive and math.random() < deathBallMissChance
             if dist <= range and (now - deathBallLastClick) >= clickCooldown and not shouldMiss then
-                DeathBallStatusLabel.Text = "Status: ⚡ REBATING!"
-                DeathBallStatusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+                if not deathBallDebugMode then
+                    DeathBallStatusLabel.Text = "Status: REBATING! [" .. deathBallDetectedMethod .. "]"
+                    DeathBallStatusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+                end
 
-                pcall(function()
-                    if _click then
-                        _click()
-                    elseif _vim then
-                        _vim:SendMouseButtonEvent(
-                            cam.ViewportSize.X / 2,
-                            cam.ViewportSize.Y / 2,
-                            0, true, game, 0
-                        )
-                        task.delay(0.03, function()
-                            pcall(function()
-                                _vim:SendMouseButtonEvent(
-                                    cam.ViewportSize.X / 2,
-                                    cam.ViewportSize.Y / 2,
-                                    0, false, game, 0
-                                )
-                            end)
-                        end)
-                    end
-                end)
+                -- SMART INTERACTION: tenta TODOS os métodos
+                tryAllInteractions(ball, cam)
 
                 deathBallLastClick = now
                 deathBallStats.rebated = deathBallStats.rebated + 1
                 DeathBallStatsLabel.Text = "Rebated: " .. deathBallStats.rebated .. " | Missed: " .. deathBallStats.missed
             elseif dist <= range and shouldMiss then
-                -- Bot miss de propósito (parecer humano)
                 deathBallStats.missed = deathBallStats.missed + 1
                 DeathBallStatsLabel.Text = "Rebated: " .. deathBallStats.rebated .. " | Missed: " .. deathBallStats.missed
-                DeathBallStatusLabel.Text = "Status: 😵 MISSED!"
-                DeathBallStatusLabel.TextColor3 = Color3.fromRGB(255, 160, 60)
+                if not deathBallDebugMode then
+                    DeathBallStatusLabel.Text = "Status: MISSED (on purpose)"
+                    DeathBallStatusLabel.TextColor3 = Color3.fromRGB(255, 160, 60)
+                end
             end
-        elseif approaching and dist < 40 then
-            DeathBallStatusLabel.Text = string.format("Status: ⚠ INCOMING — %.1fs %.0fm/s", dist, speed)
-            DeathBallStatusLabel.TextColor3 = Color3.fromRGB(255, 200, 60)
-        else
-            DeathBallStatusLabel.Text = "Status: Watching..."
-            DeathBallStatusLabel.TextColor3 = Color3.fromRGB(200, 200, 100)
+        elseif not deathBallDebugMode then
+            if approaching and dist < 40 then
+                DeathBallStatusLabel.Text = string.format("Status: INCOMING — %.0fm %.0fm/s", dist, speed)
+                DeathBallStatusLabel.TextColor3 = Color3.fromRGB(255, 200, 60)
+            else
+                DeathBallStatusLabel.Text = "Status: Watching..."
+                DeathBallStatusLabel.TextColor3 = Color3.fromRGB(200, 200, 100)
+            end
         end
     end)
 end
@@ -9707,7 +9924,7 @@ stopDeathBall = function()
     clearBallESP()
     stopKillFeed()
     deathBallPrevPositions = {}
-    DeathBallAutoBtn.Text = "⚡ AUTO-REBATER: OFF"
+    DeathBallAutoBtn.Text = "⚡ AUTO-PLAY: OFF"
     DeathBallAutoBtn.BackgroundColor3 = Color3.fromRGB(40, 20, 20)
     DeathBallStatusLabel.Text = "Status: Idle"
     DeathBallStatusLabel.TextColor3 = Colors.textDim
@@ -12530,11 +12747,11 @@ end)
 DeathBallEspBtn.MouseButton1Click:Connect(function()
     deathBallEspActive = not deathBallEspActive
     if deathBallEspActive then
-        DeathBallEspBtn.Text = "👁 ESP: ON"
+        DeathBallEspBtn.Text = "ESP: ON"
         DeathBallEspBtn.BackgroundColor3 = Color3.fromRGB(40, 80, 120)
         notify("Ball ESP ON", "success")
     else
-        DeathBallEspBtn.Text = "👁 ESP: OFF"
+        DeathBallEspBtn.Text = "ESP: OFF"
         DeathBallEspBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
         clearBallESP()
         notify("Ball ESP OFF", "info")
@@ -12545,11 +12762,11 @@ end)
 DeathBallDodgeBtn.MouseButton1Click:Connect(function()
     deathBallDodgeActive = not deathBallDodgeActive
     if deathBallDodgeActive then
-        DeathBallDodgeBtn.Text = "🏃 DODGE: ON"
+        DeathBallDodgeBtn.Text = "DODGE: ON"
         DeathBallDodgeBtn.BackgroundColor3 = Color3.fromRGB(40, 100, 60)
         notify("Auto-Dodge ON", "success")
     else
-        DeathBallDodgeBtn.Text = "🏃 DODGE: OFF"
+        DeathBallDodgeBtn.Text = "DODGE: OFF"
         DeathBallDodgeBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
         notify("Auto-Dodge OFF", "info")
     end
@@ -12572,6 +12789,35 @@ DeathBallScanBtn.MouseButton1Click:Connect(function()
         notify("No balls with name '" .. ballName .. "' found", "warning")
         DeathBallBallInfo.Text = "Balls: none found"
         DeathBallBallInfo.TextColor3 = Color3.fromRGB(200, 100, 60)
+    end
+end)
+
+-- Auto-Detect toggle
+DeathBallAutoDetectBtn.MouseButton1Click:Connect(function()
+    deathBallAutoDetect = not deathBallAutoDetect
+    deathBallCacheTime = 0 -- force re-scan
+    if deathBallAutoDetect then
+        DeathBallAutoDetectBtn.Text = "AUTO-DETECT: ON"
+        DeathBallAutoDetectBtn.BackgroundColor3 = Color3.fromRGB(40, 140, 60)
+        notify("Auto-detect ON — finds balls by velocity", "success")
+    else
+        DeathBallAutoDetectBtn.Text = "AUTO-DETECT: OFF"
+        DeathBallAutoDetectBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
+        notify("Auto-detect OFF — using Ball Name field", "info")
+    end
+end)
+
+-- Debug Mode toggle
+DeathBallDebugBtn.MouseButton1Click:Connect(function()
+    deathBallDebugMode = not deathBallDebugMode
+    if deathBallDebugMode then
+        DeathBallDebugBtn.Text = "DEBUG: ON"
+        DeathBallDebugBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 120)
+        notify("Debug ON — shows raw ball data in status", "info")
+    else
+        DeathBallDebugBtn.Text = "DEBUG: OFF"
+        DeathBallDebugBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
+        notify("Debug OFF", "info")
     end
 end)
 

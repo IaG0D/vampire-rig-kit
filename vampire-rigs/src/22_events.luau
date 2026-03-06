@@ -896,11 +896,11 @@ end)
 DeathBallEspBtn.MouseButton1Click:Connect(function()
     deathBallEspActive = not deathBallEspActive
     if deathBallEspActive then
-        DeathBallEspBtn.Text = "👁 ESP: ON"
+        DeathBallEspBtn.Text = "ESP: ON"
         DeathBallEspBtn.BackgroundColor3 = Color3.fromRGB(40, 80, 120)
         notify("Ball ESP ON", "success")
     else
-        DeathBallEspBtn.Text = "👁 ESP: OFF"
+        DeathBallEspBtn.Text = "ESP: OFF"
         DeathBallEspBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
         clearBallESP()
         notify("Ball ESP OFF", "info")
@@ -911,11 +911,11 @@ end)
 DeathBallDodgeBtn.MouseButton1Click:Connect(function()
     deathBallDodgeActive = not deathBallDodgeActive
     if deathBallDodgeActive then
-        DeathBallDodgeBtn.Text = "🏃 DODGE: ON"
+        DeathBallDodgeBtn.Text = "DODGE: ON"
         DeathBallDodgeBtn.BackgroundColor3 = Color3.fromRGB(40, 100, 60)
         notify("Auto-Dodge ON", "success")
     else
-        DeathBallDodgeBtn.Text = "🏃 DODGE: OFF"
+        DeathBallDodgeBtn.Text = "DODGE: OFF"
         DeathBallDodgeBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
         notify("Auto-Dodge OFF", "info")
     end
@@ -938,6 +938,35 @@ DeathBallScanBtn.MouseButton1Click:Connect(function()
         notify("No balls with name '" .. ballName .. "' found", "warning")
         DeathBallBallInfo.Text = "Balls: none found"
         DeathBallBallInfo.TextColor3 = Color3.fromRGB(200, 100, 60)
+    end
+end)
+
+-- Auto-Detect toggle
+DeathBallAutoDetectBtn.MouseButton1Click:Connect(function()
+    deathBallAutoDetect = not deathBallAutoDetect
+    deathBallCacheTime = 0 -- force re-scan
+    if deathBallAutoDetect then
+        DeathBallAutoDetectBtn.Text = "AUTO-DETECT: ON"
+        DeathBallAutoDetectBtn.BackgroundColor3 = Color3.fromRGB(40, 140, 60)
+        notify("Auto-detect ON — finds balls by velocity", "success")
+    else
+        DeathBallAutoDetectBtn.Text = "AUTO-DETECT: OFF"
+        DeathBallAutoDetectBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
+        notify("Auto-detect OFF — using Ball Name field", "info")
+    end
+end)
+
+-- Debug Mode toggle
+DeathBallDebugBtn.MouseButton1Click:Connect(function()
+    deathBallDebugMode = not deathBallDebugMode
+    if deathBallDebugMode then
+        DeathBallDebugBtn.Text = "DEBUG: ON"
+        DeathBallDebugBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 120)
+        notify("Debug ON — shows raw ball data in status", "info")
+    else
+        DeathBallDebugBtn.Text = "DEBUG: OFF"
+        DeathBallDebugBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
+        notify("Debug OFF", "info")
     end
 end)
 
