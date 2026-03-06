@@ -884,7 +884,10 @@ showDecompileResults = function(remoteName, results, checked)
             table.insert(copyLines, "-- ═══ " .. f.script .. " ═══")
             addLine("", nil, false)
             for _, l in ipairs(f.lines) do
-                addLine("  " .. l, Color3.fromRGB(180, 220, 160), false)
+                -- ▶ = linha do match (highlight amarelo), resto = contexto (cinza)
+                local isMatch = l:sub(1, 3) == "▶" or l:find("▶") == 1
+                local color = isMatch and Color3.fromRGB(255, 220, 80) or Color3.fromRGB(140, 160, 140)
+                addLine(l, color, isMatch)
                 table.insert(copyLines, l)
             end
             addLine("", nil, false)

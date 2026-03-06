@@ -875,6 +875,108 @@ do
     end)
 end
 
+--==================================================
+-- DEATH BALL EVENTS
+--==================================================
+
+DeathBallCard.MouseButton1Click:Connect(function()
+    DeathBallPanel.Visible = true
+    notify("Death Ball v2 panel opened", "info")
+end)
+
+DeathBallAutoBtn.MouseButton1Click:Connect(function()
+    if deathBallActive then
+        stopDeathBall()
+    else
+        startDeathBall()
+    end
+end)
+
+-- ESP toggle
+DeathBallEspBtn.MouseButton1Click:Connect(function()
+    deathBallEspActive = not deathBallEspActive
+    if deathBallEspActive then
+        DeathBallEspBtn.Text = "👁 ESP: ON"
+        DeathBallEspBtn.BackgroundColor3 = Color3.fromRGB(40, 80, 120)
+        notify("Ball ESP ON", "success")
+    else
+        DeathBallEspBtn.Text = "👁 ESP: OFF"
+        DeathBallEspBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
+        clearBallESP()
+        notify("Ball ESP OFF", "info")
+    end
+end)
+
+-- Dodge toggle
+DeathBallDodgeBtn.MouseButton1Click:Connect(function()
+    deathBallDodgeActive = not deathBallDodgeActive
+    if deathBallDodgeActive then
+        DeathBallDodgeBtn.Text = "🏃 DODGE: ON"
+        DeathBallDodgeBtn.BackgroundColor3 = Color3.fromRGB(40, 100, 60)
+        notify("Auto-Dodge ON", "success")
+    else
+        DeathBallDodgeBtn.Text = "🏃 DODGE: OFF"
+        DeathBallDodgeBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
+        notify("Auto-Dodge OFF", "info")
+    end
+end)
+
+-- Scan for balls (multi-ball)
+DeathBallScanBtn.MouseButton1Click:Connect(function()
+    local ballName = DeathBallNameBox.Text or "Ball"
+    deathBallCacheTime = 0
+    local balls = findAllBalls(ballName)
+    if #balls > 0 then
+        local names = {}
+        for i, b in ipairs(balls) do
+            if i <= 5 then table.insert(names, b.Name .. " (" .. b:GetFullName():sub(1, 30) .. ")") end
+        end
+        notify("Found " .. #balls .. " balls!", "success")
+        DeathBallBallInfo.Text = "Balls: " .. #balls .. " found"
+        DeathBallBallInfo.TextColor3 = Color3.fromRGB(100, 220, 200)
+    else
+        notify("No balls with name '" .. ballName .. "' found", "warning")
+        DeathBallBallInfo.Text = "Balls: none found"
+        DeathBallBallInfo.TextColor3 = Color3.fromRGB(200, 100, 60)
+    end
+end)
+
+DeathBallCloseBtn.MouseButton1Click:Connect(function()
+    if deathBallBotActive then stopDeathBallBot() end
+    if deathBallActive then stopDeathBall() end
+    clearBallESP()
+    DeathBallPanel.Visible = false
+end)
+
+DeathBallCloseBtnBottom.MouseButton1Click:Connect(function()
+    if deathBallBotActive then stopDeathBallBot() end
+    if deathBallActive then stopDeathBall() end
+    clearBallESP()
+    DeathBallPanel.Visible = false
+end)
+
+-- AFK Bot toggle
+DeathBallBotBtn.MouseButton1Click:Connect(function()
+    if deathBallBotActive then
+        stopDeathBallBot()
+    else
+        startDeathBallBot()
+    end
+end)
+
+-- Set Queue Position
+DeathBallSetQueueBtn.MouseButton1Click:Connect(function()
+    setQueuePosition()
+end)
+
+-- Miss chance live update
+DeathBallMissBox:GetPropertyChangedSignal("Text"):Connect(function()
+    local val = tonumber(DeathBallMissBox.Text)
+    if val then
+        deathBallMissChance = math.clamp(val / 100, 0, 0.5)
+    end
+end)
+
 -- Helper: carrega SynSaveInstance
 local function loadSSI()
     local Params = {
@@ -972,6 +1074,10 @@ CloseBtn.MouseButton1Click:Connect(function()
     if autoRepeatActive then stopAutoRepeat() end
     RemoteSpyPanel.Visible = false
     DecompilePanel.Visible = false
+    if deathBallBotActive then stopDeathBallBot() end
+    if deathBallActive then stopDeathBall() end
+    clearBallESP()
+    DeathBallPanel.Visible = false
     stopChatSpy()
     ChatSpyPanel.Visible = false
     if antiAfkActive then stopAntiAfk() end

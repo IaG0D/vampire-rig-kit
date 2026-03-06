@@ -1374,6 +1374,16 @@ startRemoteSpy = function()
         local _getCaller = getcallingscript or _env.getcallingscript
 
         local hookOk = false
+        local hookStrategy = "none"
+
+        -- Debug: mostra funções disponíveis
+        local dbg = "Executor: "
+        if _hookMeta then dbg = dbg .. "hookMeta ✓ " else dbg = dbg .. "hookMeta ✗ " end
+        if _getMethod then dbg = dbg .. "getMeth ✓ " else dbg = dbg .. "getMeth ✗ " end
+        if _hookFn then dbg = dbg .. "hookFn ✓ " else dbg = dbg .. "hookFn ✗ " end
+        if _getRawMT then dbg = dbg .. "rawMT ✓ " else dbg = dbg .. "rawMT ✗ " end
+        if _wrap then dbg = dbg .. "wrap ✓" else dbg = dbg .. "wrap ✗" end
+        notify(dbg, "info")
 
         -- ═══ Estratégia A: __namecall hook (precisa de getnamecallmethod) ═══
         if _getMethod then
@@ -1579,6 +1589,18 @@ startRemoteSpy = function()
             remoteSpyActive = false
             notify("Hook failed — executor not supported", "error")
             return false
+        end
+
+        -- Notifica qual estratégia funcionou
+        if hookOk then
+            if _getMethod and remoteSpyHook and typeof(remoteSpyHook) == "function" then
+                hookStrategy = "A (__namecall + getMethod)"
+            elseif remoteSpyHook == true then
+                hookStrategy = "C (direct hookFn)"
+            else
+                hookStrategy = "B (__namecall sem getMethod)"
+            end
+            notify("Hook: " .. hookStrategy, "success")
         end
     end
 
@@ -1934,14 +1956,37 @@ decompileForRemote = function()
             local ok = pcall(function()
                 local source = _decompile(scr)
                 if source and source:find(remoteName, 1, true) then
-                    local context = {}
-                    local lineNum = 0
+                    -- Coleta todas as linhas primeiro
+                    local allLines = {}
                     for line in source:gmatch("[^\n]+") do
-                        lineNum = lineNum + 1
+                        table.insert(allLines, line)
+                        if #allLines > 5000 then break end
+                    end
+                    -- Acha matches com 2 linhas de contexto antes/depois
+                    local context = {}
+                    local added = {}
+                    for i, line in ipairs(allLines) do
                         if line:find(remoteName, 1, true) then
-                            table.insert(context, "L" .. lineNum .. ": " .. line:sub(1, 120))
+                            -- 2 linhas antes
+                            for c = math.max(1, i - 2), i - 1 do
+                                if not added[c] then
+                                    added[c] = true
+                                    table.insert(context, "  L" .. c .. ": " .. allLines[c]:sub(1, 120))
+                                end
+                            end
+                            -- Linha do match (highlight)
+                            if not added[i] then
+                                added[i] = true
+                                table.insert(context, "▶ L" .. i .. ": " .. line:sub(1, 120))
+                            end
+                            -- 2 linhas depois
+                            for c = i + 1, math.min(#allLines, i + 2) do
+                                if not added[c] then
+                                    added[c] = true
+                                    table.insert(context, "  L" .. c .. ": " .. allLines[c]:sub(1, 120))
+                                end
+                            end
                         end
-                        if lineNum > 5000 then break end -- pula scripts enormes
                     end
                     if #context > 0 then
                         table.insert(found, {
@@ -1964,6 +2009,649 @@ decompileForRemote = function()
         -- Mostra resultados no painel
         showDecompileResults(remoteName, found, checked)
     end)
+end
+
+--==================================================
+-- DEATH BALL AUTO-REBATER v2 — FULL FEATURES
+--==================================================
+
+deathBallActive = false
+deathBallConnection = nil
+deathBallStats = { rebated = 0, missed = 0 }
+deathBallFoundBalls = {}
+deathBallCache = {}
+deathBallCacheTime = 0
+deathBallLastClick = 0
+deathBallPrevPositions = {}
+deathBallDodgeActive = false
+deathBallEspActive = false
+deathBallEspObjects = {}
+deathBallKillFeed = {}
+deathBallKillConn = nil
+deathBallPlayerCount = 0
+deathBallBotActive = false
+deathBallBotConnection = nil
+deathBallBotState = "IDLE"
+deathBallQueuePos = nil
+deathBallMissChance = 0.12
+deathBallHumanTimer = 0
+deathBallDeathConn = nil
+deathBallLastHumanMove = 0
+deathBallBotRoundCount = 0
+
+-- Detecta se uma cor é "vermelha" (targeting)
+isRedColor = function(color)
+    return color.R > 0.6 and color.G < 0.3 and color.B < 0.3
+end
+
+-- Acha TODAS as bolas no workspace (com cache de 1s)
+findAllBalls = function(ballName)
+    local now = os.clock()
+    if now - deathBallCacheTime < 1 and #deathBallCache > 0 then
+        return deathBallCache
+    end
+    local balls = {}
+    pcall(function()
+        local lower = ballName:lower()
+        for _, obj in pairs(workspace:GetDescendants()) do
+            if obj:IsA("BasePart") and obj.Name:lower():find(lower, 1, true) then
+                table.insert(balls, obj)
+            end
+        end
+    end)
+    deathBallCache = balls
+    deathBallCacheTime = now
+    return balls
+end
+
+-- Calcula velocidade de uma bola via delta de posição
+getBallVelocity = function(ball)
+    local id = tostring(ball)
+    local now = os.clock()
+    local prev = deathBallPrevPositions[id]
+    local pos = ball.Position
+    if prev then
+        local dt = now - prev.time
+        if dt > 0.01 then
+            local vel = (pos - prev.pos) / dt
+            deathBallPrevPositions[id] = { pos = pos, time = now }
+            return vel, vel.Magnitude
+        end
+        return prev.vel or Vector3.zero, prev.speed or 0
+    end
+    deathBallPrevPositions[id] = { pos = pos, time = now, vel = Vector3.zero, speed = 0 }
+    return Vector3.zero, 0
+end
+
+-- Checa se bola está VINDO na direção do player (dot product)
+isBallApproaching = function(ball, hrp)
+    local vel, speed = getBallVelocity(ball)
+    if speed < 2 then return false, 0, vel end
+    local toPlayer = (hrp.Position - ball.Position).Unit
+    local dot = vel.Unit:Dot(toPlayer)
+    return dot > 0.3, dot, vel
+end
+
+-- Predição: onde a bola vai estar em N segundos
+predictBallPosition = function(ball, seconds)
+    local vel, speed = getBallVelocity(ball)
+    if speed < 2 then return ball.Position end
+    return ball.Position + vel * seconds
+end
+
+-- Prioriza bola mais perigosa: vermelha + vindo na direção + mais perto
+getBestTarget = function(balls, hrp)
+    local best = nil
+    local bestScore = -999
+    for _, ball in pairs(balls) do
+        local ok, score = pcall(function()
+            local dist = (ball.Position - hrp.Position).Magnitude
+            local color = ball.Color
+            local isRed = isRedColor(color)
+            local approaching, dot = isBallApproaching(ball, hrp)
+            local s = 0
+            if isRed then s = s + 100 end
+            if approaching then s = s + 50 * dot end
+            s = s - dist * 0.5
+            return s
+        end)
+        if ok and score > bestScore then
+            bestScore = score
+            best = ball
+        end
+    end
+    return best
+end
+
+-- ESP: cria billboard em cima da bola
+createBallESP = function(ball)
+    local id = tostring(ball)
+    if deathBallEspObjects[id] then return end
+    pcall(function()
+        local bb = Instance.new("BillboardGui")
+        bb.Name = "DB_ESP"
+        bb.Size = UDim2.new(0, 120, 0, 40)
+        bb.StudsOffset = Vector3.new(0, 3, 0)
+        bb.AlwaysOnTop = true
+        bb.Adornee = ball
+        bb.Parent = CoreGui
+
+        local lbl = Instance.new("TextLabel")
+        lbl.Size = UDim2.new(1, 0, 1, 0)
+        lbl.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+        lbl.BackgroundTransparency = 0.5
+        lbl.TextColor3 = Color3.fromRGB(255, 80, 80)
+        lbl.TextSize = 10
+        lbl.Font = Enum.Font.Code
+        lbl.Text = "⚽ Ball"
+        lbl.TextStrokeTransparency = 0.5
+        lbl.Parent = bb
+        Instance.new("UICorner", lbl).CornerRadius = UDim.new(0, 4)
+
+        deathBallEspObjects[id] = { gui = bb, label = lbl, ball = ball }
+    end)
+end
+
+-- ESP: atualiza todos os billboards
+updateBallESP = function(hrp)
+    for id, esp in pairs(deathBallEspObjects) do
+        pcall(function()
+            if not esp.ball or not esp.ball.Parent then
+                esp.gui:Destroy()
+                deathBallEspObjects[id] = nil
+                return
+            end
+            local dist = (esp.ball.Position - hrp.Position).Magnitude
+            local color = esp.ball.Color
+            local isRed = isRedColor(color)
+            local approaching = isBallApproaching(esp.ball, hrp)
+            local _, speed = getBallVelocity(esp.ball)
+            local status = isRed and "🔴 TARGET" or (approaching and "⚠ INCOMING" or "⚪")
+            esp.label.Text = string.format("%s %.0fs %.0fm/s", status, dist, speed)
+            esp.label.TextColor3 = isRed and Color3.fromRGB(255, 80, 80)
+                or (approaching and Color3.fromRGB(255, 200, 60) or Color3.fromRGB(160, 160, 160))
+        end)
+    end
+end
+
+-- ESP: limpa todos
+clearBallESP = function()
+    for id, esp in pairs(deathBallEspObjects) do
+        pcall(function() esp.gui:Destroy() end)
+    end
+    deathBallEspObjects = {}
+end
+
+-- Kill feed: monitora mortes
+startKillFeed = function()
+    if deathBallKillConn then return end
+    deathBallPlayerCount = #Players:GetPlayers()
+    deathBallKillConn = Players.PlayerRemoving:Connect(function(plr)
+        if not deathBallActive then return end
+        table.insert(deathBallKillFeed, 1, {
+            time = os.clock(),
+            text = "💀 " .. plr.Name .. " eliminated"
+        })
+        if #deathBallKillFeed > 20 then
+            table.remove(deathBallKillFeed)
+        end
+        refreshKillFeed()
+    end)
+    -- Monitor character deaths for more granularity
+    for _, plr in pairs(Players:GetPlayers()) do
+        pcall(function()
+            if plr ~= LP and plr.Character then
+                local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+                if hum then
+                    hum.Died:Connect(function()
+                        if not deathBallActive then return end
+                        table.insert(deathBallKillFeed, 1, {
+                            time = os.clock(),
+                            text = "☠ " .. plr.Name .. " died"
+                        })
+                        if #deathBallKillFeed > 20 then
+                            table.remove(deathBallKillFeed)
+                        end
+                        refreshKillFeed()
+                    end)
+                end
+            end
+        end)
+    end
+end
+
+stopKillFeed = function()
+    if deathBallKillConn then
+        deathBallKillConn:Disconnect()
+        deathBallKillConn = nil
+    end
+end
+
+refreshKillFeed = function()
+    pcall(function()
+        if not DeathBallKillScroll then return end
+        for _, c in pairs(DeathBallKillScroll:GetChildren()) do
+            if c:IsA("TextLabel") then c:Destroy() end
+        end
+        for i, entry in ipairs(deathBallKillFeed) do
+            local elapsed = os.clock() - entry.time
+            local timeStr = elapsed < 60 and string.format("%.0fs ago", elapsed) or string.format("%.0fm ago", elapsed / 60)
+            local lbl = Instance.new("TextLabel")
+            lbl.Size = UDim2.new(1, 0, 0, 14)
+            lbl.BackgroundTransparency = 1
+            lbl.Text = entry.text .. " (" .. timeStr .. ")"
+            lbl.TextColor3 = Color3.fromRGB(255, 120, 120)
+            lbl.TextSize = 9
+            lbl.Font = Enum.Font.Code
+            lbl.TextXAlignment = Enum.TextXAlignment.Left
+            lbl.LayoutOrder = i
+            lbl.Parent = DeathBallKillScroll
+        end
+        DeathBallKillScroll.CanvasSize = UDim2.new(0, 0, 0, #deathBallKillFeed * 16)
+    end)
+end
+
+-- Auto-dodge: move player perpendicular à trajetória da bola
+doDodge = function(ball, hrp)
+    pcall(function()
+        local vel, speed = getBallVelocity(ball)
+        if speed < 5 then return end
+        local toBall = (ball.Position - hrp.Position)
+        local dist = toBall.Magnitude
+        if dist > 40 or dist < 3 then return end
+        -- Vetor perpendicular à velocidade (no plano horizontal)
+        local right = Vector3.new(-vel.Z, 0, vel.X).Unit
+        -- Escolhe lado com mais espaço (raycast simplificado)
+        local dodgeDir = right
+        local hum = LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
+        if hum then
+            hum:Move(dodgeDir, false)
+        end
+    end)
+end
+
+startDeathBall = function()
+    if deathBallActive then return end
+    deathBallActive = true
+    deathBallStats = { rebated = 0, missed = 0 }
+    deathBallPrevPositions = {}
+    deathBallLastClick = 0
+    deathBallKillFeed = {}
+
+    local ballName = DeathBallNameBox.Text or "Ball"
+    local range = tonumber(DeathBallRangeBox.Text) or 15
+    local clickCooldown = tonumber(DeathBallCooldownBox and DeathBallCooldownBox.Text) or 0.3
+    local cam = workspace.CurrentCamera
+
+    -- Resolve click functions
+    local _env = (typeof(getgenv) == "function" and getgenv()) or {}
+    local _click = mouse1click or _env.mouse1click
+    local _vim = nil
+    pcall(function()
+        _vim = game:GetService("VirtualInputManager")
+    end)
+
+    DeathBallAutoBtn.Text = "⚡ AUTO-REBATER: ON"
+    DeathBallAutoBtn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
+    DeathBallStatusLabel.Text = "Status: Scanning..."
+    DeathBallStatusLabel.TextColor3 = Color3.fromRGB(100, 220, 200)
+    notify("Death Ball ON — scanning for '" .. ballName .. "'", "success")
+
+    startKillFeed()
+
+    deathBallConnection = RunService.Heartbeat:Connect(function()
+        if not deathBallActive then return end
+
+        local char = LP.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
+
+        -- Re-read settings live
+        range = tonumber(DeathBallRangeBox.Text) or 15
+        clickCooldown = tonumber(DeathBallCooldownBox and DeathBallCooldownBox.Text) or 0.3
+
+        -- Acha TODAS as bolas (cache 1s)
+        local balls = findAllBalls(ballName)
+        deathBallFoundBalls = balls
+
+        if #balls == 0 then
+            DeathBallBallInfo.Text = "Balls: none found"
+            DeathBallBallInfo.TextColor3 = Color3.fromRGB(200, 100, 60)
+            DeathBallDistInfo.Text = "Distance: --"
+            DeathBallColorInfo.Text = "Color: --"
+            DeathBallVelInfo.Text = "Velocity: --"
+            return
+        end
+
+        -- ESP: cria/atualiza billboards
+        if deathBallEspActive then
+            for _, b in pairs(balls) do
+                createBallESP(b)
+            end
+            updateBallESP(hrp)
+        end
+
+        -- Pega melhor alvo (prioridade: vermelha + vindo na direção + perto)
+        local ball = getBestTarget(balls, hrp)
+        if not ball then ball = balls[1] end
+
+        local dist = (ball.Position - hrp.Position).Magnitude
+        local color = ball.Color
+        local isRed = isRedColor(color)
+        local approaching, dot, vel = isBallApproaching(ball, hrp)
+        local speed = vel.Magnitude
+
+        -- Info panel
+        DeathBallBallInfo.Text = string.format("Balls: %d found | Best: %s", #balls, ball.Name)
+        DeathBallBallInfo.TextColor3 = Color3.fromRGB(100, 220, 200)
+        DeathBallDistInfo.Text = string.format("Distance: %.1f studs", dist)
+        DeathBallDistInfo.TextColor3 = dist < range and Color3.fromRGB(255, 80, 80) or Colors.textDim
+        DeathBallColorInfo.Text = string.format("Color: R%.0f G%.0f B%.0f %s",
+            color.R * 255, color.G * 255, color.B * 255,
+            isRed and "🔴 TARGET" or "⚪")
+        DeathBallColorInfo.TextColor3 = isRed and Color3.fromRGB(255, 80, 80) or Colors.textDim
+        DeathBallVelInfo.Text = string.format("Velocity: %.0f m/s %s %s",
+            speed,
+            approaching and "→ INCOMING" or "← AWAY",
+            dot and string.format("(%.1f)", dot) or "")
+        DeathBallVelInfo.TextColor3 = approaching and Color3.fromRGB(255, 200, 60) or Colors.textDim
+
+        -- Auto-dodge: bola vindo mas NÃO vermelha (outro player pode rebater pra nós)
+        if deathBallDodgeActive and approaching and not isRed and dist < 30 then
+            doDodge(ball, hrp)
+        end
+
+        -- Auto-aim + trigger: bola vermelha vindo na nossa direção
+        if isRed then
+            DeathBallStatusLabel.Text = string.format("Status: 🎯 TARGET — %.1fs %.0fm/s", dist, speed)
+            DeathBallStatusLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
+
+            -- Prediction aim: mira onde a bola VAI estar
+            local timeToReach = dist / math.max(speed, 1)
+            local aimTime = math.min(timeToReach * 0.3, 0.5)
+            local predictedPos = predictBallPosition(ball, aimTime)
+
+            pcall(function()
+                cam.CFrame = CFrame.lookAt(cam.CFrame.Position, predictedPos)
+            end)
+
+            -- Trigger: clica quando dentro do range (com cooldown anti-spam + miss chance)
+            local now = os.clock()
+            local shouldMiss = deathBallBotActive and math.random() < deathBallMissChance
+            if dist <= range and (now - deathBallLastClick) >= clickCooldown and not shouldMiss then
+                DeathBallStatusLabel.Text = "Status: ⚡ REBATING!"
+                DeathBallStatusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+
+                pcall(function()
+                    if _click then
+                        _click()
+                    elseif _vim then
+                        _vim:SendMouseButtonEvent(
+                            cam.ViewportSize.X / 2,
+                            cam.ViewportSize.Y / 2,
+                            0, true, game, 0
+                        )
+                        task.delay(0.03, function()
+                            pcall(function()
+                                _vim:SendMouseButtonEvent(
+                                    cam.ViewportSize.X / 2,
+                                    cam.ViewportSize.Y / 2,
+                                    0, false, game, 0
+                                )
+                            end)
+                        end)
+                    end
+                end)
+
+                deathBallLastClick = now
+                deathBallStats.rebated = deathBallStats.rebated + 1
+                DeathBallStatsLabel.Text = "Rebated: " .. deathBallStats.rebated .. " | Missed: " .. deathBallStats.missed
+            elseif dist <= range and shouldMiss then
+                -- Bot miss de propósito (parecer humano)
+                deathBallStats.missed = deathBallStats.missed + 1
+                DeathBallStatsLabel.Text = "Rebated: " .. deathBallStats.rebated .. " | Missed: " .. deathBallStats.missed
+                DeathBallStatusLabel.Text = "Status: 😵 MISSED!"
+                DeathBallStatusLabel.TextColor3 = Color3.fromRGB(255, 160, 60)
+            end
+        elseif approaching and dist < 40 then
+            DeathBallStatusLabel.Text = string.format("Status: ⚠ INCOMING — %.1fs %.0fm/s", dist, speed)
+            DeathBallStatusLabel.TextColor3 = Color3.fromRGB(255, 200, 60)
+        else
+            DeathBallStatusLabel.Text = "Status: Watching..."
+            DeathBallStatusLabel.TextColor3 = Color3.fromRGB(200, 200, 100)
+        end
+    end)
+end
+
+stopDeathBall = function()
+    deathBallActive = false
+    if deathBallConnection then
+        deathBallConnection:Disconnect()
+        deathBallConnection = nil
+    end
+    clearBallESP()
+    stopKillFeed()
+    deathBallPrevPositions = {}
+    DeathBallAutoBtn.Text = "⚡ AUTO-REBATER: OFF"
+    DeathBallAutoBtn.BackgroundColor3 = Color3.fromRGB(40, 20, 20)
+    DeathBallStatusLabel.Text = "Status: Idle"
+    DeathBallStatusLabel.TextColor3 = Colors.textDim
+    notify("Death Ball OFF", "info")
+end
+
+--==================================================
+-- DEATH BALL AFK BOT
+--==================================================
+
+-- Salva posição do queue pad
+setQueuePosition = function()
+    pcall(function()
+        local char = LP.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            deathBallQueuePos = hrp.Position
+            DeathBallQueuePosLabel.Text = string.format("Queue: %.0f, %.0f, %.0f", deathBallQueuePos.X, deathBallQueuePos.Y, deathBallQueuePos.Z)
+            DeathBallQueuePosLabel.TextColor3 = Color3.fromRGB(100, 220, 200)
+            notify("Queue position saved!", "success")
+        end
+    end)
+end
+
+-- Movimento humano aleatório (anti-pattern)
+doHumanMovement = function(hrp, hum)
+    pcall(function()
+        local rng = math.random()
+        if rng < 0.15 then
+            -- Pulo aleatório
+            hum.Jump = true
+        elseif rng < 0.5 then
+            -- Andada curta aleatória
+            local angle = math.random() * math.pi * 2
+            local dist = math.random(3, 8)
+            local target = hrp.Position + Vector3.new(math.cos(angle) * dist, 0, math.sin(angle) * dist)
+            hum:MoveTo(target)
+        elseif rng < 0.7 then
+            -- Rotação de câmera suave
+            local cam = workspace.CurrentCamera
+            local yaw = math.rad(math.random(-30, 30))
+            cam.CFrame = cam.CFrame * CFrame.Angles(0, yaw, 0)
+        end
+        -- 30% do tempo fica parado (humano real não se move 100%)
+    end)
+end
+
+-- Anda até o queue pad
+walkToQueue = function()
+    pcall(function()
+        if not deathBallQueuePos then return end
+        local char = LP.Character
+        local hum = char and char:FindFirstChildOfClass("Humanoid")
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if not hum or not hrp then return end
+        local dist = (hrp.Position - deathBallQueuePos).Magnitude
+        if dist > 4 then
+            hum:MoveTo(deathBallQueuePos)
+        end
+    end)
+end
+
+-- Detecta se estamos em round (bolas existem)
+isInRound = function()
+    local ballName = DeathBallNameBox.Text or "Ball"
+    local balls = findAllBalls(ballName)
+    return #balls > 0
+end
+
+-- Conecta evento de morte do personagem
+connectDeathEvent = function()
+    if deathBallDeathConn then
+        deathBallDeathConn:Disconnect()
+        deathBallDeathConn = nil
+    end
+    pcall(function()
+        local char = LP.Character
+        if not char then return end
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if not hum then return end
+        deathBallDeathConn = hum.Died:Connect(function()
+            if not deathBallBotActive then return end
+            deathBallBotState = "DEAD"
+            DeathBallBotStateLabel.Text = "Bot: 💀 DEAD — waiting respawn..."
+            DeathBallBotStateLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
+        end)
+    end)
+end
+
+startDeathBallBot = function()
+    if deathBallBotActive then return end
+    if not deathBallQueuePos then
+        notify("Set queue position first! Walk to the pad and click SET QUEUE POS", "warning")
+        return
+    end
+    deathBallBotActive = true
+    deathBallBotState = "LOBBY"
+    deathBallBotRoundCount = 0
+    deathBallLastHumanMove = 0
+
+    -- Liga o auto-rebater se não tiver ligado
+    if not deathBallActive then
+        startDeathBall()
+    end
+
+    DeathBallBotBtn.Text = "🤖 AFK BOT: ON"
+    DeathBallBotBtn.BackgroundColor3 = Color3.fromRGB(40, 140, 60)
+    notify("AFK Bot ON — playing automatically!", "success")
+
+    connectDeathEvent()
+
+    -- Reconecta ao respawn
+    LP.CharacterAdded:Connect(function(char)
+        if not deathBallBotActive then return end
+        task.wait(1)
+        deathBallBotState = "LOBBY"
+        DeathBallBotStateLabel.Text = "Bot: 🏠 LOBBY — walking to queue..."
+        DeathBallBotStateLabel.TextColor3 = Color3.fromRGB(200, 200, 100)
+        connectDeathEvent()
+    end)
+
+    deathBallBotConnection = RunService.Heartbeat:Connect(function()
+        if not deathBallBotActive then return end
+
+        local char = LP.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        local hum = char and char:FindFirstChildOfClass("Humanoid")
+        if not hrp or not hum then return end
+
+        local now = os.clock()
+        local inRound = isInRound()
+
+        -- ═══ STATE MACHINE ═══
+        if deathBallBotState == "DEAD" then
+            -- Esperando respawn (CharacterAdded vai mudar pra LOBBY)
+            return
+
+        elseif deathBallBotState == "LOBBY" then
+            -- Andar até o queue
+            DeathBallBotStateLabel.Text = "Bot: 🏠 LOBBY — walking to queue..."
+            DeathBallBotStateLabel.TextColor3 = Color3.fromRGB(200, 200, 100)
+
+            walkToQueue()
+
+            local dist = deathBallQueuePos and (hrp.Position - deathBallQueuePos).Magnitude or 999
+            if dist < 6 then
+                deathBallBotState = "QUEUED"
+                DeathBallBotStateLabel.Text = "Bot: ⏳ QUEUED — waiting for round..."
+                DeathBallBotStateLabel.TextColor3 = Color3.fromRGB(100, 200, 255)
+            end
+
+            -- Movimento humano enquanto anda
+            if now - deathBallLastHumanMove > math.random(3, 6) then
+                deathBallLastHumanMove = now
+                if dist < 6 then
+                    doHumanMovement(hrp, hum)
+                end
+            end
+
+        elseif deathBallBotState == "QUEUED" then
+            -- Esperando partida começar
+            if inRound then
+                deathBallBotState = "IN_ROUND"
+                deathBallBotRoundCount = deathBallBotRoundCount + 1
+                DeathBallBotRoundsLabel.Text = "Rounds: " .. deathBallBotRoundCount
+                DeathBallBotStateLabel.Text = "Bot: ⚔ IN ROUND — auto-playing!"
+                DeathBallBotStateLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+            end
+
+            -- Movimento humano aleatório no lobby
+            if now - deathBallLastHumanMove > math.random(2, 5) then
+                deathBallLastHumanMove = now
+                doHumanMovement(hrp, hum)
+            end
+
+        elseif deathBallBotState == "IN_ROUND" then
+            -- O auto-rebater cuida do gameplay
+            -- Só verifica se round acabou
+            DeathBallBotStateLabel.Text = "Bot: ⚔ IN ROUND — auto-playing!"
+            DeathBallBotStateLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+
+            if not inRound then
+                -- Round acabou, volta pro lobby
+                deathBallBotState = "LOBBY"
+                DeathBallBotStateLabel.Text = "Bot: 🏠 LOBBY — round over, re-queuing..."
+                DeathBallBotStateLabel.TextColor3 = Color3.fromRGB(200, 200, 100)
+                task.wait(math.random() * 2 + 1)
+            end
+
+            -- Movimento humano leve durante round (olhar ao redor)
+            if now - deathBallLastHumanMove > math.random(4, 8) then
+                deathBallLastHumanMove = now
+                if math.random() < 0.3 then
+                    hum.Jump = true
+                end
+            end
+        end
+
+        -- Imperfect play: chance de não clicar (miss de propósito)
+        -- Isso é aplicado no startDeathBall main loop via deathBallMissChance
+    end)
+end
+
+stopDeathBallBot = function()
+    deathBallBotActive = false
+    deathBallBotState = "IDLE"
+    if deathBallBotConnection then
+        deathBallBotConnection:Disconnect()
+        deathBallBotConnection = nil
+    end
+    if deathBallDeathConn then
+        deathBallDeathConn:Disconnect()
+        deathBallDeathConn = nil
+    end
+    DeathBallBotBtn.Text = "🤖 AFK BOT: OFF"
+    DeathBallBotBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
+    DeathBallBotStateLabel.Text = "Bot: Idle"
+    DeathBallBotStateLabel.TextColor3 = Colors.textDim
+    notify("AFK Bot OFF", "info")
 end
 
 --==================================================

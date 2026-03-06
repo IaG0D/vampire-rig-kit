@@ -102,6 +102,7 @@ local tabDefs = {
     { id = "player",   icon = "👤", label = "Players" },
     { id = "movement", icon = "🏃", label = "Move" },
     { id = "emote",    icon = "💃", label = "Emote" },
+    { id = "games",    icon = "🎮", label = "Games" },
     { id = "settings", icon = "⚙",  label = "Config" },
 }
 

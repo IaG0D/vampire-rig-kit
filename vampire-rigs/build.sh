@@ -20,7 +20,7 @@ cat >> "$OUT_FILE" << 'HEADER'
 --==================================================
 -- VAMPIRE RIG SCANNER v13 - TAB SYSTEM + FULL FEATURES
 -- Create By VampireSonata
--- Tabs: Scanner, ESP, Players, Movement, Emote, Settings
+-- Tabs: Scanner, ESP, Players, Movement, Emote, Games, Settings
 -- ⚡ Bundled automaticamente — NÃO edite este arquivo!
 -- ⚡ Edite os modulos em vampire-rigs/src/
 --==================================================
